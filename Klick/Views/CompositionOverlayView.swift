@@ -32,20 +32,28 @@ struct CompositionOverlayView: View {
                     }
                 }
                 
-                // Analysis overlay elements
-                if showOverlay {
-                    ForEach(analysisResult.overlayElements.indices, id: \.self) { index in
-                        drawOverlayElement(
-                            analysisResult.overlayElements[index],
-                            in: geometry.size,
-                            originalSize: imageSize
-                        )
-                        .animation(
-                            .spring(response: 0.6, dampingFraction: 0.8)
-                                .delay(Double(index) * 0.05),
-                            value: showOverlay
-                        )
+                // Prioritize and conditionally render elements
+                let prioritizedElements = analysisResult.overlayElements.compactMap { element -> OverlayElement? in
+                    switch element {
+                    case .gridLine: // Keep all grid lines
+                        return element
+                    default:
+                        return nil // Skip everything else
                     }
+                }
+
+                // Render prioritized elements
+                ForEach(prioritizedElements.indices, id: \.self) { index in
+                    drawOverlayElement(
+                        prioritizedElements[index],
+                        in: geometry.size,
+                        originalSize: imageSize
+                    )
+                    .animation(
+                        .spring(response: 0.6, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.05),
+                        value: showOverlay
+                    )
                 }
                 
                 // Composition summary and controls
@@ -76,23 +84,9 @@ struct CompositionOverlayView: View {
                         }
                         
                         Spacer()
-                        
-                        // Black & White toggle
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showBlackWhite.toggle()
-                            }
-                        }) {
-                            Image(systemName: showBlackWhite ? "circle.lefthalf.filled" : "circle.lefthalf.fill")
-                                .font(.title2)
-                                .foregroundColor(.white)
-                                .padding(10)
-                                .background(Color.black.opacity(0.6))
-                                .clipShape(Circle())
-                        }
                     }
                     .padding()
-                    
+                    .padding(.top, 150)
                     Spacer()
                 }
             }

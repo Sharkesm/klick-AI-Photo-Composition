@@ -9,14 +9,23 @@ import Foundation
 import Vision
 import UIKit
 import SwiftUI
+// Combine not needed at the moment
 
 class CompositionAnalyzer: ObservableObject {
     @Published var analysisState: AnalysisState = .idle
+    @Published var progress: AnalysisProgress = AnalysisProgress(percent: 0, message: "")
     
     // Vision request handlers
     private var faceDetectionRequest: VNDetectFaceRectanglesRequest?
     private var contourDetectionRequest: VNDetectContoursRequest?
     private var rectangleDetectionRequest: VNDetectRectanglesRequest?
+    
+    // Dynamic analysis components
+    private let dynamicMatcher = DynamicCompositionMatcher()
+    // Lightweight processors for staged progress
+    private let imageProcessor = AdvancedImageProcessor()
+    private let angleDetector = ImageAngleDetector()
+    private let leadingLinesDetector = DynamicLeadingLinesDetector()
     
     init() {
         setupVisionRequests()
@@ -34,146 +43,253 @@ class CompositionAnalyzer: ObservableObject {
     }
     
     func analyzeImage(_ image: UIImage) {
-        print("🔄 Setting analysis state to analyzing...")
+        print("🔄 Starting concurrent image analysis...")
         analysisState = .analyzing
+        progress = AnalysisProgress(percent: 0, message: "📱 Initializing composition analysis...")
         
-        guard let cgImage = image.cgImage else {
-            print("❌ Failed to get CGImage from UIImage")
+        // Run on background thread with TaskGroup for concurrent processing
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
+            await self.performConcurrentAnalysis(image: image)
+        }
+    }
+    
+    @MainActor
+    private func performConcurrentAnalysis(image: UIImage) async {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // Step 1: Create optimized thumbnail for analysis
+        updateProgress(5, "📱 Preparing image for analysis...")
+        guard let thumbnail = createOptimizedThumbnail(from: image, targetLongEdge: 1024) else {
             analysisState = .failed(AnalysisError.invalidImage)
             return
         }
         
-        print("📸 Image size: \(image.size)")
+        // Step 2: Concurrent analysis using TaskGroup
+        updateProgress(15, "🔄 Starting concurrent image analysis...")
         
-        // Check if running on simulator
-        #if targetEnvironment(simulator)
-        print("📱 Running on simulator - using fallback analysis")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.processSimulatorFallbackAnalysis(for: image)
-        }
-        return
-        #else
-        print("📱 Running on device - using Vision framework")
-        #endif
+        // Launch all concurrent tasks with detailed progress updates
+        async let histogramTask = analyzeHistogramConcurrent(thumbnail)
+        async let angleTask = analyzeAngleConcurrent(thumbnail)
+        async let leadingLinesTask = analyzeLeadingLinesConcurrent(thumbnail)
+        async let saliencyTask = analyzeSaliencyConcurrent(thumbnail)
         
-        print("🔍 Starting Vision framework analysis...")
+        // Update progress during concurrent processing
+        updateProgress(25, "📊 Analyzing image histogram and contrast...")
+        updateProgress(35, "📐 Detecting angles and horizon lines...")
+        updateProgress(45, "📍 Finding leading lines and edges...")
+        updateProgress(55, "🎯 Identifying salient regions...")
         
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        // Wait for all concurrent tasks to complete
+        let (histogramData, angleAnalysis, leadingLinesAnalysis, salientRegions) = await (
+            histogramTask,
+            angleTask,
+            leadingLinesTask,
+            saliencyTask
+        )
         
-        var requests: [VNRequest] = []
+        updateProgress(70, "🎨 Matching composition rules...")
         
-        // Only add face detection for device (most reliable)
-        if let faceRequest = faceDetectionRequest {
-            requests.append(faceRequest)
-        }
+        // Step 3: Process results and create final analysis
+        let result = await processConcurrentResults(
+            image: image,
+            histogramData: histogramData,
+            angleAnalysis: angleAnalysis,
+            leadingLinesAnalysis: leadingLinesAnalysis,
+            salientRegions: salientRegions
+        )
         
-        // Add rectangle detection (more reliable than contours)
-        if let rectangleRequest = rectangleDetectionRequest {
-            requests.append(rectangleRequest)
-        }
+        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+        let timeString = formatProcessingTime(processingTime)
         
-        // Only add contour detection on device
-        #if !targetEnvironment(simulator)
-        if let contourRequest = contourDetectionRequest {
-            requests.append(contourRequest)
-        }
-        #endif
+        // Update to 100% completion
+        updateProgress(100, "✅ Analysis complete!")
         
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            do {
-                try handler.perform(requests)
-                
-                DispatchQueue.main.async {
-                    self?.processAnalysisResults(for: image)
-                }
-            } catch {
-                print("❌ Vision framework error: \(error.localizedDescription)")
-                DispatchQueue.main.async {
-                    // Fallback to simulator analysis if Vision fails
-                    self?.processSimulatorFallbackAnalysis(for: image)
-                }
-            }
+        // Brief delay to show completion before transitioning to results
+        try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
+        
+        analysisState = .completed(result)
+        
+        print("✅ Concurrent analysis completed in \(timeString):")
+        print("   - Primary composition: \(result.detectedRules.first?.rawValue ?? "Unknown")")
+        print("   - Detected rules: \(result.detectedRules.count)")
+        print("   - Overlay elements: \(result.overlayElements.count)")
+    }
+    
+    // MARK: - Concurrent Analysis Tasks
+    
+    private func analyzeHistogramConcurrent(_ image: UIImage) async -> HistogramData {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        let result = await imageProcessor.analyzeHistogram(image)
+        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+        print("📊 Histogram analysis completed in \(formatProcessingTime(processingTime)) - Contrast: \(result.distribution.description)")
+        return result
+    }
+    
+    private func analyzeAngleConcurrent(_ image: UIImage) async -> ImageAngleDetector.AngleAnalysis {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        let result = await Task.detached(priority: .utility) {
+            return self.angleDetector.analyzeImageAngle(image)
+        }.value
+        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+        print("📐 Angle analysis completed in \(formatProcessingTime(processingTime)) - Dominant angle: \(String(format: "%.1f°", result.dominantAngle))")
+        return result
+    }
+    
+    private func analyzeLeadingLinesConcurrent(_ image: UIImage) async -> DynamicLeadingLinesDetector.LeadingLinesAnalysis {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        let result = await leadingLinesDetector.detectLeadingLines(in: image)
+        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+        print("📍 Leading lines analysis completed in \(formatProcessingTime(processingTime)) - Found \(result.detectedLines.count) lines")
+        return result
+    }
+    
+    private func analyzeSaliencyConcurrent(_ image: UIImage) async -> [CGRect] {
+        let startTime = CFAbsoluteTimeGetCurrent()
+        let result = await Task.detached(priority: .utility) {
+            return self.imageProcessor.detectSalientRegions(image)
+        }.value
+        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+        print("🎯 Saliency analysis completed in \(formatProcessingTime(processingTime)) - Found \(result.count) salient regions")
+        return result
+    }
+    
+    // MARK: - Optimized Thumbnail Creation
+    
+    private func createOptimizedThumbnail(from image: UIImage, targetLongEdge: CGFloat) -> UIImage? {
+        let maxSide = max(image.size.width, image.size.height)
+        let scale = targetLongEdge / maxSide
+        
+        // If image is already smaller than target, return as-is
+        if scale >= 1 { return image }
+        
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        
+        // Use UIGraphicsImageRenderer for better performance
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { context in
+            image.draw(in: CGRect(origin: .zero, size: size))
         }
     }
     
-    private func processAnalysisResults(for image: UIImage) {
-        let imageSize = image.size
+    // MARK: - Result Processing
+    
+    private func processConcurrentResults(
+        image: UIImage,
+        histogramData: HistogramData,
+        angleAnalysis: ImageAngleDetector.AngleAnalysis,
+        leadingLinesAnalysis: DynamicLeadingLinesDetector.LeadingLinesAnalysis,
+        salientRegions: [CGRect]
+    ) async -> CompositionAnalysisResult {
         
-        // Extract observations
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // Use dynamic composition matcher with pre-processed data
+        let dynamicRecommendation = await Task.detached(priority: .utility) {
+            return await self.dynamicMatcher.analyzeAndMatchComposition(image: image)
+        }.value
+        
+        // Extract Vision framework observations
         let faceObservations = faceDetectionRequest?.results as? [VNFaceObservation] ?? []
         let contourObservations = extractContours()
         let rectangleObservations = rectangleDetectionRequest?.results as? [VNRectangleObservation] ?? []
         
-        // Analyze composition rules
+        // Convert to overlay elements and suggestions
+        var overlayElements: [OverlayElement] = []
         var detectedRules: [CompositionRule] = []
         var confidence: [CompositionRule: Float] = [:]
-        var overlayElements: [OverlayElement] = []
         var suggestions: [CompositionSuggestion] = []
         
-        // Rule of Thirds Analysis
-        let ruleOfThirdsAnalysis = analyzeRuleOfThirds(
-            faces: faceObservations,
-            imageSize: imageSize
-        )
-        if ruleOfThirdsAnalysis.isDetected {
-            detectedRules.append(.ruleOfThirds)
-            confidence[.ruleOfThirds] = ruleOfThirdsAnalysis.confidence
-            overlayElements.append(contentsOf: ruleOfThirdsAnalysis.overlayElements)
-            suggestions.append(contentsOf: ruleOfThirdsAnalysis.suggestions)
+        let maxElements = 20
+        
+        // Process dynamic matches
+        for match in dynamicRecommendation.matches {
+            detectedRules.append(match.rule)
+            confidence[match.rule] = match.confidence
+            
+            // Add grid lines
+            for line in match.dynamicLines.prefix(maxElements) {
+                guard line.type == .grid else { continue }
+                overlayElements.append(.gridLine(
+                    start: line.start,
+                    end: line.end,
+                    type: .ruleOfThirds
+                ))
+            }
+            
+            // Add suggestions
+            suggestions.append(CompositionSuggestion(
+                rule: match.rule,
+                message: match.recommendation,
+                improvementTip: match.improvementSuggestion
+            ))
         }
         
-        // Leading Lines Analysis
-        let leadingLinesAnalysis = analyzeLeadingLines(
-            contours: contourObservations,
-            imageSize: imageSize
-        )
-        if leadingLinesAnalysis.isDetected {
-            detectedRules.append(.leadingLines)
-            confidence[.leadingLines] = leadingLinesAnalysis.confidence
-            overlayElements.append(contentsOf: leadingLinesAnalysis.overlayElements)
-            suggestions.append(contentsOf: leadingLinesAnalysis.suggestions)
+        // Add dynamic grid lines
+        let imageSize = image.size
+        for vLine in dynamicRecommendation.dynamicGrid.verticalLines {
+            overlayElements.append(.gridLine(
+                start: CGPoint(x: vLine, y: 0),
+                end: CGPoint(x: vLine, y: imageSize.height),
+                type: .ruleOfThirds
+            ))
         }
         
-        // Symmetry Analysis
-        let symmetryAnalysis = analyzeSymmetry(
-            faces: faceObservations,
-            rectangles: rectangleObservations,
-            imageSize: imageSize
-        )
-        if symmetryAnalysis.isDetected {
-            detectedRules.append(.symmetry)
-            confidence[.symmetry] = symmetryAnalysis.confidence
-            overlayElements.append(contentsOf: symmetryAnalysis.overlayElements)
-            suggestions.append(contentsOf: symmetryAnalysis.suggestions)
+        for hLine in dynamicRecommendation.dynamicGrid.horizontalLines {
+            overlayElements.append(.gridLine(
+                start: CGPoint(x: 0, y: hLine),
+                end: CGPoint(x: imageSize.width, y: hLine),
+                type: .ruleOfThirds
+            ))
         }
         
-        // Add grid overlay elements
-        overlayElements.append(contentsOf: createRuleOfThirdsGrid(imageSize: imageSize))
+        // Add intersection points
+        let maxIntersectionPoints = 8
+        for point in dynamicRecommendation.dynamicGrid.intersectionPoints.prefix(maxIntersectionPoints) {
+            overlayElements.append(.hotspot(
+                center: point,
+                radius: 15,
+                label: ""
+            ))
+        }
         
-        // Add general landscape suggestions if no specific rules detected
+        // Add adjustment suggestions
+        for adjustment in dynamicRecommendation.suggestedAdjustments {
+            suggestions.append(CompositionSuggestion(
+                rule: dynamicRecommendation.primaryComposition,
+                message: adjustment.description,
+                improvementTip: "This adjustment will improve your composition score from \(String(format: "%.0f%%", dynamicRecommendation.overallScore * 100))"
+            ))
+        }
+        
+        // Fallback if no rules detected
         if detectedRules.isEmpty {
+            detectedRules.append(.ruleOfThirds)
+            confidence[.ruleOfThirds] = 0.3
             suggestions.append(CompositionSuggestion(
                 rule: .ruleOfThirds,
-                message: "This appears to be a landscape photo. Consider using the rule of thirds.",
-                improvementTip: "Try positioning the horizon on the upper or lower third line, and place key elements at intersection points."
+                message: "Consider using basic composition rules to improve your photo.",
+                improvementTip: "Start with the rule of thirds by placing key elements at grid intersections."
             ))
-            
-            suggestions.append(CompositionSuggestion(
-                rule: .leadingLines,
-                message: "Look for natural leading lines in your landscape.",
-                improvementTip: "Rivers, paths, shorelines, or rock formations can guide the viewer's eye through your composition."
-            ))
-            
-            // Force add rule of thirds as detected for landscapes
-            detectedRules.append(.ruleOfThirds)
-            confidence[.ruleOfThirds] = 0.5
         }
         
-        // Always add visual indicators for improvement
-        addLandscapeCompositionIndicators(imageSize: imageSize, overlayElements: &overlayElements)
+        // Remove hotspots to focus on grid-based composition
+        overlayElements = overlayElements.filter { element in
+            if case .hotspot = element { return false }
+            return true
+        }
         
-        // Create final result
-        let result = CompositionAnalysisResult(
+        let processingTime = CFAbsoluteTimeGetCurrent() - startTime
+        print("🎯 Result processing completed in \(formatProcessingTime(processingTime))")
+        print("✅ Concurrent analysis completed:")
+        print("   - Primary composition: \(dynamicRecommendation.primaryComposition)")
+        print("   - Detected rules: \(detectedRules.count)")
+        print("   - Overall score: \(String(format: "%.0f%%", dynamicRecommendation.overallScore * 100))")
+        print("   - Overlay elements: \(overlayElements.count)")
+        print("   - Suggestions: \(suggestions.count)")
+        
+        return CompositionAnalysisResult(
             detectedRules: detectedRules,
             confidence: confidence,
             suggestions: suggestions,
@@ -182,86 +298,51 @@ class CompositionAnalyzer: ObservableObject {
             contourObservations: contourObservations,
             rectangleObservations: rectangleObservations
         )
-        
-        print("Analysis completed with \(detectedRules.count) rules detected: \(detectedRules)")
-        print("Overlay elements count: \(overlayElements.count)")
-        
-        analysisState = .completed(result)
+    }
+    
+    // MARK: - Progress Updates
+    
+    private func updateProgress(_ percent: Double, _ message: String) {
+        progress = AnalysisProgress(percent: percent, message: message)
+    }
+    
+    // MARK: - Processing Time Formatting
+    
+    private func formatProcessingTime(_ time: CFAbsoluteTime) -> String {
+        if time < 1.0 {
+            return String(format: "%.0fms", time * 1000)
+        } else if time < 60.0 {
+            return String(format: "%.1fsec", time)
+        } else {
+            let minutes = Int(time / 60)
+            let seconds = Int(time.truncatingRemainder(dividingBy: 60))
+            return "\(minutes)m \(seconds)s"
+        }
+    }
+    
+
+    
+
+    
+    private func mapLineTypeToGridType(_ lineType: DynamicCompositionMatcher.DynamicLine.LineType) -> OverlayElement.GridType {
+        switch lineType {
+        case .grid, .horizon:
+            return .ruleOfThirds
+        case .diagonal:
+            return .diagonal
+        case .leading, .framing:
+            return .ruleOfThirds // Default mapping
+        }
     }
     
     // MARK: - Simulator Fallback Analysis
     
     private func processSimulatorFallbackAnalysis(for image: UIImage) {
-        let imageSize = image.size
+        print("🎭 Using dynamic analysis for simulator...")
         
-        print("🎭 Creating simulator fallback analysis...")
-        
-        // Create mock analysis result for simulator testing
-        var detectedRules: [CompositionRule] = [.ruleOfThirds, .leadingLines]
-        var confidence: [CompositionRule: Float] = [
-            .ruleOfThirds: 0.7,
-            .leadingLines: 0.6
-        ]
-        var overlayElements: [OverlayElement] = []
-        var suggestions: [CompositionSuggestion] = []
-        
-        // Add rule of thirds grid
-        overlayElements.append(contentsOf: createRuleOfThirdsGrid(imageSize: imageSize))
-        
-        // Add landscape indicators
-        addLandscapeCompositionIndicators(imageSize: imageSize, overlayElements: &overlayElements)
-        
-        // Add mock leading lines for the waterfall
-        let waterfallLines = [
-            // Vertical waterfall line
-            (start: CGPoint(x: imageSize.width * 0.5, y: imageSize.height * 0.2), 
-             end: CGPoint(x: imageSize.width * 0.5, y: imageSize.height * 0.8)),
-            // Rock formation lines
-            (start: CGPoint(x: imageSize.width * 0.1, y: imageSize.height * 0.9), 
-             end: CGPoint(x: imageSize.width * 0.4, y: imageSize.height * 0.4)),
-            (start: CGPoint(x: imageSize.width * 0.9, y: imageSize.height * 0.9), 
-             end: CGPoint(x: imageSize.width * 0.6, y: imageSize.height * 0.4))
-        ]
-        
-        for (index, line) in waterfallLines.enumerated() {
-            let points = [line.start, line.end]
-            overlayElements.append(.contourPath(points: points, label: "Leading Line \(index + 1)"))
-        }
-        
-        // Add composition suggestions
-        suggestions.append(CompositionSuggestion(
-            rule: .ruleOfThirds,
-            message: "Your waterfall is well-positioned using the rule of thirds!",
-            improvementTip: "The vertical composition creates a strong focal point. Consider the horizon placement for even better balance."
-        ))
-        
-        suggestions.append(CompositionSuggestion(
-            rule: .leadingLines,
-            message: "Great use of natural leading lines in this landscape!",
-            improvementTip: "The rock formations and waterfall create excellent leading lines that guide the eye through the composition."
-        ))
-        
-        suggestions.append(CompositionSuggestion(
-            rule: .framing,
-            message: "The rock formations provide natural framing for your waterfall.",
-            improvementTip: "This creates depth and draws attention to your main subject - the waterfall."
-        ))
-        
-        // Create final result
-        let result = CompositionAnalysisResult(
-            detectedRules: detectedRules,
-            confidence: confidence,
-            suggestions: suggestions,
-            overlayElements: overlayElements,
-            faceObservations: [], // No faces in landscape
-            contourObservations: [], // Simulated
-            rectangleObservations: [] // Simulated
-        )
-        
-        print("✅ Simulator analysis completed with \(detectedRules.count) rules detected: \(detectedRules)")
-        print("📊 Overlay elements count: \(overlayElements.count)")
-        
-        analysisState = .completed(result)
+        // The simulator fallback is now handled by the concurrent analysis
+        // The dynamic components already have fallback mechanisms built-in
+        // No additional processing needed as the main analyzeImage method handles all cases
     }
     
     // MARK: - Rule Analysis Methods
@@ -626,6 +707,27 @@ class CompositionAnalyzer: ObservableObject {
             label: "Lower horizon"
         ))
     }
+}
+
+// Deduplicate hotspots with similar centers (within 10px)
+func dedupHotspots(_ elements: [OverlayElement]) -> [OverlayElement] {
+    var seenKeys = Set<String>()
+    var result: [OverlayElement] = []
+    let bucketSize: CGFloat = 10.0
+    
+    for element in elements {
+        switch element {
+        case .hotspot(let center, let radius, let label):
+            let key = "\(Int(center.x / bucketSize))_\(Int(center.y / bucketSize))"
+            if !seenKeys.contains(key) {
+                seenKeys.insert(key)
+                result.append(.hotspot(center: center, radius: radius, label: label))
+            }
+        default:
+            result.append(element)
+        }
+    }
+    return result
 }
 
 // MARK: - Error Types

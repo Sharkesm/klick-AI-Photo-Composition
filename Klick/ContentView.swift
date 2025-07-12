@@ -28,8 +28,9 @@ struct ContentView: View {
                         // Display the image
                         Image(uiImage: showBlackWhite && blackWhiteImage != nil ? blackWhiteImage! : image)
                             .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: geometry.size.width, maxHeight: geometry.size.height)
+                            .scaledToFill() // Change to scaledToFill to ensure full-screen
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .clipped() // Clip to bounds to avoid overflow
                         
                         // Composition overlay
                         if case .completed(let result) = analyzer.analysisState {
@@ -37,9 +38,14 @@ struct ContentView: View {
                                 imageSize: image.size,
                                 analysisResult: result
                             )
-                        } else {
-                            // Show basic grid when not analyzed
-                            BasicGridOverlay(imageSize: image.size)
+                        }
+
+                        // Progress overlay visible while analyzing
+                        if case .analyzing = analyzer.analysisState {
+                            AnalysisProgressView(progress: analyzer.progress)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                                .animation(.easeInOut, value: analyzer.progress.percent)
+                                .padding()
                         }
                     }
                 }
@@ -106,24 +112,7 @@ struct ContentView: View {
                                     .cornerRadius(12)
                             }
                         }
-                        
-                        // Loading indicator
-                        if case .analyzing = analyzer.analysisState {
-                            HStack {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                Text("Analyzing composition...")
-                                    .foregroundColor(.white)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.black.opacity(0.7))
-                            .cornerRadius(12)
-                            .onAppear {
-                                print("🔄 Analysis state: analyzing")
-                            }
-                        }
-                        
+                                                
                         // Results button
                         if case .completed(let result) = analyzer.analysisState {
                             HStack(spacing: 15) {
