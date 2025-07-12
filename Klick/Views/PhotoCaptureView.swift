@@ -11,11 +11,14 @@ import PhotosUI
 struct PhotoCaptureView: View {
     @Binding var capturedImage: UIImage?
     @Binding var showImagePicker: Bool
+    @ObservedObject var queue: ImageAnalysisQueue
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showCamera = false
     @State private var showPhotoLibrary = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var showAddImageAlert = false
+    @State private var pendingImage: UIImage?
     
     var body: some View {
         VStack(spacing: 20) {
@@ -54,17 +57,46 @@ struct PhotoCaptureView: View {
         }
         .padding()
         .sheet(isPresented: $showCamera) {
-            CameraView(capturedImage: $capturedImage, isPresented: $showCamera)
-                .onDisappear {
-                    if capturedImage != nil {
-                        showImagePicker = false
-                    }
+            CameraView(
+                capturedImage: $capturedImage, 
+                isPresented: $showCamera,
+                queue: queue,
+                onImageSelected: { image in
+                    handleNewImage(image)
                 }
+            )
+            .onDisappear {
+                if capturedImage != nil {
+                    showImagePicker = false
+                }
+            }
         }
         .alert("Permission Required", isPresented: $showingAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(alertMessage)
+        }
+        .alert("Add New Image", isPresented: $showAddImageAlert) {
+            Button("Cancel", role: .cancel) {
+                pendingImage = nil
+            }
+            Button("Add to Queue") {
+                if let image = pendingImage {
+                    queue.enqueueImage(image)
+                }
+                pendingImage = nil
+                showImagePicker = false
+            }
+            Button("Replace Current", role: .destructive) {
+                if let image = pendingImage {
+                    queue.stopAnalysis()
+                    queue.enqueueImage(image)
+                }
+                pendingImage = nil
+                showImagePicker = false
+            }
+        } message: {
+            Text("An analysis is currently in progress. Would you like to add this image to the queue or replace the current analysis?")
         }
     }
     
@@ -82,8 +114,7 @@ struct PhotoCaptureView: View {
             if let data = try await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data) {
                 await MainActor.run {
-                    capturedImage = image
-                    showImagePicker = false
+                    handleNewImage(image)
                 }
             }
         } catch {
@@ -93,12 +124,24 @@ struct PhotoCaptureView: View {
             }
         }
     }
+    
+    private func handleNewImage(_ image: UIImage) {
+        if queue.isProcessing || queue.hasPendingTasks {
+            pendingImage = image
+            showAddImageAlert = true
+        } else {
+            capturedImage = image
+            showImagePicker = false
+        }
+    }
 }
 
 // MARK: - Camera View using UIImagePickerController
 struct CameraView: UIViewControllerRepresentable {
     @Binding var capturedImage: UIImage?
     @Binding var isPresented: Bool
+    let queue: ImageAnalysisQueue
+    let onImageSelected: (UIImage) -> Void
     
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -123,7 +166,7 @@ struct CameraView: UIViewControllerRepresentable {
         
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
             if let image = info[.originalImage] as? UIImage {
-                parent.capturedImage = image
+                parent.onImageSelected(image)
             }
             parent.isPresented = false
         }
@@ -139,7 +182,19 @@ struct PhotoCaptureView_Previews: PreviewProvider {
     static var previews: some View {
         PhotoCaptureView(
             capturedImage: .constant(nil),
-            showImagePicker: .constant(true)
+            showImagePicker: .constant(true),
+            queue: ImageAnalysisQueue()
+        )
+    }
+}
+
+struct CameraView_Previews: PreviewProvider {
+    static var previews: some View {
+        CameraView(
+            capturedImage: .constant(nil),
+            isPresented: .constant(true),
+            queue: ImageAnalysisQueue(),
+            onImageSelected: { _ in }
         )
     }
 } 

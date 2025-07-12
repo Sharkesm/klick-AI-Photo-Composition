@@ -27,6 +27,10 @@ class CompositionAnalyzer: ObservableObject {
     private let angleDetector = ImageAngleDetector()
     private let leadingLinesDetector = DynamicLeadingLinesDetector()
     
+    // Cancellation support
+    private var currentAnalysisTask: Task<Void, Never>?
+    private var isCancelled = false
+    
     init() {
         setupVisionRequests()
     }
@@ -44,20 +48,45 @@ class CompositionAnalyzer: ObservableObject {
     
     func analyzeImage(_ image: UIImage) {
         print("🔄 Starting concurrent image analysis...")
+        
+        // Cancel any existing analysis
+        cancelAnalysis()
+        
         analysisState = .analyzing
         progress = AnalysisProgress(percent: 0, message: "📱 Initializing composition analysis...")
+        isCancelled = false
         
         // Run on background thread with TaskGroup for concurrent processing
-        Task.detached(priority: .userInitiated) { [weak self] in
+        currentAnalysisTask = Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
             
             await self.performConcurrentAnalysis(image: image)
         }
     }
     
+    /// Cancel the current analysis operation
+    func cancelAnalysis() {
+        print("🛑 Cancelling image analysis...")
+        isCancelled = true
+        currentAnalysisTask?.cancel()
+        currentAnalysisTask = nil
+        
+        // Reset state
+        analysisState = .idle
+        progress = AnalysisProgress(percent: 0, message: "")
+        
+        print("✅ Analysis cancelled")
+    }
+    
     @MainActor
     private func performConcurrentAnalysis(image: UIImage) async {
         let startTime = CFAbsoluteTimeGetCurrent()
+        
+        // Check for cancellation
+        guard !isCancelled else {
+            print("🚫 Analysis cancelled during initialization")
+            return
+        }
         
         // Step 1: Create optimized thumbnail for analysis
         updateProgress(5, "📱 Preparing image for analysis...")
@@ -68,6 +97,12 @@ class CompositionAnalyzer: ObservableObject {
         
         // Step 2: Concurrent analysis using TaskGroup
         updateProgress(15, "🔄 Starting concurrent image analysis...")
+        
+        // Check for cancellation before starting concurrent tasks
+        guard !isCancelled else {
+            print("🚫 Analysis cancelled before concurrent processing")
+            return
+        }
         
         // Launch all concurrent tasks with detailed progress updates
         async let histogramTask = analyzeHistogramConcurrent(thumbnail)
@@ -89,6 +124,12 @@ class CompositionAnalyzer: ObservableObject {
             saliencyTask
         )
         
+        // Check for cancellation after concurrent tasks
+        guard !isCancelled else {
+            print("🚫 Analysis cancelled after concurrent processing")
+            return
+        }
+        
         updateProgress(70, "🎨 Matching composition rules...")
         
         // Step 3: Process results and create final analysis
@@ -103,11 +144,23 @@ class CompositionAnalyzer: ObservableObject {
         let processingTime = CFAbsoluteTimeGetCurrent() - startTime
         let timeString = formatProcessingTime(processingTime)
         
+        // Check for cancellation before finalizing
+        guard !isCancelled else {
+            print("🚫 Analysis cancelled before finalization")
+            return
+        }
+        
         // Update to 100% completion
         updateProgress(100, "✅ Analysis complete!")
         
         // Brief delay to show completion before transitioning to results
         try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
+        
+        // Final cancellation check
+        guard !isCancelled else {
+            print("🚫 Analysis cancelled during finalization")
+            return
+        }
         
         analysisState = .completed(result)
         

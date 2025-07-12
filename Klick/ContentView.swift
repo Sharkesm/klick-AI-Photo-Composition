@@ -10,13 +10,16 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 
 struct ContentView: View {
-    @StateObject private var analyzer = CompositionAnalyzer()
+    @StateObject private var queue = ImageAnalysisQueue()
     @State private var capturedImage: UIImage?
     @State private var showImagePicker = false
     @State private var showEducation = false
     @State private var showAnalysisResult = false
     @State private var showBlackWhite = false
     @State private var blackWhiteImage: UIImage?
+    @State private var showQueueManagement = false
+    @State private var showAddImageAlert = false
+    @State private var pendingImage: UIImage?
     
     var body: some View {
         ZStack {
@@ -33,7 +36,7 @@ struct ContentView: View {
                             .clipped() // Clip to bounds to avoid overflow
                         
                         // Composition overlay
-                        if case .completed(let result) = analyzer.analysisState {
+                        if case .completed(let result) = queue.analyzer.analysisState {
                             CompositionOverlayView(
                                 imageSize: image.size,
                                 analysisResult: result
@@ -41,10 +44,10 @@ struct ContentView: View {
                         }
 
                         // Progress overlay visible while analyzing
-                        if case .analyzing = analyzer.analysisState {
-                            AnalysisProgressView(progress: analyzer.progress)
+                        if case .analyzing = queue.analyzer.analysisState {
+                            AnalysisProgressView(progress: queue.analyzer.progress)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                                .animation(.easeInOut, value: analyzer.progress.percent)
+                                .animation(.easeInOut, value: queue.analyzer.progress.percent)
                                 .padding()
                         }
                     }
@@ -56,10 +59,7 @@ struct ContentView: View {
                     // Top bar
                     HStack {
                         Button(action: { 
-                            capturedImage = nil
-                            analyzer.analysisState = .idle
-                            showBlackWhite = false
-                            blackWhiteImage = nil
+                            handleNewPhotoRequest()
                         }) {
                             HStack {
                                 Image(systemName: "arrow.left")
@@ -73,6 +73,20 @@ struct ContentView: View {
                         }
                         
                         Spacer()
+                        
+                        // Queue management button
+                        if queue.isProcessing || queue.hasPendingTasks {
+                            Button(action: {
+                                showQueueManagement = true
+                            }) {
+                                Image(systemName: "list.bullet.clipboard")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                    .padding(12)
+                                    .background(Color.orange.opacity(0.8))
+                                    .clipShape(Circle())
+                            }
+                        }
                         
                         // Black & White toggle
                         Button(action: {
@@ -98,10 +112,10 @@ struct ContentView: View {
                     // Bottom controls
                     VStack(spacing: 15) {
                         // Analyze button
-                        if case .idle = analyzer.analysisState {
+                        if case .idle = queue.analyzer.analysisState {
                             Button(action: {
                                 print("🔍 Starting image analysis...")
-                                analyzer.analyzeImage(image)
+                                queue.enqueueImage(image)
                             }) {
                                 Label("Analyze Composition", systemImage: "viewfinder.circle.fill")
                                     .font(.headline)
@@ -114,7 +128,7 @@ struct ContentView: View {
                         }
                                                 
                         // Results button
-                        if case .completed(let result) = analyzer.analysisState {
+                        if case .completed(let result) = queue.analyzer.analysisState {
                             HStack(spacing: 15) {
                                 Button(action: { showAnalysisResult = true }) {
                                     Label("View Results", systemImage: "chart.bar.fill")
@@ -141,7 +155,7 @@ struct ContentView: View {
                         }
                         
                         // Error handling
-                        if case .failed(let error) = analyzer.analysisState {
+                        if case .failed(let error) = queue.analyzer.analysisState {
                             VStack {
                                 Text("Analysis failed")
                                     .foregroundColor(.white)
@@ -151,7 +165,7 @@ struct ContentView: View {
                                     .font(.caption)
                                 
                                 Button("Try Again") {
-                                    analyzer.analysisState = .idle
+                                    queue.analyzer.analysisState = .idle
                                 }
                                 .padding()
                                 .background(Color.red)
@@ -227,19 +241,69 @@ struct ContentView: View {
         .sheet(isPresented: $showImagePicker) {
             PhotoCaptureView(
                 capturedImage: $capturedImage,
-                showImagePicker: $showImagePicker
+                showImagePicker: $showImagePicker,
+                queue: queue
             )
         }
         .sheet(isPresented: $showEducation) {
             EducationalContentView()
         }
         .sheet(isPresented: $showAnalysisResult) {
-            if case .completed(let result) = analyzer.analysisState {
+            if case .completed(let result) = queue.analyzer.analysisState {
                 AnalysisResultView(
                     analysisResult: result,
                     showEducation: $showEducation
                 )
             }
+        }
+        .sheet(isPresented: $showQueueManagement) {
+            QueueManagementView(
+                queue: queue,
+                showQueueManagement: $showQueueManagement
+            )
+        }
+        .alert("Add New Image", isPresented: $showAddImageAlert) {
+            Button("Cancel", role: .cancel) {
+                pendingImage = nil
+            }
+            Button("Add to Queue") {
+                if let image = pendingImage {
+                    queue.enqueueImage(image)
+                    capturedImage = image
+                    showBlackWhite = false
+                    blackWhiteImage = nil
+                }
+                pendingImage = nil
+            }
+            Button("Replace Current", role: .destructive) {
+                if let image = pendingImage {
+                    queue.stopAnalysis()
+                    queue.enqueueImage(image)
+                    capturedImage = image
+                    showBlackWhite = false
+                    blackWhiteImage = nil
+                }
+                pendingImage = nil
+            }
+        } message: {
+            Text("An analysis is currently in progress. Would you like to add this image to the queue or replace the current analysis?")
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func handleNewPhotoRequest() {
+        if queue.isProcessing || queue.hasPendingTasks {
+            // Show alert to user about ongoing analysis
+            pendingImage = nil
+            showAddImageAlert = true
+        } else {
+            // Clear current image and reset state
+            capturedImage = nil
+            queue.analyzer.analysisState = .idle
+            showBlackWhite = false
+            blackWhiteImage = nil
+            showImagePicker = true
         }
     }
     
