@@ -11,7 +11,8 @@ import SwiftUI
 struct KlickApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            LandingPageView()
+            // ContentView() // Commented out for now
         }
     }
 }
