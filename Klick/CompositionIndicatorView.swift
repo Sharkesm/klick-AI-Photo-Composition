@@ -1,11 +1,12 @@
 import SwiftUI
 
 struct CompositionIndicatorView: View {
+    @ObservedObject var compositionManager: CompositionManager
     let compositionType: String
     
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "squareshape.split.2x2.dotted")
+            Image(systemName: compositionManager.currentCompositionType.icon)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white)
             
@@ -21,10 +22,3 @@ struct CompositionIndicatorView: View {
         .padding(.top, 60) // Account for safe area
     }
 }
-
-#Preview {
-    ZStack {
-        Color.black
-        CompositionIndicatorView(compositionType: "Rule of Thirds")
-    }
-} 

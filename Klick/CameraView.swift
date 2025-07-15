@@ -7,6 +7,7 @@ struct CameraView: UIViewRepresentable {
     @Binding var feedbackMessage: String?
     @Binding var showFeedback: Bool
     @Binding var detectedFaceBoundingBox: CGRect?
+    @ObservedObject var compositionManager: CompositionManager
     let onCameraReady: () -> Void
     
     func makeUIView(context: Context) -> UIView {
@@ -148,7 +149,7 @@ struct CameraView: UIViewRepresentable {
                             } else {
                                 self.parent.detectedFaceBoundingBox = face.boundingBox
                             }
-                            self.evaluateRuleOfThirds(face: face)
+                            self.evaluateComposition(observation: face, pixelBuffer: pixelBuffer)
                         } else {
                             // Try human detection if no face found
                             self.parent.detectedFaceBoundingBox = nil
@@ -174,7 +175,7 @@ struct CameraView: UIViewRepresentable {
                         if let results = request.results as? [VNHumanObservation], !results.isEmpty {
                             // Use the first detected human
                             let human = results[0]
-                            self.evaluateRuleOfThirds(human: human)
+                            self.evaluateComposition(observation: human, pixelBuffer: pixelBuffer)
                         } else {
                             // No subject detected
                             self.parent.feedbackMessage = nil
@@ -189,37 +190,22 @@ struct CameraView: UIViewRepresentable {
             }
         }
         
-        private func evaluateRuleOfThirds(face: VNFaceObservation? = nil, human: VNHumanObservation? = nil) {
-            guard let observation = face ?? human else { return }
+        private func evaluateComposition(observation: VNDetectedObjectObservation, pixelBuffer: CVPixelBuffer) {
+            // Get the current preview layer frame size
+            guard let previewLayer = previewLayer else { return }
+            let frameSize = previewLayer.frame.size
             
-            // Get the center point of the detected subject
-            let centerX = observation.boundingBox.midX
-            let centerY = observation.boundingBox.midY
+            // Use the composition manager to evaluate the current composition
+            let result = parent.compositionManager.evaluate(
+                observation: observation,
+                frameSize: frameSize,
+                pixelBuffer: pixelBuffer
+            )
             
-            // Calculate Rule of Thirds intersection points
-            let thirdX1 = 0.33
-            let thirdX2 = 0.67
-            let thirdY1 = 0.33
-            let thirdY2 = 0.67
-            
-            // Check if subject is near any intersection point (within 10% tolerance)
-            let tolerance: Double = 0.1
-            
-            let isNearThirdX1 = abs(centerX - thirdX1) < tolerance
-            let isNearThirdX2 = abs(centerX - thirdX2) < tolerance
-            let isNearThirdY1 = abs(centerY - thirdY1) < tolerance
-            let isNearThirdY2 = abs(centerY - thirdY2) < tolerance
-            
-            if (isNearThirdX1 || isNearThirdX2) && (isNearThirdY1 || isNearThirdY2) {
-                withAnimation(.bouncy) {
-                    parent.feedbackMessage = "✅ Nice framing!"
-                    parent.showFeedback = true
-                }
-            } else {
-                withAnimation(.bouncy) {
-                    parent.feedbackMessage = "⚠️ Try placing your subject on a third"
-                    parent.showFeedback = true
-                }
+            // Update UI with the composition result
+            withAnimation(.bouncy) {
+                parent.feedbackMessage = result.feedbackMessage
+                parent.showFeedback = true
             }
         }
     }

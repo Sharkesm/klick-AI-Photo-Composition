@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var cameraLoading = true
     @State private var permissionStatus: AVAuthorizationStatus = .notDetermined
     @State private var detectedFaceBoundingBox: CGRect?
+    @StateObject private var compositionManager = CompositionManager()
+    @State private var showCompositionPicker = false
     
     var body: some View {
         ZStack {
@@ -24,6 +26,7 @@ struct ContentView: View {
                     feedbackMessage: $feedbackMessage,
                     showFeedback: $showFeedback,
                     detectedFaceBoundingBox: $detectedFaceBoundingBox,
+                    compositionManager: compositionManager,
                     onCameraReady: {
                         // Camera is ready, hide loading
                         print("Camera ready callback triggered")
@@ -35,11 +38,25 @@ struct ContentView: View {
                 .ignoresSafeArea()
             }
             
-            // Grid overlay - only show when camera is ready
-            if hasCameraPermission && !cameraLoading {
-                GridOverlayView(isVisible: isGridVisible)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
+            // Composition overlay - only show when camera is ready and analysis is enabled
+            if hasCameraPermission && !cameraLoading && compositionManager.isEnabled && isGridVisible {
+                GeometryReader { geometry in
+                    // Always show basic overlays (grid, crosshair, etc.)
+                    ForEach(Array(compositionManager.getBasicOverlays(frameSize: geometry.size).enumerated()), id: \.offset) { index, element in
+                        element.path
+                            .stroke(element.color.opacity(element.opacity), lineWidth: element.lineWidth)
+                    }
+                    
+                    // Show subject-specific overlays when available
+                    if let result = compositionManager.lastResult {
+                        ForEach(Array(result.overlayElements.enumerated()), id: \.offset) { index, element in
+                            element.path
+                                .stroke(element.color.opacity(element.opacity), lineWidth: element.lineWidth)
+                        }
+                    }
+                }
+                .ignoresSafeArea()
+                .transition(.opacity)
             }
             
             // Face highlight overlay - only show when camera is ready
@@ -53,7 +70,7 @@ struct ContentView: View {
             if hasCameraPermission && !cameraLoading {
                 VStack {
                     HStack {
-                        CompositionIndicatorView(compositionType: "Rule of Thirds")
+                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.rawValue)
                         Spacer()
                     }
                     Spacer()
@@ -150,13 +167,13 @@ struct ContentView: View {
                     Spacer()
                     
                     HStack(spacing: 40) {
-                        // Info button
+                        // Composition type selector button
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                showEducationalContent = true
+                                showCompositionPicker = true
                             }
                         }) {
-                            Image(systemName: "info.circle.fill")
+                            Image(systemName: compositionManager.currentCompositionType.icon)
                                 .font(.system(size: 30))
                                 .foregroundColor(.white)
                                 .frame(width: 60, height: 60)
@@ -200,6 +217,13 @@ struct ContentView: View {
         .sheet(isPresented: $showEducationalContent) {
             EducationalContentView(isPresented: $showEducationalContent)
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showCompositionPicker) {
+            CompositionPickerView(
+                compositionManager: compositionManager,
+                isPresented: $showCompositionPicker
+            )
+            .presentationDetents([.fraction(0.78)])
         }
         .onAppear {
             requestCameraPermission()
