@@ -76,10 +76,8 @@ struct ContentView: View {
                 VStack {
                     HStack(alignment: .center) {
                         Spacer()
-                        
                         // Composition indicator
                         CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.rawValue)
-                        
                         Spacer()
                         
                     }
@@ -90,7 +88,6 @@ struct ContentView: View {
                     Spacer()
                 }
                 .ignoresSafeArea()
-                .transition(.opacity)
             }
             
             // Loading indicator overlay - shows on top when needed
@@ -164,14 +161,9 @@ struct ContentView: View {
                             .background(Color.black.opacity(0.7))
                             .cornerRadius(25)
                             .padding(.bottom, 150) // 20 points above bottom controls
+                            .scaleEffect(showFeedback ? 1.0 : 0.01)
+                            .opacity(showFeedback ? 1.0 : 0.0)
                     }
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.1, anchor: .bottom)
-                            .combined(with: .opacity),
-                        removal: .scale(scale: 0.1, anchor: .bottom)
-                            .combined(with: .opacity)
-                    ))
-                    .animation(.easeInOut(duration: 0.4), value: showFeedback)
                 }
             }
             
@@ -224,7 +216,7 @@ struct ContentView: View {
                     }
                     .padding(.bottom, 50)
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.8)))
             }
         }
         .sheet(isPresented: $showEducationalContent) {

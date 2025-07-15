@@ -101,17 +101,17 @@ class CenterFramingService: CompositionService {
             if let pixelBuffer = pixelBuffer {
                 let symmetryScore = calculateSymmetryScore(pixelBuffer: pixelBuffer)
                 if symmetryScore > 0.8 {
-                    feedbackMessage = "✅ Perfect! Balanced symmetry achieved!"
+                    feedbackMessage = "✅ Perfect symmetry!"
                     overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: true))
                 } else if symmetryScore > 0.6 {
-                    feedbackMessage = "✅ Good centering! Try aligning with symmetrical elements for best results"
+                    feedbackMessage = "✅ Well centered"
                     overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: false))
                 } else {
-                    feedbackMessage = "✅ Well centered! Great composition"
+                    feedbackMessage = "✅ Well centered"
                     overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: false))
                 }
             } else {
-                feedbackMessage = "✅ Well centered! Great composition"
+                feedbackMessage = "✅ Well centered"
             }
         } else {
             // Provide directional guidance
@@ -119,13 +119,13 @@ class CenterFramingService: CompositionService {
             let verticalDirection = subjectCenter.y < frameCenter.y ? "up" : "down"
             
             if !isCenteredX && !isCenteredY {
-                feedbackMessage = "⚠️ Move subject toward center (\(horizontalDirection) & \(verticalDirection))"
+                feedbackMessage = "⚠️ Move \(horizontalDirection) & \(verticalDirection)"
             } else if !isCenteredX {
-                feedbackMessage = "⚠️ Move subject \(horizontalDirection) toward center"
+                feedbackMessage = "⚠️ Move \(horizontalDirection)"
             } else if !isCenteredY {
-                feedbackMessage = "⚠️ Move subject \(verticalDirection) toward center"
+                feedbackMessage = "⚠️ Move \(verticalDirection)"
             } else {
-                feedbackMessage = "⚠️ Try moving subject toward the center"
+                feedbackMessage = "⚠️ Move to center"
             }
         }
         
@@ -300,9 +300,9 @@ class RuleOfThirdsService: CompositionService {
         var feedbackMessage: String
         if isWellComposed {
             if score > 0.8 {
-                feedbackMessage = "✅ Excellent! Perfect rule of thirds alignment"
+                feedbackMessage = "✅ Perfect thirds!"
             } else {
-                feedbackMessage = "✅ Good composition! Nice rule of thirds framing"
+                feedbackMessage = "✅ Good composition"
             }
         } else {
             // Provide guidance toward nearest intersection
@@ -322,9 +322,9 @@ class RuleOfThirdsService: CompositionService {
                 let horizontalDirection = centerX < nearestIntersection.0 ? "right" : "left"
                 let verticalDirection = centerY < nearestIntersection.1 ? "up" : "down"
                 
-                feedbackMessage = "⚠️ Move subject \(horizontalDirection) & \(verticalDirection) toward intersection"
+                feedbackMessage = "⚠️ Move \(horizontalDirection) & \(verticalDirection)"
             } else {
-                feedbackMessage = "⚠️ Try placing your subject on a grid intersection"
+                feedbackMessage = "⚠️ Move to intersection"
             }
         }
         
