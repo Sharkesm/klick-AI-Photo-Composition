@@ -13,6 +13,16 @@ struct LandingPageView: View {
     @State private var showIcon3 = false
     @State private var showButton = false
     
+    // Navigation and transition states
+    @State private var isTransitioning = false
+    @State private var showRows = true
+    @State private var showCircularReveal = false
+    @State private var showCircleBorder = false
+    @State private var fillCircle = false
+    @State private var circleDrawingProgress: CGFloat = 0
+    @State private var hideBorderCircle = false
+    @State private var showContentViewTransition = false
+    
     // Array of image names from the Introduction folder
     private let introductionImages = [
         "Rectangle_1", "Rectangle_2", "Rectangle_3", "Rectangle_4", "Rectangle_5",
@@ -29,6 +39,41 @@ struct LandingPageView: View {
     }
     
     var body: some View {
+        ZStack {
+            // Landing page content
+            landingPageContent
+            
+            // ContentView with scaling circular mask (see-through reveal)
+            if showContentViewTransition {
+                ContentView()
+                    .mask(
+                        Circle()
+                            .frame(width: 20, height: 20)
+                            .scaleEffect(fillCircle ? 50 : 0.01)
+                            .animation(.spring(response: 1.0, dampingFraction: 0.75), value: fillCircle)
+                    )
+            }
+            
+            // Circle drawing animation
+            if showCircularReveal {
+                ZStack {
+                    // Border circle (draws progressively)
+                    Circle()
+                        .trim(from: 0, to: circleDrawingProgress)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .frame(width: 20, height: 20)
+                        .rotationEffect(.degrees(-90)) // Start from top
+                        .scaleEffect(hideBorderCircle ? 0.1 : 1.0)
+                        .opacity(showCircleBorder && !hideBorderCircle ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: showCircleBorder)
+                        .animation(.easeInOut(duration: 1.2), value: circleDrawingProgress)
+                        .animation(.easeInOut(duration: 0.8), value: hideBorderCircle)
+                }
+            }
+        }
+    }
+    
+    private var landingPageContent: some View {
         ZStack {
             // Black background
             Color.black
@@ -137,8 +182,7 @@ struct LandingPageView: View {
                 
                 // Let's go button
                 Button(action: {
-                    // Action to navigate to ContentView
-                    print("Let's go tapped!")
+                    startTransition()
                 }) {
                     Text("Let's go")
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
@@ -161,7 +205,68 @@ struct LandingPageView: View {
                     isAnimating = true
                 }
             }
+            .opacity(showRows ? 1 : 0)
+            .animation(.easeOut(duration: 0.5), value: showRows)
         }
+    }
+    
+    private func startTransition() {
+        isTransitioning = true
+        
+        // Step 1: Hide button (reverse animation)
+        showButton = false
+        
+        // Step 2: Hide composition style images (icons)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            showIcon1 = false
+            showIcon2 = false
+            showIcon3 = false
+        }
+        
+        // Step 3: Hide subtitle text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            showSubtitle = false
+        }
+        
+        // Step 4: Hide headline
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            showHeadline = false
+        }
+        
+        // Step 5: Hide image rows
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            showRows = false
+        }
+        
+        // Step 6: Show circle border and start drawing animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.7) {
+            showCircularReveal = true
+            showCircleBorder = true
+            
+            // Start the drawing animation
+            withAnimation(.easeInOut(duration: 1.2)) {
+                circleDrawingProgress = 1.0
+            }
+        }
+        
+        // Step 8: Immediately start the scaling mask animation for smooth reveal
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.1) { // Small delay to ensure ContentView is rendered
+            withAnimation(.spring(response: 1.0, dampingFraction: 0.75)) {
+                fillCircle = true
+            }
+        }
+        
+        // Step 7: After drawing completes, show ContentView with tiny mask
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { // 1.7 + 1.2 + 0.1 buffer
+            showContentViewTransition = true
+        }
+        
+        // Step 9: After transition completes, hide border circle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { // 3.1 + 1.0 + 0.9 delay
+            hideBorderCircle = true
+        }
+        
+        // Transition complete - ContentView is fully revealed with smooth see-through effect
     }
     
     private func startScrollingAnimations() {
@@ -213,9 +318,3 @@ struct LandingPageView: View {
         }
     }
 }
-
-struct LandingPageView_Previews: PreviewProvider {
-    static var previews: some View {
-        LandingPageView()
-    }
-} 

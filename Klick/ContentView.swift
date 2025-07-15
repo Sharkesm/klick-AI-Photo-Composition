@@ -242,7 +242,11 @@ struct ContentView: View {
             .presentationDetents([.fraction(0.8)])
         }
         .onAppear {
-            requestCameraPermission()
+            // Add small delay to ensure transition completes before requesting camera
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                print("ContentView onAppear - requesting camera permission")
+                requestCameraPermission()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             // Re-check permissions when app becomes active (e.g., returning from Settings)
@@ -258,26 +262,34 @@ struct ContentView: View {
         let currentStatus = AVCaptureDevice.authorizationStatus(for: .video)
         permissionStatus = currentStatus
         
+        print("🎥 Camera permission status: \(currentStatus)")
+        
         switch currentStatus {
         case .authorized:
+            print("✅ Camera permission already granted")
             hasCameraPermission = true
             // Camera loading will be handled by the camera view callback
             cameraLoading = true
         case .notDetermined:
+            print("❓ Camera permission not determined, requesting...")
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
+                    print("📱 Camera permission request result: \(granted)")
                     self.permissionStatus = granted ? .authorized : .denied
                     self.hasCameraPermission = granted
                     if granted {
                         // Camera loading will be handled by the camera view callback
                         self.cameraLoading = true
+                        print("🎬 Camera loading set to true")
                     }
                 }
             }
         case .denied, .restricted:
+            print("❌ Camera permission denied or restricted")
             hasCameraPermission = false
             cameraLoading = false
         @unknown default:
+            print("❓ Unknown camera permission status")
             hasCameraPermission = false
             cameraLoading = false
         }

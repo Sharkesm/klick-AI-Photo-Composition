@@ -12,7 +12,6 @@ struct KlickApp: App {
     var body: some Scene {
         WindowGroup {
             LandingPageView()
-            // ContentView() // Commented out for now
         }
     }
 }
