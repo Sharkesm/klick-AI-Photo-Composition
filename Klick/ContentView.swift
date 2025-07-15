@@ -158,11 +158,12 @@ struct ContentView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 12)
-                            .background(Color.black.opacity(0.7))
+                            .background(.ultraThinMaterial)
                             .cornerRadius(25)
                             .padding(.bottom, 150) // 20 points above bottom controls
                             .scaleEffect(showFeedback ? 1.0 : 0.01)
                             .opacity(showFeedback ? 1.0 : 0.0)
+                            .animation(.spring, value: showFeedback)
                     }
                 }
             }

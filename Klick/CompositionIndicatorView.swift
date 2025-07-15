@@ -18,7 +18,7 @@ struct CompositionIndicatorView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(Color.black.opacity(0.6))
+            .background(Color.black)
             .clipShape(Capsule())
             Spacer()
         }
