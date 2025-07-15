@@ -145,11 +145,11 @@ struct CompositionOptionRow: View {
     private func descriptionFor(_ type: CompositionType) -> String {
         switch type {
         case .ruleOfThirds:
-            return "Place subjects at intersection points of the grid for dynamic balance and visual interest"
+            return "Perfect for portraits! Place eyes on grid intersections for dynamic, professional-looking shots 📸"
         case .centerFraming:
-            return "Center subjects in the frame for formal, balanced compositions with symmetrical elements"
+            return "Great for headshots and formal portraits! Center your subject for balanced, powerful compositions 💪"
         case .symmetry:
-            return "Create harmonious images by aligning subjects with symmetrical elements in the scene"
+            return "Ideal for architectural backdrops! Create striking photos by aligning faces with symmetrical elements ✨"
         }
     }
 }
