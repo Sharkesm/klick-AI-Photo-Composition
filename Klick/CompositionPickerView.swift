@@ -41,40 +41,12 @@ struct CompositionPickerView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
-                    
-                    // Analysis toggle
-                    VStack(spacing: 16) {
-                        Divider()
-                            .padding(.horizontal, 20)
-                        
-                        HStack(alignment: .top, spacing: 16) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Composition Analysis")
-                                    .font(.headline)
-                                    .lineLimit(nil)
-                                
-                                Text("Enable real-time composition feedback")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(nil)
-                                    .multilineTextAlignment(.leading)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            Toggle("", isOn: $compositionManager.isEnabled)
-                                .toggleStyle(SwitchToggleStyle())
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 24)
-                    }
                 }
-            }
-            .navigationTitle("Composition")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        isPresented = false
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            isPresented = false
+                        }
                     }
                 }
             }
@@ -153,10 +125,3 @@ struct CompositionOptionRow: View {
         }
     }
 }
-
-#Preview {
-    CompositionPickerView(
-        compositionManager: CompositionManager(),
-        isPresented: .constant(true)
-    )
-} 

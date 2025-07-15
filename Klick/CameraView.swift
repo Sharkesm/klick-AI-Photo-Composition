@@ -3,10 +3,10 @@ import AVFoundation
 import Vision
 
 struct CameraView: UIViewRepresentable {
-    @Binding var isGridVisible: Bool
     @Binding var feedbackMessage: String?
     @Binding var showFeedback: Bool
     @Binding var detectedFaceBoundingBox: CGRect?
+    @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     let onCameraReady: () -> Void
     
@@ -46,6 +46,14 @@ struct CameraView: UIViewRepresentable {
         videoOutput.setSampleBufferDelegate(context.coordinator, queue: DispatchQueue.global(qos: .userInitiated))
         session.addOutput(videoOutput)
         
+        // Configure video output connection for proper orientation
+        if let connection = videoOutput.connection(with: .video) {
+            connection.videoOrientation = .portrait
+            if connection.isVideoMirroringSupported {
+                connection.isVideoMirrored = false
+            }
+        }
+        
         print("✅ Video output configured")
         
         // Create preview layer on main thread
@@ -60,6 +68,7 @@ struct CameraView: UIViewRepresentable {
             // Store references in coordinator
             context.coordinator.session = session
             context.coordinator.previewLayer = previewLayer
+            context.coordinator.viewFrame = view.bounds
             
             // Start session in background
             DispatchQueue.global(qos: .background).async {
@@ -92,7 +101,9 @@ struct CameraView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: UIView, context: Context) {
+        // Update both preview layer and stored view frame
         context.coordinator.previewLayer?.frame = uiView.bounds
+        context.coordinator.viewFrame = uiView.bounds
     }
     
     func makeCoordinator() -> Coordinator {
@@ -105,6 +116,7 @@ struct CameraView: UIViewRepresentable {
         var parent: CameraView
         var session: AVCaptureSession?
         var previewLayer: AVCaptureVideoPreviewLayer?
+        var viewFrame: CGRect = .zero
         var cameraStartTime = CACurrentMediaTime()
         var cameraReady = false
     
@@ -126,8 +138,17 @@ struct CameraView: UIViewRepresentable {
             
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
             
-            // Perform subject detection
-            performSubjectDetection(pixelBuffer: pixelBuffer)
+            // Only perform subject detection if facial recognition is enabled
+            if parent.isFacialRecognitionEnabled {
+                performSubjectDetection(pixelBuffer: pixelBuffer)
+            } else {
+                // Clear face bounding box when facial recognition is disabled
+                DispatchQueue.main.async {
+                    self.parent.detectedFaceBoundingBox = nil
+                    self.parent.feedbackMessage = nil
+                    self.parent.showFeedback = false
+                }
+            }
         }
         
         private func performSubjectDetection(pixelBuffer: CVPixelBuffer) {
@@ -142,13 +163,14 @@ struct CameraView: UIViewRepresentable {
                         if let results = request.results as? [VNFaceObservation], !results.isEmpty {
                             // Use the first detected face
                             let face = results[0]
-                            // Convert Vision coordinates to screen coordinates using preview layer
-                            if let previewLayer = self.previewLayer {
-                                let convertedRect = previewLayer.layerRectConverted(fromMetadataOutputRect: face.boundingBox)
-                                self.parent.detectedFaceBoundingBox = convertedRect
-                            } else {
-                                self.parent.detectedFaceBoundingBox = face.boundingBox
-                            }
+                            
+                            // Convert Vision coordinates to screen coordinates with improved conversion
+                            let convertedRect = self.convertVisionToScreenCoordinates(
+                                visionRect: face.boundingBox,
+                                pixelBuffer: pixelBuffer
+                            )
+                            
+                            self.parent.detectedFaceBoundingBox = convertedRect
                             self.evaluateComposition(observation: face, pixelBuffer: pixelBuffer)
                         } else {
                             // Try human detection if no face found
@@ -158,7 +180,10 @@ struct CameraView: UIViewRepresentable {
                     }
                 }
                 
-                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+                // Configure face detection for better accuracy
+                faceRequest.revision = VNDetectFaceRectanglesRequestRevision3
+                
+                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
                 try? handler.perform([faceRequest])
             }
         }
@@ -185,12 +210,79 @@ struct CameraView: UIViewRepresentable {
                     }
                 }
                 
-                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+                // Configure human detection for better accuracy
+                humanRequest.revision = VNDetectHumanRectanglesRequestRevision2
+                
+                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
                 try? handler.perform([humanRequest])
             }
         }
         
+        /// Improved coordinate conversion from Vision framework to screen coordinates
+        private func convertVisionToScreenCoordinates(visionRect: CGRect, pixelBuffer: CVPixelBuffer) -> CGRect {
+            guard let previewLayer = previewLayer else {
+                // Fallback to simple conversion if preview layer not available
+                return CGRect(
+                    x: visionRect.origin.x * viewFrame.width,
+                    y: (1 - visionRect.origin.y - visionRect.height) * viewFrame.height,
+                    width: visionRect.width * viewFrame.width,
+                    height: visionRect.height * viewFrame.height
+                )
+            }
+            
+            // Get pixel buffer dimensions
+            let bufferWidth = CVPixelBufferGetWidth(pixelBuffer)
+            let bufferHeight = CVPixelBufferGetHeight(pixelBuffer)
+            
+            // Calculate the actual displayed area within the preview layer
+            let previewLayerFrame = previewLayer.frame
+            let bufferAspectRatio = Double(bufferWidth) / Double(bufferHeight)
+            let viewAspectRatio = Double(previewLayerFrame.width) / Double(previewLayerFrame.height)
+            
+            var displayedRect: CGRect
+            
+            if bufferAspectRatio > viewAspectRatio {
+                // Buffer is wider than view - top and bottom are cropped
+                let displayedHeight = previewLayerFrame.width / CGFloat(bufferAspectRatio)
+                let yOffset = (previewLayerFrame.height - displayedHeight) / 2
+                displayedRect = CGRect(
+                    x: previewLayerFrame.origin.x,
+                    y: previewLayerFrame.origin.y + yOffset,
+                    width: previewLayerFrame.width,
+                    height: displayedHeight
+                )
+            } else {
+                // Buffer is taller than view - left and right are cropped
+                let displayedWidth = previewLayerFrame.height * CGFloat(bufferAspectRatio)
+                let xOffset = (previewLayerFrame.width - displayedWidth) / 2
+                displayedRect = CGRect(
+                    x: previewLayerFrame.origin.x + xOffset,
+                    y: previewLayerFrame.origin.y,
+                    width: displayedWidth,
+                    height: previewLayerFrame.height
+                )
+            }
+            
+            // Convert Vision coordinates (normalized, bottom-left origin) to screen coordinates
+            let x = displayedRect.origin.x + visionRect.origin.x * displayedRect.width
+            let y = displayedRect.origin.y + (1 - visionRect.origin.y - visionRect.height) * displayedRect.height
+            let width = visionRect.width * displayedRect.width
+            let height = visionRect.height * displayedRect.height
+            
+            return CGRect(x: x, y: y, width: width, height: height)
+        }
+        
         private func evaluateComposition(observation: VNDetectedObjectObservation, pixelBuffer: CVPixelBuffer) {
+            // Only evaluate composition if analysis is enabled
+            guard parent.compositionManager.isEnabled else { 
+                // Clear feedback when analysis is disabled
+                DispatchQueue.main.async {
+                    self.parent.feedbackMessage = nil
+                    self.parent.showFeedback = false
+                }
+                return 
+            }
+            
             // Get the current preview layer frame size
             guard let previewLayer = previewLayer else { return }
             let frameSize = previewLayer.frame.size

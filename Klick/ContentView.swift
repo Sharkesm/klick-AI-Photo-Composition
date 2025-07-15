@@ -2,7 +2,6 @@ import SwiftUI
 import AVFoundation
 
 struct ContentView: View {
-    @State private var isGridVisible = true
     @State private var feedbackMessage: String?
     @State private var showFeedback = false
     @State private var showEducationalContent = false
@@ -13,6 +12,12 @@ struct ContentView: View {
     @StateObject private var compositionManager = CompositionManager()
     @State private var showCompositionPicker = false
     
+    // Frame settings state
+    @State private var showFrameSettings = false
+    @State private var isFacialRecognitionEnabled = true
+    @State private var isCompositionAnalysisEnabled = true
+    @State private var areOverlaysHidden = false
+    
     var body: some View {
         ZStack {
             // Black background
@@ -22,10 +27,10 @@ struct ContentView: View {
             // Camera view - show immediately when permissions granted
             if hasCameraPermission {
                 CameraView(
-                    isGridVisible: $isGridVisible,
                     feedbackMessage: $feedbackMessage,
                     showFeedback: $showFeedback,
                     detectedFaceBoundingBox: $detectedFaceBoundingBox,
+                    isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                     compositionManager: compositionManager,
                     onCameraReady: {
                         // Camera is ready, hide loading
@@ -38,8 +43,8 @@ struct ContentView: View {
                 .ignoresSafeArea()
             }
             
-            // Composition overlay - only show when camera is ready and analysis is enabled
-            if hasCameraPermission && !cameraLoading && compositionManager.isEnabled && isGridVisible {
+            // Composition overlay - only show when camera is ready, analysis is enabled, and overlays are not hidden
+            if hasCameraPermission && !cameraLoading && compositionManager.isEnabled && isCompositionAnalysisEnabled && !areOverlaysHidden {
                 GeometryReader { geometry in
                     // Always show basic overlays (grid, crosshair, etc.)
                     ForEach(Array(compositionManager.getBasicOverlays(frameSize: geometry.size).enumerated()), id: \.offset) { index, element in
@@ -59,20 +64,29 @@ struct ContentView: View {
                 .transition(.opacity)
             }
             
-            // Face highlight overlay - only show when camera is ready
-            if hasCameraPermission && !cameraLoading {
+            // Face highlight overlay - only show when camera is ready and facial recognition is enabled
+            if hasCameraPermission && !cameraLoading && isFacialRecognitionEnabled {
                 FaceHighlightOverlayView(faceBoundingBox: detectedFaceBoundingBox)
                     .ignoresSafeArea()
                     .transition(.opacity)
             }
             
-            // Composition indicator - only show when camera is ready
+            // Top controls - composition indicator and frame settings
             if hasCameraPermission && !cameraLoading {
                 VStack {
-                    HStack {
-                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.rawValue)
+                    HStack(alignment: .center) {
                         Spacer()
+                        
+                        // Composition indicator
+                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.rawValue)
+                        
+                        Spacer()
+                        
                     }
+                    .frame(alignment: .center)
+                    .padding(.top, 60)
+                    .padding(.horizontal, 20)
+                    
                     Spacer()
                 }
                 .ignoresSafeArea()
@@ -136,8 +150,8 @@ struct ContentView: View {
                 .transition(.opacity)
             }
             
-            // Feedback overlay - only show when camera is ready
-            if hasCameraPermission && !cameraLoading {
+            // Feedback overlay - only show when camera is ready and analysis is enabled
+            if hasCameraPermission && !cameraLoading && isCompositionAnalysisEnabled {
                 if showFeedback, let message = feedbackMessage {
                     VStack {
                         Spacer()
@@ -174,7 +188,7 @@ struct ContentView: View {
                             }
                         }) {
                             Image(systemName: compositionManager.currentCompositionType.icon)
-                                .font(.system(size: 30))
+                                .font(.system(size: 22))
                                 .foregroundColor(.white)
                                 .frame(width: 60, height: 60)
                                 .background(Color.black.opacity(0.5))
@@ -195,14 +209,13 @@ struct ContentView: View {
                                 )
                         }
                         
-                        // Grid toggle button
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.3)) {
-                                isGridVisible.toggle()
+                                showFrameSettings = true
                             }
                         }) {
-                            Image(systemName: isGridVisible ? "grid" : "grid.slash")
-                                .font(.system(size: 30))
+                            Image(systemName: "gear")
+                                .font(.system(size: 22))
                                 .foregroundColor(.white)
                                 .frame(width: 60, height: 60)
                                 .background(Color.black.opacity(0.5))
@@ -223,7 +236,17 @@ struct ContentView: View {
                 compositionManager: compositionManager,
                 isPresented: $showCompositionPicker
             )
-            .presentationDetents([.fraction(0.78)])
+            .presentationDetents([.fraction(0.7)])
+        }
+        .sheet(isPresented: $showFrameSettings) {
+            FrameSettingsView(
+                isPresented: $showFrameSettings,
+                isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
+                isCompositionAnalysisEnabled: $isCompositionAnalysisEnabled,
+                areOverlaysHidden: $areOverlaysHidden,
+                compositionManager: compositionManager
+            )
+            .presentationDetents([.fraction(0.8)])
         }
         .onAppear {
             requestCameraPermission()
@@ -270,4 +293,4 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-} 
+}
