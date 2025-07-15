@@ -183,7 +183,7 @@ struct CameraView: UIViewRepresentable {
                 // Configure face detection for better accuracy
                 faceRequest.revision = VNDetectFaceRectanglesRequestRevision3
                 
-                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
                 try? handler.perform([faceRequest])
             }
         }
@@ -213,7 +213,7 @@ struct CameraView: UIViewRepresentable {
                 // Configure human detection for better accuracy
                 humanRequest.revision = VNDetectHumanRectanglesRequestRevision2
                 
-                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
                 try? handler.perform([humanRequest])
             }
         }

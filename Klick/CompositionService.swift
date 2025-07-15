@@ -65,7 +65,7 @@ enum OverlayType {
 
 class CenterFramingService: CompositionService {
     let name = "Center Framing"
-    private let centerTolerance: Double = 0.1 // ±10% of frame size
+    private let centerTolerance: Double = 0.15 // Increased from 0.1 to 0.15 (±15% of frame size)
     
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> CompositionResult {
         let subjectCenter = CGPoint(
@@ -95,18 +95,38 @@ class CenterFramingService: CompositionService {
         // Create center crosshair overlay
         overlayElements.append(createCenterCrosshair(frameSize: frameSize))
         
-        // Check for symmetry if centered
-        if isCentered, let pixelBuffer = pixelBuffer {
-            let symmetryScore = calculateSymmetryScore(pixelBuffer: pixelBuffer)
-            if symmetryScore > 0.8 {
-                feedbackMessage = "✅ Balanced symmetry achieved!"
-                overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: true))
+        // Provide more granular feedback
+        if isCentered {
+            // Check for symmetry if centered
+            if let pixelBuffer = pixelBuffer {
+                let symmetryScore = calculateSymmetryScore(pixelBuffer: pixelBuffer)
+                if symmetryScore > 0.8 {
+                    feedbackMessage = "✅ Perfect! Balanced symmetry achieved!"
+                    overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: true))
+                } else if symmetryScore > 0.6 {
+                    feedbackMessage = "✅ Good centering! Try aligning with symmetrical elements for best results"
+                    overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: false))
+                } else {
+                    feedbackMessage = "✅ Well centered! Great composition"
+                    overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: false))
+                }
             } else {
-                feedbackMessage = "⚠️ Try aligning your shot with symmetrical elements"
-                overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: false))
+                feedbackMessage = "✅ Well centered! Great composition"
             }
         } else {
-            feedbackMessage = "⚠️ Try moving subject toward the center"
+            // Provide directional guidance
+            let horizontalDirection = subjectCenter.x < frameCenter.x ? "right" : "left"
+            let verticalDirection = subjectCenter.y < frameCenter.y ? "up" : "down"
+            
+            if !isCenteredX && !isCenteredY {
+                feedbackMessage = "⚠️ Move subject toward center (\(horizontalDirection) & \(verticalDirection))"
+            } else if !isCenteredX {
+                feedbackMessage = "⚠️ Move subject \(horizontalDirection) toward center"
+            } else if !isCenteredY {
+                feedbackMessage = "⚠️ Move subject \(verticalDirection) toward center"
+            } else {
+                feedbackMessage = "⚠️ Try moving subject toward the center"
+            }
         }
         
         return CompositionResult(
@@ -253,7 +273,7 @@ class CenterFramingService: CompositionService {
 
 class RuleOfThirdsService: CompositionService {
     let name = "Rule of Thirds"
-    private let intersectionTolerance: Double = 0.1
+    private let intersectionTolerance: Double = 0.12 // Increased from 0.1 to 0.12 for easier alignment
     
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> CompositionResult {
         let centerX = observation.boundingBox.midX
@@ -276,7 +296,37 @@ class RuleOfThirdsService: CompositionService {
         // Calculate score based on distance to nearest intersection
         let score = calculateRuleOfThirdsScore(centerX: centerX, centerY: centerY)
         
-        let feedbackMessage = isWellComposed ? "✅ Nice framing!" : "⚠️ Try placing your subject on a third"
+        // Provide more specific feedback
+        var feedbackMessage: String
+        if isWellComposed {
+            if score > 0.8 {
+                feedbackMessage = "✅ Excellent! Perfect rule of thirds alignment"
+            } else {
+                feedbackMessage = "✅ Good composition! Nice rule of thirds framing"
+            }
+        } else {
+            // Provide guidance toward nearest intersection
+            let intersections = [
+                (thirdX1, thirdY1), (thirdX1, thirdY2),
+                (thirdX2, thirdY1), (thirdX2, thirdY2)
+            ]
+            
+            let distances = intersections.map { intersection in
+                let dx = centerX - intersection.0
+                let dy = centerY - intersection.1
+                return sqrt(dx * dx + dy * dy)
+            }
+            
+            if let minIndex = distances.firstIndex(of: distances.min() ?? 1.0) {
+                let nearestIntersection = intersections[minIndex]
+                let horizontalDirection = centerX < nearestIntersection.0 ? "right" : "left"
+                let verticalDirection = centerY < nearestIntersection.1 ? "up" : "down"
+                
+                feedbackMessage = "⚠️ Move subject \(horizontalDirection) & \(verticalDirection) toward intersection"
+            } else {
+                feedbackMessage = "⚠️ Try placing your subject on a grid intersection"
+            }
+        }
         
         // Create grid overlay
         let overlayElements = [createGridOverlay(frameSize: frameSize)]
