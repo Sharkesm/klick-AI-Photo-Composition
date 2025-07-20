@@ -3,7 +3,7 @@ import Vision
 import CoreImage
 import Accelerate
 
-// MARK: - Composition Service Protocol
+// MARK: - Enhanced Composition Service Protocol
 
 /// Protocol for composition detection services
 protocol CompositionService {
@@ -15,26 +15,100 @@ protocol CompositionService {
     ///   - observation: The detected subject (face or human)
     ///   - frameSize: The size of the camera frame
     ///   - pixelBuffer: The current frame's pixel buffer for advanced analysis
-    /// - Returns: Composition result with feedback and overlay data
-    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> CompositionResult
+    /// - Returns: Enhanced composition result with context and suggestions
+    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult
 }
 
-// MARK: - Composition Result Types
+// MARK: - Enhanced Result Types
 
-/// Result of composition evaluation
-struct CompositionResult {
-    let isWellComposed: Bool
-    let feedbackMessage: String
-    let overlayElements: [OverlayElement]
-    let score: Double // 0.0 to 1.0
-    let compositionType: CompositionType
+/// Enhanced result of composition evaluation with context awareness
+struct EnhancedCompositionResult {
+    let composition: String // composition type identifier
+    let score: Double // 0.0 to 1.0 confidence score
+    let status: CompositionStatus // Perfect, Good, Needs Adjustment
+    let suggestion: String // Actionable user guidance
+    let context: CompositionContext // Subject and scene analysis
+    let overlayElements: [OverlayElement] // Visual guidance elements
+    let feedbackIcon: String // SF Symbol for feedback UI
+    
+    // Legacy compatibility
+    var isWellComposed: Bool {
+        status == .perfect || status == .good
+    }
+    
+    var feedbackMessage: String {
+        suggestion
+    }
+    
+    var compositionType: CompositionType {
+        CompositionType(rawValue: composition) ?? .ruleOfThirds
+    }
+}
+
+/// Composition quality status
+enum CompositionStatus: String, CaseIterable {
+    case perfect = "Perfect"
+    case good = "Good" 
+    case needsAdjustment = "Needs Adjustment"
+    
+    var icon: String {
+        switch self {
+        case .perfect: return "checkmark.circle.fill"
+        case .good: return "checkmark.circle"
+        case .needsAdjustment: return "arrow.trianglehead.2.clockwise"
+        }
+    }
+    
+    var iconColor: Color {
+        switch self {
+        case .perfect: return .green
+        case .good: return .blue
+        case .needsAdjustment: return .orange
+        }
+    }
+}
+
+/// Context information about subject and scene
+struct CompositionContext {
+    let subjectSize: SubjectSize // small, medium, large
+    let subjectOffsetX: Double // -1.0 to 1.0 from center
+    let subjectOffsetY: Double // -1.0 to 1.0 from center
+    let multipleSubjects: Bool
+    let edgeProximity: EdgeProximity // safety analysis
+    let headroom: HeadroomAnalysis // portrait-specific analysis
+}
+
+enum SubjectSize: String {
+    case small = "small"     // < 25% of frame
+    case medium = "medium"   // 25-45% of frame  
+    case large = "large"     // > 45% of frame
+}
+
+struct EdgeProximity {
+    let tooCloseToEdge: Bool
+    let dangerousEdges: [String] // ["top", "left", etc.]
+    let safetyMargin: Double // 0.0 to 1.0
+}
+
+struct HeadroomAnalysis {
+    let excessiveHeadroom: Bool
+    let cutoffLimbs: Bool
+    let portraitOptimal: Bool
 }
 
 /// Types of composition techniques
 enum CompositionType: String, CaseIterable {
-    case ruleOfThirds = "Rule of Thirds"
-    case centerFraming = "Center Framing"
-    case symmetry = "Symmetry"
+    case ruleOfThirds = "rule_of_thirds"
+    case centerFraming = "center_framing"
+    case symmetry = "symmetry"
+    
+    var displayName: String {
+        switch self {
+        case .ruleOfThirds: return "Rule of Thirds"
+        case .centerFraming: return "Center Framing"
+        case .symmetry: return "Symmetry"
+        }
+    }
     
     var icon: String {
         switch self {
@@ -59,15 +133,124 @@ enum OverlayType {
     case centerCrosshair
     case symmetryLine
     case guideLine
+    case safetyZone
+}
+
+// MARK: - Context Analysis Helper
+
+class CompositionContextAnalyzer {
+    static func analyzeContext(observation: VNDetectedObjectObservation, frameSize: CGSize) -> CompositionContext {
+        let boundingBox = observation.boundingBox
+        
+        // Calculate subject size
+        let subjectArea = boundingBox.width * boundingBox.height
+        let subjectSize: SubjectSize
+        if subjectArea < 0.25 {
+            subjectSize = .small
+        } else if subjectArea < 0.45 {
+            subjectSize = .medium
+        } else {
+            subjectSize = .large
+        }
+        
+        // Calculate offsets from center (-1.0 to 1.0)
+        let centerX = boundingBox.midX
+        let centerY = boundingBox.midY
+        let offsetX = (centerX - 0.5) * 2.0 // Normalize to -1.0 to 1.0
+        let offsetY = (centerY - 0.5) * 2.0
+        
+        // Edge proximity analysis
+        let edgeMargin = 0.05 // 5% safety margin
+        let tooCloseToEdge = boundingBox.minX < edgeMargin || 
+                            boundingBox.maxX > (1.0 - edgeMargin) ||
+                            boundingBox.minY < edgeMargin || 
+                            boundingBox.maxY > (1.0 - edgeMargin)
+        
+        var dangerousEdges: [String] = []
+        if boundingBox.minX < edgeMargin { dangerousEdges.append("left") }
+        if boundingBox.maxX > (1.0 - edgeMargin) { dangerousEdges.append("right") }
+        if boundingBox.minY < edgeMargin { dangerousEdges.append("bottom") }
+        if boundingBox.maxY > (1.0 - edgeMargin) { dangerousEdges.append("top") }
+        
+        let safetyMargin = min(
+            min(boundingBox.minX, 1.0 - boundingBox.maxX),
+            min(boundingBox.minY, 1.0 - boundingBox.maxY)
+        )
+        
+        let edgeProximity = EdgeProximity(
+            tooCloseToEdge: tooCloseToEdge,
+            dangerousEdges: dangerousEdges,
+            safetyMargin: safetyMargin
+        )
+        
+        // Headroom analysis (portrait-specific)
+        let headroomRatio = 1.0 - boundingBox.maxY // Space above subject
+        let excessiveHeadroom = headroomRatio > 0.3 // More than 30% headroom
+        let cutoffLimbs = boundingBox.minY < 0.02 // Very close to bottom edge
+        let portraitOptimal = headroomRatio > 0.1 && headroomRatio < 0.25 && !cutoffLimbs
+        
+        let headroom = HeadroomAnalysis(
+            excessiveHeadroom: excessiveHeadroom,
+            cutoffLimbs: cutoffLimbs,
+            portraitOptimal: portraitOptimal
+        )
+        
+        return CompositionContext(
+            subjectSize: subjectSize,
+            subjectOffsetX: offsetX,
+            subjectOffsetY: offsetY,
+            multipleSubjects: false, // TODO: Implement multi-subject detection
+            edgeProximity: edgeProximity,
+            headroom: headroom
+        )
+    }
+}
+
+// MARK: - Background State Monitor
+
+class BackgroundStateMonitor {
+    static let shared = BackgroundStateMonitor()
+    
+    @Published var isInBackground = false
+    
+    private init() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func appDidEnterBackground() {
+        isInBackground = true
+    }
+    
+    @objc private func appWillEnterForeground() {
+        isInBackground = false
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 }
 
 // MARK: - Center Framing Service
 
 class CenterFramingService: CompositionService {
     let name = "Center Framing"
-    private let centerTolerance: Double = 0.15 // Increased from 0.1 to 0.15 (±15% of frame size)
+    private let baseCenterTolerance: Double = 0.10 // 10% as per requirements
     
-    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> CompositionResult {
+    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
+        let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
+        
         let subjectCenter = CGPoint(
             x: observation.boundingBox.midX,
             y: observation.boundingBox.midY
@@ -75,66 +258,172 @@ class CenterFramingService: CompositionService {
         
         let frameCenter = CGPoint(x: 0.5, y: 0.5)
         
+        // Adaptive tolerance based on subject size and framing
+        let adaptiveTolerance = calculateAdaptiveTolerance(context: context)
+        
         // Calculate distance from center (normalized coordinates)
         let distanceFromCenterX = abs(subjectCenter.x - frameCenter.x)
         let distanceFromCenterY = abs(subjectCenter.y - frameCenter.y)
         
         // Check if subject is centered within tolerance
-        let isCenteredX = distanceFromCenterX < centerTolerance
-        let isCenteredY = distanceFromCenterY < centerTolerance
+        let isCenteredX = distanceFromCenterX < adaptiveTolerance
+        let isCenteredY = distanceFromCenterY < adaptiveTolerance
         let isCentered = isCenteredX && isCenteredY
         
         // Calculate score based on distance from center
-        let maxDistance = sqrt(0.5 * 0.5 + 0.5 * 0.5) // Max distance from center
+        let maxDistance = sqrt(0.5 * 0.5 + 0.5 * 0.5)
         let currentDistance = sqrt(distanceFromCenterX * distanceFromCenterX + distanceFromCenterY * distanceFromCenterY)
-        let score = max(0, 1 - (currentDistance / maxDistance))
+        let baseScore = max(0, 1 - (currentDistance / maxDistance))
         
-        var feedbackMessage: String
-        var overlayElements: [OverlayElement] = []
+        // Enhanced scoring with symmetry analysis
+        var finalScore = baseScore
+        var symmetryScore: Double = 0.0
         
-        // Create center crosshair overlay
-        overlayElements.append(createCenterCrosshair(frameSize: frameSize))
-        
-        // Provide more granular feedback
-        if isCentered {
-            // Check for symmetry if centered
-            if let pixelBuffer = pixelBuffer {
-                let symmetryScore = calculateSymmetryScore(pixelBuffer: pixelBuffer)
-                if symmetryScore > 0.8 {
-                    feedbackMessage = "✅ Perfect symmetry!"
-                    overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: true))
-                } else if symmetryScore > 0.6 {
-                    feedbackMessage = "✅ Well centered"
-                    overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: false))
-                } else {
-                    feedbackMessage = "✅ Well centered"
-                    overlayElements.append(createSymmetryIndicator(frameSize: frameSize, isSymmetrical: false))
-                }
-            } else {
-                feedbackMessage = "✅ Well centered"
-            }
-        } else {
-            // Provide directional guidance
-            let horizontalDirection = subjectCenter.x < frameCenter.x ? "right" : "left"
-            let verticalDirection = subjectCenter.y < frameCenter.y ? "up" : "down"
-            
-            if !isCenteredX && !isCenteredY {
-                feedbackMessage = "⚠️ Move \(horizontalDirection) & \(verticalDirection)"
-            } else if !isCenteredX {
-                feedbackMessage = "⚠️ Move \(horizontalDirection)"
-            } else if !isCenteredY {
-                feedbackMessage = "⚠️ Move \(verticalDirection)"
-            } else {
-                feedbackMessage = "⚠️ Move to center"
-            }
+        if let pixelBuffer = pixelBuffer, isCentered {
+            symmetryScore = calculateSymmetryScore(pixelBuffer: pixelBuffer)
+            finalScore = (baseScore * 0.7) + (symmetryScore * 0.3) // Weighted combination
         }
         
-        return CompositionResult(
-            isWellComposed: isCentered,
-            feedbackMessage: feedbackMessage,
+        // Generate status and suggestion
+        let (status, suggestion) = generateCenterFramingFeedback(
+            isCentered: isCentered,
+            symmetryScore: symmetryScore,
+            distanceFromCenterX: distanceFromCenterX,
+            distanceFromCenterY: distanceFromCenterY,
+            context: context
+        )
+        
+        // Create overlays
+        var overlayElements: [OverlayElement] = []
+        overlayElements.append(createCenterCrosshair(frameSize: frameSize))
+        
+        // Add symmetry indicator if centered
+        if isCentered {
+            overlayElements.append(createSymmetryIndicator(
+                frameSize: frameSize, 
+                isSymmetrical: symmetryScore > 0.8
+            ))
+        }
+        
+        // Add safety zone if needed
+        if context.edgeProximity.tooCloseToEdge {
+            overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
+        }
+        
+        return EnhancedCompositionResult(
+            composition: CompositionType.centerFraming.rawValue,
+            score: finalScore,
+            status: status,
+            suggestion: suggestion,
+            context: context,
             overlayElements: overlayElements,
-            score: score,
-            compositionType: .centerFraming
+            feedbackIcon: status.icon
+        )
+    }
+    
+    private func calculateAdaptiveTolerance(context: CompositionContext) -> Double {
+        var tolerance = baseCenterTolerance
+        
+        // Adjust for subject size - larger subjects get more tolerance
+        switch context.subjectSize {
+        case .large:
+            tolerance *= 1.3 // 13% tolerance for large subjects
+        case .medium:
+            tolerance *= 1.1 // 11% tolerance for medium subjects  
+        case .small:
+            tolerance *= 0.9 // 9% tolerance for small subjects (tighter framing)
+        }
+        
+        // Adjust for vertical framing (portrait mode)
+        // If subject is tall relative to frame, be more lenient on vertical centering
+        if context.headroom.portraitOptimal {
+            tolerance *= 1.1
+        }
+        
+        return tolerance
+    }
+    
+    private func generateCenterFramingFeedback(
+        isCentered: Bool,
+        symmetryScore: Double,
+        distanceFromCenterX: Double,
+        distanceFromCenterY: Double,
+        context: CompositionContext
+    ) -> (CompositionStatus, String) {
+        
+        // Handle edge proximity first
+        if context.edgeProximity.tooCloseToEdge {
+            return (.needsAdjustment, "Too close to edge")
+        }
+        
+        // Handle headroom issues
+        if context.headroom.excessiveHeadroom {
+            return (.needsAdjustment, "Too much headroom")
+        }
+        
+        if context.headroom.cutoffLimbs {
+            return (.needsAdjustment, "Subject cut off")
+        }
+        
+        // Centering-based feedback
+        if isCentered {
+            if symmetryScore > 0.8 {
+                return (.perfect, "Perfect center!")
+            } else if symmetryScore > 0.6 {
+                return (.good, "Well centered")
+            } else {
+                return (.good, "Good center")
+            }
+        } else {
+            // Provide precise directional guidance
+            let suggestion = generateCenteringGuidance(
+                distanceFromCenterX: distanceFromCenterX,
+                distanceFromCenterY: distanceFromCenterY
+            )
+            return (.needsAdjustment, suggestion)
+        }
+    }
+    
+    private func generateCenteringGuidance(
+        distanceFromCenterX: Double,
+        distanceFromCenterY: Double
+    ) -> String {
+        let horizontalDirection = distanceFromCenterX > 0 ? "left" : "right"
+        let verticalDirection = distanceFromCenterY > 0 ? "down" : "up"
+        
+        let horizontalMagnitude = abs(distanceFromCenterX)
+        let verticalMagnitude = abs(distanceFromCenterY)
+        
+        if horizontalMagnitude > baseCenterTolerance && verticalMagnitude > baseCenterTolerance {
+            return "Move \(horizontalDirection) and \(verticalDirection)"
+        } else if horizontalMagnitude > baseCenterTolerance {
+            return "Move \(horizontalDirection)"
+        } else if verticalMagnitude > baseCenterTolerance {
+            return "Move \(verticalDirection)"
+        } else {
+            return "Almost centered"
+        }
+    }
+    
+    private func createSafetyZoneOverlay(frameSize: CGSize) -> OverlayElement {
+        var path = Path()
+        let margin: CGFloat = frameSize.width * 0.05
+        
+        let safeRect = CGRect(
+            x: margin,
+            y: margin,
+            width: frameSize.width - (margin * 2),
+            height: frameSize.height - (margin * 2)
+        )
+        
+        path.addRect(safeRect)
+        
+        return OverlayElement(
+            type: .safetyZone,
+            path: path,
+            color: .orange,
+            opacity: 0.25,
+            lineWidth: 2
         )
     }
     
@@ -179,9 +468,10 @@ class CenterFramingService: CompositionService {
         )
     }
     
+    // Optimized symmetry calculation for real-time performance
     private func calculateSymmetryScore(pixelBuffer: CVPixelBuffer) -> Double {
-        // Downscale for performance as specified
-        guard let downsampledImage = downsamplePixelBuffer(pixelBuffer, targetSize: CGSize(width: 128, height: 128)) else {
+        // Ultra-fast symmetry using 64x64 downsampling for <50ms performance
+        guard let downsampledImage = downsamplePixelBuffer(pixelBuffer, targetSize: CGSize(width: 64, height: 64)) else {
             return 0.0
         }
         
@@ -190,7 +480,10 @@ class CenterFramingService: CompositionService {
     
     private func downsamplePixelBuffer(_ pixelBuffer: CVPixelBuffer, targetSize: CGSize) -> CVPixelBuffer? {
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        let context = CIContext()
+        
+        // Use software renderer when app is in background to avoid GPU permission errors
+        let useSoftwareRenderer = BackgroundStateMonitor.shared.isInBackground
+        let context = CIContext(options: [.useSoftwareRenderer: useSoftwareRenderer])
         
         // Calculate scale to fit target size
         let originalSize = ciImage.extent.size
@@ -239,22 +532,21 @@ class CenterFramingService: CompositionService {
         var totalPixels = 0
         
         let midWidth = width / 2
+        let sampleStep = max(1, height / 32) // Sample every nth row for performance
         
-        for y in 0..<height {
+        for y in stride(from: 0, to: height, by: sampleStep) {
             let rowStart = y * bytesPerRow
             
-            for x in 0..<midWidth {
+            for x in stride(from: 0, to: midWidth, by: 2) { // Sample every 2nd pixel
                 let leftPixelIndex = rowStart + x * 4
                 let rightPixelIndex = rowStart + (width - 1 - x) * 4
                 
-                // Compare RGB values (skip alpha)
-                for channel in 0..<3 {
-                    let leftValue = Double(data[leftPixelIndex + channel])
-                    let rightValue = Double(data[rightPixelIndex + channel])
-                    totalDifference += abs(leftValue - rightValue)
-                }
+                // Compare only luminance for speed (approximate RGB average)
+                let leftLuma = (Double(data[leftPixelIndex]) + Double(data[leftPixelIndex + 1]) + Double(data[leftPixelIndex + 2])) / 3.0
+                let rightLuma = (Double(data[rightPixelIndex]) + Double(data[rightPixelIndex + 1]) + Double(data[rightPixelIndex + 2])) / 3.0
                 
-                totalPixels += 3 // RGB channels
+                totalDifference += abs(leftLuma - rightLuma)
+                totalPixels += 1
             }
         }
         
@@ -269,74 +561,461 @@ class CenterFramingService: CompositionService {
     }
 }
 
-// MARK: - Rule of Thirds Service (Refactored)
+// MARK: - Dedicated Symmetry Service
 
-class RuleOfThirdsService: CompositionService {
-    let name = "Rule of Thirds"
-    private let intersectionTolerance: Double = 0.12 // Increased from 0.1 to 0.12 for easier alignment
+class SymmetryService: CompositionService {
+    let name = "Symmetry"
     
-    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> CompositionResult {
-        let centerX = observation.boundingBox.midX
-        let centerY = observation.boundingBox.midY
+    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
+        let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
         
-        // Calculate Rule of Thirds intersection points
-        let thirdX1 = 0.33
-        let thirdX2 = 0.67
-        let thirdY1 = 0.33
-        let thirdY2 = 0.67
+        // For symmetry, we need the subject to be reasonably centered first
+        let subjectCenter = CGPoint(
+            x: observation.boundingBox.midX,
+            y: observation.boundingBox.midY
+        )
         
-        // Check if subject is near any intersection point
-        let isNearThirdX1 = abs(centerX - thirdX1) < intersectionTolerance
-        let isNearThirdX2 = abs(centerX - thirdX2) < intersectionTolerance
-        let isNearThirdY1 = abs(centerY - thirdY1) < intersectionTolerance
-        let isNearThirdY2 = abs(centerY - thirdY2) < intersectionTolerance
+        let frameCenter = CGPoint(x: 0.5, y: 0.5)
+        let distanceFromCenter = sqrt(
+            pow(subjectCenter.x - frameCenter.x, 2) + 
+            pow(subjectCenter.y - frameCenter.y, 2)
+        )
         
-        let isWellComposed = (isNearThirdX1 || isNearThirdX2) && (isNearThirdY1 || isNearThirdY2)
+        var symmetryScore: Double = 0.0
+        var balanceAnalysis = "balanced"
         
-        // Calculate score based on distance to nearest intersection
-        let score = calculateRuleOfThirdsScore(centerX: centerX, centerY: centerY)
+        if let pixelBuffer = pixelBuffer {
+            symmetryScore = calculateAdvancedSymmetry(pixelBuffer: pixelBuffer, observation: observation)
+            balanceAnalysis = analyzeBalance(observation: observation)
+        }
         
-        // Provide more specific feedback
-        var feedbackMessage: String
-        if isWellComposed {
-            if score > 0.8 {
-                feedbackMessage = "✅ Perfect thirds!"
-            } else {
-                feedbackMessage = "✅ Good composition"
-            }
-        } else {
-            // Provide guidance toward nearest intersection
-            let intersections = [
-                (thirdX1, thirdY1), (thirdX1, thirdY2),
-                (thirdX2, thirdY1), (thirdX2, thirdY2)
-            ]
+        // Combine centering and symmetry for final score
+        let centeringScore = max(0, 1 - (distanceFromCenter * 4)) // Penalty for off-center
+        let finalScore = (symmetryScore * 0.8) + (centeringScore * 0.2)
+        
+        let (status, suggestion) = generateSymmetryFeedback(
+            symmetryScore: symmetryScore,
+            centeringScore: centeringScore,
+            balanceAnalysis: balanceAnalysis,
+            context: context
+        )
+        
+        // Create overlays
+        var overlayElements: [OverlayElement] = []
+        overlayElements.append(createSymmetryLine(frameSize: frameSize))
+        
+        if context.edgeProximity.tooCloseToEdge {
+            overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
+        }
+        
+        return EnhancedCompositionResult(
+            composition: CompositionType.symmetry.rawValue,
+            score: finalScore,
+            status: status,
+            suggestion: suggestion,
+            context: context,
+            overlayElements: overlayElements,
+            feedbackIcon: status.icon
+        )
+    }
+    
+    private func calculateAdvancedSymmetry(pixelBuffer: CVPixelBuffer, observation: VNDetectedObjectObservation) -> Double {
+        // Ultra-fast symmetry using 64x64 downsampling for <50ms performance
+        guard let downsampledImage = downsamplePixelBuffer(pixelBuffer, targetSize: CGSize(width: 64, height: 64)) else {
+            return 0.0
+        }
+        
+        return calculateVerticalSymmetry(pixelBuffer: downsampledImage)
+    }
+    
+    private func downsamplePixelBuffer(_ pixelBuffer: CVPixelBuffer, targetSize: CGSize) -> CVPixelBuffer? {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        
+        // Use software renderer when app is in background to avoid GPU permission errors
+        let useSoftwareRenderer = BackgroundStateMonitor.shared.isInBackground
+        let context = CIContext(options: [.useSoftwareRenderer: useSoftwareRenderer])
+        
+        // Calculate scale to fit target size
+        let originalSize = ciImage.extent.size
+        let scaleX = targetSize.width / originalSize.width
+        let scaleY = targetSize.height / originalSize.height
+        let scale = min(scaleX, scaleY)
+        
+        // Apply transform
+        let transform = CGAffineTransform(scaleX: scale, y: scale)
+        let scaledImage = ciImage.transformed(by: transform)
+        
+        // Create pixel buffer for result
+        var outputBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(targetSize.width),
+            Int(targetSize.height),
+            kCVPixelFormatType_32BGRA,
+            nil,
+            &outputBuffer
+        )
+        
+        guard status == kCVReturnSuccess, let buffer = outputBuffer else {
+            return nil
+        }
+        
+        context.render(scaledImage, to: buffer)
+        return buffer
+    }
+    
+    private func calculateVerticalSymmetry(pixelBuffer: CVPixelBuffer) -> Double {
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            return 0.0
+        }
+        
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        
+        let data = baseAddress.assumingMemoryBound(to: UInt8.self)
+        
+        var totalDifference: Double = 0
+        var totalPixels = 0
+        
+        let midWidth = width / 2
+        let sampleStep = max(1, height / 32) // Sample every nth row for performance
+        
+        for y in stride(from: 0, to: height, by: sampleStep) {
+            let rowStart = y * bytesPerRow
             
-            let distances = intersections.map { intersection in
-                let dx = centerX - intersection.0
-                let dy = centerY - intersection.1
-                return sqrt(dx * dx + dy * dy)
-            }
-            
-            if let minIndex = distances.firstIndex(of: distances.min() ?? 1.0) {
-                let nearestIntersection = intersections[minIndex]
-                let horizontalDirection = centerX < nearestIntersection.0 ? "right" : "left"
-                let verticalDirection = centerY < nearestIntersection.1 ? "up" : "down"
+            for x in stride(from: 0, to: midWidth, by: 2) { // Sample every 2nd pixel
+                let leftPixelIndex = rowStart + x * 4
+                let rightPixelIndex = rowStart + (width - 1 - x) * 4
                 
-                feedbackMessage = "⚠️ Move \(horizontalDirection) & \(verticalDirection)"
-            } else {
-                feedbackMessage = "⚠️ Move to intersection"
+                // Compare only luminance for speed (approximate RGB average)
+                let leftLuma = (Double(data[leftPixelIndex]) + Double(data[leftPixelIndex + 1]) + Double(data[leftPixelIndex + 2])) / 3.0
+                let rightLuma = (Double(data[rightPixelIndex]) + Double(data[rightPixelIndex + 1]) + Double(data[rightPixelIndex + 2])) / 3.0
+                
+                totalDifference += abs(leftLuma - rightLuma)
+                totalPixels += 1
             }
         }
         
-        // Create grid overlay
-        let overlayElements = [createGridOverlay(frameSize: frameSize)]
+        if totalPixels == 0 { return 0.0 }
         
-        return CompositionResult(
-            isWellComposed: isWellComposed,
-            feedbackMessage: feedbackMessage,
+        // Calculate similarity score (0.0 to 1.0)
+        let avgDifference = totalDifference / Double(totalPixels)
+        let maxDifference = 255.0 // Max possible difference for 8-bit values
+        let similarity = 1.0 - (avgDifference / maxDifference)
+        
+        return max(0.0, min(1.0, similarity))
+    }
+    
+    private func analyzeBalance(observation: VNDetectedObjectObservation) -> String {
+        let centerX = observation.boundingBox.midX
+        
+        if centerX < 0.45 {
+            return "left-weighted"
+        } else if centerX > 0.55 {
+            return "right-weighted"
+        } else {
+            return "balanced"
+        }
+    }
+    
+    private func generateSymmetryFeedback(
+        symmetryScore: Double,
+        centeringScore: Double,
+        balanceAnalysis: String,
+        context: CompositionContext
+    ) -> (CompositionStatus, String) {
+        
+        // Handle edge proximity first
+        if context.edgeProximity.tooCloseToEdge {
+            return (.needsAdjustment, "Too close to edge")
+        }
+        
+        // Symmetry-specific feedback
+        if symmetryScore > 0.8 && centeringScore > 0.7 {
+            return (.perfect, "Perfect symmetry!")
+        } else if symmetryScore > 0.6 {
+            if balanceAnalysis == "balanced" {
+                return (.good, "Good symmetry")
+            } else {
+                return (.good, "Looks \(balanceAnalysis)")
+            }
+        } else {
+            switch balanceAnalysis {
+            case "left-weighted":
+                return (.needsAdjustment, "Move right")
+            case "right-weighted":
+                return (.needsAdjustment, "Move left")
+            default:
+                return (.needsAdjustment, "Center for balance")
+            }
+        }
+    }
+    
+    func createSymmetryLine(frameSize: CGSize) -> OverlayElement {
+        var path = Path()
+        let centerX = frameSize.width / 2
+        
+        // Vertical symmetry line
+        path.move(to: CGPoint(x: centerX, y: 0))
+        path.addLine(to: CGPoint(x: centerX, y: frameSize.height))
+        
+        return OverlayElement(
+            type: .symmetryLine,
+            path: path,
+            color: .cyan,
+            opacity: 0.6,
+            lineWidth: 2
+        )
+    }
+    
+    private func createSafetyZoneOverlay(frameSize: CGSize) -> OverlayElement {
+        var path = Path()
+        let margin: CGFloat = frameSize.width * 0.05
+        
+        let safeRect = CGRect(
+            x: margin,
+            y: margin,
+            width: frameSize.width - (margin * 2),
+            height: frameSize.height - (margin * 2)
+        )
+        
+        path.addRect(safeRect)
+        
+        return OverlayElement(
+            type: .safetyZone,
+            path: path,
+            color: .purple,
+            opacity: 0.2,
+            lineWidth: 2
+        )
+    }
+}
+
+// MARK: - JSON Conversion Extension
+
+extension EnhancedCompositionResult {
+    /// Convert to JSON-compatible dictionary matching the required format
+    func toJSON() -> [String: Any] {
+        return [
+            "composition": composition,
+            "score": Double(round(score * 100) / 100), // Round to 2 decimal places
+            "status": status.rawValue,
+            "suggestion": suggestion,
+            "feedbackIcon": feedbackIcon,
+            "context": [
+                "subjectSize": context.subjectSize.rawValue,
+                "subjectOffsetX": Double(round(context.subjectOffsetX * 100) / 100),
+                "subjectOffsetY": Double(round(context.subjectOffsetY * 100) / 100),
+                "multipleSubjects": context.multipleSubjects
+            ]
+        ]
+    }
+    
+    /// Convert to JSON string
+    func toJSONString() -> String? {
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: toJSON(), options: .prettyPrinted) else {
+            return nil
+        }
+        return String(data: jsonData, encoding: .utf8)
+    }
+}
+
+// MARK: - Enhanced Rule of Thirds Service
+
+class RuleOfThirdsService: CompositionService {
+    let name = "Rule of Thirds"
+    private let baseIntersectionTolerance: Double = 0.12
+    private let baseLineTolerance: Double = 0.08
+    
+    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
+        let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
+        
+        let centerX = observation.boundingBox.midX
+        let centerY = observation.boundingBox.midY
+        
+        // Adaptive tolerance based on subject size
+        let sizeMultiplier: Double = context.subjectSize == .large ? 1.5 : 1.0
+        let intersectionTolerance = baseIntersectionTolerance * sizeMultiplier
+        let lineTolerance = baseLineTolerance * sizeMultiplier
+        
+        // Calculate Rule of Thirds lines and intersections
+        let thirdX1 = 1.0/3.0
+        let thirdX2 = 2.0/3.0
+        let thirdY1 = 1.0/3.0
+        let thirdY2 = 2.0/3.0
+        
+        // Check intersection alignment (highest priority)
+        let intersectionScore = calculateIntersectionScore(
+            centerX: centerX, centerY: centerY,
+            tolerance: intersectionTolerance
+        )
+        
+        // Check line alignment (secondary priority)
+        let lineScore = calculateLineScore(
+            centerX: centerX, centerY: centerY,
+            tolerance: lineTolerance
+        )
+        
+        // Combined score with intersection priority
+        let finalScore = max(intersectionScore * 1.0, lineScore * 0.7)
+        
+        // Determine status and create suggestion
+        let (status, suggestion) = generateStatusAndSuggestion(
+            intersectionScore: intersectionScore,
+            lineScore: lineScore,
+            centerX: centerX,
+            centerY: centerY,
+            context: context
+        )
+        
+        // Create overlays with adaptive elements
+        var overlayElements = [createGridOverlay(frameSize: frameSize)]
+        
+        // Add safety zone overlay if subject is too close to edge
+        if context.edgeProximity.tooCloseToEdge {
+            overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
+        }
+        
+        return EnhancedCompositionResult(
+            composition: CompositionType.ruleOfThirds.rawValue,
+            score: finalScore,
+            status: status,
+            suggestion: suggestion,
+            context: context,
             overlayElements: overlayElements,
-            score: score,
-            compositionType: .ruleOfThirds
+            feedbackIcon: status.icon
+        )
+    }
+    
+    private func calculateIntersectionScore(centerX: Double, centerY: Double, tolerance: Double) -> Double {
+        let intersections = [
+            (1.0/3.0, 1.0/3.0), (1.0/3.0, 2.0/3.0),
+            (2.0/3.0, 1.0/3.0), (2.0/3.0, 2.0/3.0)
+        ]
+        
+        let distances = intersections.map { intersection in
+            let dx = centerX - intersection.0
+            let dy = centerY - intersection.1
+            return sqrt(dx * dx + dy * dy)
+        }
+        
+        guard let minDistance = distances.min() else { return 0.0 }
+        
+        if minDistance <= tolerance {
+            return 1.0 - (minDistance / tolerance)
+        }
+        
+        return 0.0
+    }
+    
+    private func calculateLineScore(centerX: Double, centerY: Double, tolerance: Double) -> Double {
+        let verticalLines = [1.0/3.0, 2.0/3.0]
+        let horizontalLines = [1.0/3.0, 2.0/3.0]
+        
+        // Check vertical line alignment
+        let verticalDistances = verticalLines.map { line in abs(centerX - line) }
+        let minVerticalDistance = verticalDistances.min() ?? 1.0
+        
+        // Check horizontal line alignment  
+        let horizontalDistances = horizontalLines.map { line in abs(centerY - line) }
+        let minHorizontalDistance = horizontalDistances.min() ?? 1.0
+        
+        var score = 0.0
+        
+        // Score for vertical alignment
+        if minVerticalDistance <= tolerance {
+            score += 0.5 * (1.0 - (minVerticalDistance / tolerance))
+        }
+        
+        // Score for horizontal alignment
+        if minHorizontalDistance <= tolerance {
+            score += 0.5 * (1.0 - (minHorizontalDistance / tolerance))
+        }
+        
+        return score
+    }
+    
+    private func generateStatusAndSuggestion(
+        intersectionScore: Double,
+        lineScore: Double,
+        centerX: Double,
+        centerY: Double,
+        context: CompositionContext
+    ) -> (CompositionStatus, String) {
+        
+        // Handle edge proximity first
+        if context.edgeProximity.tooCloseToEdge {
+            return (.needsAdjustment, "Too close to edge")
+        }
+        
+        // Handle headroom issues
+        if context.headroom.excessiveHeadroom {
+            return (.needsAdjustment, "Too much headroom")
+        }
+        
+        if context.headroom.cutoffLimbs {
+            return (.needsAdjustment, "Subject cut off")
+        }
+        
+        // Composition-based feedback
+        if intersectionScore > 0.8 {
+            return (.perfect, "Perfect thirds!")
+        } else if intersectionScore > 0.5 {
+            return (.good, "Good thirds")
+        } else if lineScore > 0.6 {
+            return (.good, "On thirds line")
+        } else {
+            // Provide directional guidance
+            let suggestion = generateDirectionalGuidance(centerX: centerX, centerY: centerY)
+            return (.needsAdjustment, suggestion)
+        }
+    }
+    
+    private func generateDirectionalGuidance(centerX: Double, centerY: Double) -> String {
+        let intersections = [
+            (1.0/3.0, 1.0/3.0, "bottom-left"),
+            (1.0/3.0, 2.0/3.0, "top-left"), 
+            (2.0/3.0, 1.0/3.0, "bottom-right"),
+            (2.0/3.0, 2.0/3.0, "top-right")
+        ]
+        
+        let distances = intersections.map { intersection in
+            let dx = centerX - intersection.0
+            let dy = centerY - intersection.1
+            let distance = sqrt(dx * dx + dy * dy)
+            return (distance, intersection.2)
+        }
+        
+        guard let nearest = distances.min(by: { $0.0 < $1.0 }) else {
+            return "Move subject to align with thirds intersection."
+        }
+        
+        return "Move to \(nearest.1) third"
+    }
+    
+    private func createSafetyZoneOverlay(frameSize: CGSize) -> OverlayElement {
+        var path = Path()
+        let margin: CGFloat = frameSize.width * 0.05 // 5% safety margin
+        
+        let safeRect = CGRect(
+            x: margin,
+            y: margin,
+            width: frameSize.width - (margin * 2),
+            height: frameSize.height - (margin * 2)
+        )
+        
+        path.addRect(safeRect)
+        
+        return OverlayElement(
+            type: .safetyZone,
+            path: path,
+            color: .yellow,
+            opacity: 0.3,
+            lineWidth: 2
         )
     }
     

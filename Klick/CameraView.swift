@@ -4,6 +4,7 @@ import Vision
 
 struct CameraView: UIViewRepresentable {
     @Binding var feedbackMessage: String?
+    @Binding var feedbackIcon: String?
     @Binding var showFeedback: Bool
     @Binding var detectedFaceBoundingBox: CGRect?
     @Binding var isFacialRecognitionEnabled: Bool
@@ -112,6 +113,7 @@ struct CameraView: UIViewRepresentable {
     
     class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         private var frameCount = 0
+        private var isAppInBackground = false
         
         var parent: CameraView
         var session: AVCaptureSession?
@@ -122,9 +124,49 @@ struct CameraView: UIViewRepresentable {
     
         init(_ parent: CameraView) {
             self.parent = parent
+            super.init()
+            
+            // Monitor app lifecycle to prevent background processing
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(appDidEnterBackground),
+                name: UIApplication.didEnterBackgroundNotification,
+                object: nil
+            )
+            
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(appWillEnterForeground),
+                name: UIApplication.willEnterForegroundNotification,
+                object: nil
+            )
+        }
+        
+        @objc private func appDidEnterBackground() {
+            isAppInBackground = true
+            // Stop camera session to prevent background processing
+            DispatchQueue.global(qos: .background).async { [weak self] in
+                self?.session?.stopRunning()
+            }
+        }
+        
+        @objc private func appWillEnterForeground() {
+            isAppInBackground = false
+            // Restart camera session when returning to foreground
+            DispatchQueue.global(qos: .background).async { [weak self] in
+                guard let session = self?.session, !session.isRunning else { return }
+                session.startRunning()
+            }
+        }
+        
+        deinit {
+            NotificationCenter.default.removeObserver(self)
         }
         
         func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+            // Skip processing if app is in background to prevent GPU errors
+            guard !isAppInBackground else { return }
+            
             // Lazy vision processing - only start after camera is stable
             guard cameraReady else { return }
             
@@ -146,6 +188,7 @@ struct CameraView: UIViewRepresentable {
                 DispatchQueue.main.async {
                     self.parent.detectedFaceBoundingBox = nil
                     self.parent.feedbackMessage = nil
+                    self.parent.feedbackIcon = nil
                     self.parent.showFeedback = false
                 }
             }
@@ -204,6 +247,7 @@ struct CameraView: UIViewRepresentable {
                         } else {
                             // No subject detected
                             self.parent.feedbackMessage = nil
+                            self.parent.feedbackIcon = nil
                             self.parent.showFeedback = false
                             self.parent.detectedFaceBoundingBox = nil
                         }
@@ -278,6 +322,7 @@ struct CameraView: UIViewRepresentable {
                 // Clear feedback when analysis is disabled
                 DispatchQueue.main.async {
                     self.parent.feedbackMessage = nil
+                    self.parent.feedbackIcon = nil
                     self.parent.showFeedback = false
                 }
                 return 
@@ -297,6 +342,7 @@ struct CameraView: UIViewRepresentable {
             // Update UI with the composition result
             withAnimation(.bouncy) {
                 parent.feedbackMessage = result.feedbackMessage
+                parent.feedbackIcon = result.feedbackIcon
                 parent.showFeedback = true
             }
         }

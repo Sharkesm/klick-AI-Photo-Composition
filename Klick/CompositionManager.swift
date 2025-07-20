@@ -7,11 +7,12 @@ import Combine
 class CompositionManager: ObservableObject {
     @Published var currentCompositionType: CompositionType = .ruleOfThirds
     @Published var isEnabled = true
-    @Published var lastResult: CompositionResult?
+    @Published var lastResult: EnhancedCompositionResult?
     
     // Available composition services
     private let ruleOfThirdsService = RuleOfThirdsService()
     private let centerFramingService = CenterFramingService()
+    private let symmetryService = SymmetryService()
     
     // Current active service
     private var currentService: CompositionService {
@@ -21,13 +22,13 @@ class CompositionManager: ObservableObject {
         case .centerFraming:
             return centerFramingService
         case .symmetry:
-            return centerFramingService // Symmetry is handled within center framing
+            return symmetryService // Now has dedicated symmetry service
         }
     }
     
     // All available services
     var availableServices: [CompositionService] {
-        [ruleOfThirdsService, centerFramingService]
+        [ruleOfThirdsService, centerFramingService, symmetryService]
     }
     
     // MARK: - Public Methods
@@ -37,15 +38,18 @@ class CompositionManager: ObservableObject {
     ///   - observation: The detected subject (face or human)
     ///   - frameSize: The size of the camera frame
     ///   - pixelBuffer: The current frame's pixel buffer for advanced analysis
-    /// - Returns: Composition result with feedback and overlay data
-    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> CompositionResult {
+    /// - Returns: Enhanced composition result with context and suggestions
+    func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
         guard isEnabled else {
-            return CompositionResult(
-                isWellComposed: false,
-                feedbackMessage: "Composition analysis disabled",
-                overlayElements: [],
+            let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
+            return EnhancedCompositionResult(
+                composition: currentCompositionType.rawValue,
                 score: 0.0,
-                compositionType: currentCompositionType
+                status: .needsAdjustment,
+                suggestion: "Analysis disabled",
+                context: context,
+                overlayElements: [],
+                feedbackIcon: "pause.circle"
             )
         }
         
@@ -66,8 +70,10 @@ class CompositionManager: ObservableObject {
         switch currentCompositionType {
         case .ruleOfThirds:
             return [ruleOfThirdsService.createGridOverlay(frameSize: frameSize)]
-        case .centerFraming, .symmetry:
+        case .centerFraming:
             return [centerFramingService.createCenterCrosshair(frameSize: frameSize)]
+        case .symmetry:
+            return [symmetryService.createSymmetryLine(frameSize: frameSize)]
         }
     }
     
@@ -129,7 +135,7 @@ class CompositionManager: ObservableObject {
             
             if result.score > bestScore {
                 bestScore = result.score
-                bestType = result.compositionType
+                bestType = CompositionType(rawValue: result.composition) ?? .ruleOfThirds
             }
         }
         
@@ -155,9 +161,23 @@ class CompositionManager: ObservableObject {
                 frameSize: frameSize,
                 pixelBuffer: pixelBuffer
             )
-            scores[result.compositionType] = result.score
+            if let compositionType = CompositionType(rawValue: result.composition) {
+                scores[compositionType] = result.score
+            }
         }
         
         return scores
+    }
+    
+    /// Get JSON representation of the last composition result
+    /// - Returns: JSON string matching the required format
+    func getLastResultAsJSON() -> String? {
+        return lastResult?.toJSONString()
+    }
+    
+    /// Get JSON dictionary of the last composition result
+    /// - Returns: JSON-compatible dictionary
+    func getLastResultAsJSONDict() -> [String: Any]? {
+        return lastResult?.toJSON()
     }
 } 

@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Composition Overlay View
 
 struct CompositionOverlayView: View {
-    let compositionResult: CompositionResult?
+    let compositionResult: EnhancedCompositionResult?
     let isVisible: Bool
     
     var body: some View {
@@ -304,20 +304,3 @@ private struct RuleOfThirdsGridView: View {
         .stroke(Color.white.opacity(0.6), lineWidth: 1)
     }
 }
-
-#Preview {
-    ZStack {
-        Color.black
-        
-        CompositionOverlayView(
-            compositionResult: CompositionResult(
-                isWellComposed: true,
-                feedbackMessage: "✅ Balanced symmetry achieved!",
-                overlayElements: [],
-                score: 0.85,
-                compositionType: .centerFraming
-            ),
-            isVisible: true
-        )
-    }
-} 

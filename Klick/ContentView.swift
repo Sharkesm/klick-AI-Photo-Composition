@@ -3,6 +3,7 @@ import AVFoundation
 
 struct ContentView: View {
     @State private var feedbackMessage: String?
+    @State private var feedbackIcon: String?
     @State private var showFeedback = false
     @State private var showEducationalContent = false
     @State private var hasCameraPermission = false
@@ -26,9 +27,10 @@ struct ContentView: View {
             
             // Camera view - show immediately when permissions granted
             if hasCameraPermission {
-                CameraView(
-                    feedbackMessage: $feedbackMessage,
-                    showFeedback: $showFeedback,
+                                        CameraView(
+                            feedbackMessage: $feedbackMessage,
+                            feedbackIcon: $feedbackIcon,
+                            showFeedback: $showFeedback,
                     detectedFaceBoundingBox: $detectedFaceBoundingBox,
                     isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                     compositionManager: compositionManager,
@@ -153,17 +155,28 @@ struct ContentView: View {
                     VStack {
                         Spacer()
                         
-                        Text(message)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(25)
-                            .padding(.bottom, 150) // 20 points above bottom controls
-                            .scaleEffect(showFeedback ? 1.0 : 0.01)
-                            .opacity(showFeedback ? 1.0 : 0.0)
-                            .animation(.spring, value: showFeedback)
+                        HStack(spacing: 0) {
+                            // System image icon with translucent background
+                            Image(systemName: feedbackIcon ?? "questionmark.circle")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .frame(width: 32, height: 32)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Circle())
+                            
+                            // Feedback message
+                            Text(message)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                        }
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(25)
+                        .padding(.bottom, 150) // 20 points above bottom controls
+                        .scaleEffect(showFeedback ? 1.0 : 0.01)
+                        .opacity(showFeedback ? 1.0 : 0.0)
+                        .animation(.spring, value: showFeedback)
                     }
                 }
             }
