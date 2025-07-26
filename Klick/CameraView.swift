@@ -226,7 +226,11 @@ struct CameraView: UIViewRepresentable {
                 // Configure face detection for better accuracy
                 faceRequest.revision = VNDetectFaceRectanglesRequestRevision3
                 
-                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+                // 🔧 MINIMAL CHANGE: Enhanced options for better distant face detection
+                let options: [VNImageOption: Any] = [
+                    .ciContext: CIContext(options: [.useSoftwareRenderer: false])
+                ]
+                let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: options)
                 try? handler.perform([faceRequest])
             }
         }
