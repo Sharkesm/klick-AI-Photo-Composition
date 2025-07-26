@@ -246,7 +246,7 @@ class BackgroundStateMonitor {
 
 class CenterFramingService: CompositionService {
     let name = "Center Framing"
-    private let baseCenterTolerance: Double = 0.10 // 10% as per requirements
+    private let baseCenterTolerance: Double = 0.15 // Increased from 0.10 for more realistic centering
     
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
         let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
@@ -828,47 +828,43 @@ extension EnhancedCompositionResult {
 
 class RuleOfThirdsService: CompositionService {
     let name = "Rule of Thirds"
-    private let baseIntersectionTolerance: Double = 0.12
-    private let baseLineTolerance: Double = 0.08
+    // More realistic tolerances for photography
+    private let baseIntersectionTolerance: Double = 0.18  // Increased from 0.12
+    private let baseLineTolerance: Double = 0.15         // Increased from 0.08
     
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
         let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
         
-        let centerX = observation.boundingBox.midX
-        let centerY = observation.boundingBox.midY
+        // Use smarter subject positioning - prioritize top portion for faces
+        let (subjectX, subjectY) = getOptimalSubjectPosition(observation: observation)
         
-        // Adaptive tolerance based on subject size
-        let sizeMultiplier: Double = context.subjectSize == .large ? 1.5 : 1.0
+        // Adaptive tolerance based on subject size and context
+        let sizeMultiplier: Double = context.subjectSize == .large ? 1.8 : 1.2  // More generous
         let intersectionTolerance = baseIntersectionTolerance * sizeMultiplier
         let lineTolerance = baseLineTolerance * sizeMultiplier
         
-        // Calculate Rule of Thirds lines and intersections
-        let thirdX1 = 1.0/3.0
-        let thirdX2 = 2.0/3.0
-        let thirdY1 = 1.0/3.0
-        let thirdY2 = 2.0/3.0
-        
-        // Check intersection alignment (highest priority)
+      
+        // Check intersection alignment (high priority)
         let intersectionScore = calculateIntersectionScore(
-            centerX: centerX, centerY: centerY,
+            centerX: subjectX, centerY: subjectY,
             tolerance: intersectionTolerance
         )
         
-        // Check line alignment (secondary priority)
+        // Check line alignment (equal priority now)
         let lineScore = calculateLineScore(
-            centerX: centerX, centerY: centerY,
+            centerX: subjectX, centerY: subjectY,
             tolerance: lineTolerance
         )
         
-        // Combined score with intersection priority
-        let finalScore = max(intersectionScore * 1.0, lineScore * 0.7)
+        // Improved scoring - both intersection and line alignment are valuable
+        let finalScore = max(intersectionScore, lineScore * 0.85)  // Less penalty for line alignment
         
         // Determine status and create suggestion
         let (status, suggestion) = generateStatusAndSuggestion(
             intersectionScore: intersectionScore,
             lineScore: lineScore,
-            centerX: centerX,
-            centerY: centerY,
+            centerX: subjectX,
+            centerY: subjectY,
             context: context
         )
         
@@ -891,6 +887,25 @@ class RuleOfThirdsService: CompositionService {
         )
     }
     
+    /// Get optimal subject position for composition analysis
+    /// For faces, prioritize upper portion; for full body, use center
+    private func getOptimalSubjectPosition(observation: VNDetectedObjectObservation) -> (Double, Double) {
+        let boundingBox = observation.boundingBox
+        
+        // If it's likely a face/portrait (small to medium, more vertical than horizontal)
+        let aspectRatio = boundingBox.width / boundingBox.height
+        let subjectArea = boundingBox.width * boundingBox.height
+        
+        if subjectArea < 0.4 && aspectRatio < 1.2 {
+            // Portrait mode - use upper third of bounding box (approximate eye level)
+            let eyeLevelY = boundingBox.maxY - (boundingBox.height * 0.25)  // 25% down from top
+            return (boundingBox.midX, eyeLevelY)
+        } else {
+            // Full body or landscape - use geometric center
+            return (boundingBox.midX, boundingBox.midY)
+        }
+    }
+    
     private func calculateIntersectionScore(centerX: Double, centerY: Double, tolerance: Double) -> Double {
         let intersections = [
             (1.0/3.0, 1.0/3.0), (1.0/3.0, 2.0/3.0),
@@ -906,7 +921,9 @@ class RuleOfThirdsService: CompositionService {
         guard let minDistance = distances.min() else { return 0.0 }
         
         if minDistance <= tolerance {
-            return 1.0 - (minDistance / tolerance)
+            // Smoother scoring curve
+            let score = 1.0 - (minDistance / tolerance)
+            return pow(score, 0.7)  // Less harsh falloff
         }
         
         return 0.0
@@ -926,17 +943,19 @@ class RuleOfThirdsService: CompositionService {
         
         var score = 0.0
         
-        // Score for vertical alignment
+        // Score for vertical alignment (more important for portraits)
         if minVerticalDistance <= tolerance {
-            score += 0.5 * (1.0 - (minVerticalDistance / tolerance))
+            let verticalScore = 1.0 - (minVerticalDistance / tolerance)
+            score += 0.6 * pow(verticalScore, 0.7)  // Smoother curve, higher weight
         }
         
         // Score for horizontal alignment
         if minHorizontalDistance <= tolerance {
-            score += 0.5 * (1.0 - (minHorizontalDistance / tolerance))
+            let horizontalScore = 1.0 - (minHorizontalDistance / tolerance)
+            score += 0.4 * pow(horizontalScore, 0.7)  // Smoother curve
         }
         
-        return score
+        return min(1.0, score)  // Cap at 1.0
     }
     
     private func generateStatusAndSuggestion(
@@ -961,12 +980,12 @@ class RuleOfThirdsService: CompositionService {
             return (.needsAdjustment, "Subject cut off")
         }
         
-        // Composition-based feedback
-        if intersectionScore > 0.8 {
+        // More realistic composition-based feedback
+        if intersectionScore > 0.7 {  // Lowered from 0.8
             return (.perfect, "Perfect thirds!")
-        } else if intersectionScore > 0.5 {
+        } else if intersectionScore > 0.4 || lineScore > 0.7 {  // More achievable thresholds
             return (.good, "Good thirds")
-        } else if lineScore > 0.6 {
+        } else if lineScore > 0.4 {  // Lowered from 0.6
             return (.good, "On thirds line")
         } else {
             // Provide directional guidance

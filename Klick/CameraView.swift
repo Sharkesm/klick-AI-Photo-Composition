@@ -204,17 +204,33 @@ struct CameraView: UIViewRepresentable {
                     
                     DispatchQueue.main.async {
                         if let results = request.results as? [VNFaceObservation], !results.isEmpty {
-                            // Use the first detected face
-                            let face = results[0]
+                            // 🔧 MINIMAL CHANGE: Better face selection for distant faces
+                            // Filter faces with slightly lower confidence threshold for distant detection
+                            let validFaces = results.filter { $0.confidence > 0.3 } // Lowered from implicit ~0.5
+                            
+                            let selectedFace: VNFaceObservation
+                            if !validFaces.isEmpty {
+                                // Use best face by combining confidence and size (helps with distant faces)
+                                selectedFace = validFaces.max { face1, face2 in
+                                    let area1 = face1.boundingBox.width * face1.boundingBox.height
+                                    let area2 = face2.boundingBox.width * face2.boundingBox.height
+                                    let score1 = Double(face1.confidence) * area1
+                                    let score2 = Double(face2.confidence) * area2
+                                    return score1 < score2
+                                } ?? validFaces[0]
+                            } else {
+                                // Fallback to original behavior if no valid faces
+                                selectedFace = results[0]
+                            }
                             
                             // Convert Vision coordinates to screen coordinates with improved conversion
                             let convertedRect = self.convertVisionToScreenCoordinates(
-                                visionRect: face.boundingBox,
+                                visionRect: selectedFace.boundingBox,
                                 pixelBuffer: pixelBuffer
                             )
                             
                             self.parent.detectedFaceBoundingBox = convertedRect
-                            self.evaluateComposition(observation: face, pixelBuffer: pixelBuffer)
+                            self.evaluateComposition(observation: selectedFace, pixelBuffer: pixelBuffer)
                         } else {
                             // Try human detection if no face found
                             self.parent.detectedFaceBoundingBox = nil
