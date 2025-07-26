@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 import Vision
 
-struct CameraView: UIViewRepresentable {
+struct CameraView: View {
     @Binding var feedbackMessage: String?
     @Binding var feedbackIcon: String?
     @Binding var showFeedback: Bool
@@ -11,9 +11,52 @@ struct CameraView: UIViewRepresentable {
     @ObservedObject var compositionManager: CompositionManager
     let onCameraReady: () -> Void
     
+    // Focus-related state
+    @State private var focusPoint: CGPoint = .zero
+    @State private var showFocusIndicator = false
+    
+    var body: some View {
+        ZStack {
+            // Camera view
+            CameraUIViewRepresentable(
+                feedbackMessage: $feedbackMessage,
+                feedbackIcon: $feedbackIcon,
+                showFeedback: $showFeedback,
+                detectedFaceBoundingBox: $detectedFaceBoundingBox,
+                isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
+                compositionManager: compositionManager,
+                onCameraReady: onCameraReady,
+                focusPoint: $focusPoint,
+                showFocusIndicator: $showFocusIndicator
+            )
+            
+            // Focus indicator overlay
+            if showFocusIndicator {
+                FocusIndicatorView(point: focusPoint)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+    }
+}
+
+struct CameraUIViewRepresentable: UIViewRepresentable {
+    @Binding var feedbackMessage: String?
+    @Binding var feedbackIcon: String?
+    @Binding var showFeedback: Bool
+    @Binding var detectedFaceBoundingBox: CGRect?
+    @Binding var isFacialRecognitionEnabled: Bool
+    @ObservedObject var compositionManager: CompositionManager
+    let onCameraReady: () -> Void
+    @Binding var focusPoint: CGPoint
+    @Binding var showFocusIndicator: Bool
+    
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
         view.backgroundColor = .black
+        
+        // Add tap gesture recognizer for focus
+        let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(context.coordinator.handleTap(_:)))
+        view.addGestureRecognizer(tapGesture)
         
         // Set up camera session asynchronously to avoid blocking UI
         DispatchQueue.global(qos: .userInitiated).async {
@@ -41,6 +84,9 @@ struct CameraView: UIViewRepresentable {
         
         print("✅ Camera input configured")
         session.addInput(input)
+        
+        // Store camera device reference for focus control
+        context.coordinator.cameraDevice = camera
         
         // Add video output for processing
         let videoOutput = AVCaptureVideoDataOutput()
@@ -115,14 +161,15 @@ struct CameraView: UIViewRepresentable {
         private var frameCount = 0
         private var isAppInBackground = false
         
-        var parent: CameraView
+        var parent: CameraUIViewRepresentable
         var session: AVCaptureSession?
         var previewLayer: AVCaptureVideoPreviewLayer?
         var viewFrame: CGRect = .zero
         var cameraStartTime = CACurrentMediaTime()
         var cameraReady = false
+        var cameraDevice: AVCaptureDevice?
     
-        init(_ parent: CameraView) {
+        init(_ parent: CameraUIViewRepresentable) {
             self.parent = parent
             super.init()
             
@@ -161,6 +208,53 @@ struct CameraView: UIViewRepresentable {
         
         deinit {
             NotificationCenter.default.removeObserver(self)
+        }
+        
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let cameraDevice = cameraDevice,
+                  let previewLayer = previewLayer,
+                  cameraDevice.isFocusPointOfInterestSupported else {
+                return
+            }
+            
+            // Get tap location in view coordinates
+            let tapPoint = gesture.location(in: gesture.view)
+            
+            // Convert to camera coordinates (0,0 to 1,1)
+            let focusPoint = previewLayer.captureDevicePointConverted(fromLayerPoint: tapPoint)
+            
+            // Update focus point for visual feedback
+            DispatchQueue.main.async {
+                self.parent.focusPoint = tapPoint
+                self.parent.showFocusIndicator = true
+                
+                // Hide focus indicator after animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        self.parent.showFocusIndicator = false
+                    }
+                }
+            }
+            
+            // Set focus point on camera device
+            do {
+                try cameraDevice.lockForConfiguration()
+                
+                if cameraDevice.isFocusPointOfInterestSupported {
+                    cameraDevice.focusPointOfInterest = focusPoint
+                    cameraDevice.focusMode = .autoFocus
+                }
+                
+                if cameraDevice.isExposurePointOfInterestSupported {
+                    cameraDevice.exposurePointOfInterest = focusPoint
+                    cameraDevice.exposureMode = .autoExpose
+                }
+                
+                cameraDevice.unlockForConfiguration()
+                print("🎯 Focus set to point: \(focusPoint)")
+            } catch {
+                print("❌ Failed to set focus: \(error)")
+            }
         }
         
         func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
@@ -367,4 +461,38 @@ struct CameraView: UIViewRepresentable {
             }
         }
     }
-} 
+}
+
+struct FocusIndicatorView: View {
+    let point: CGPoint
+    @State private var scale: CGFloat = 1.0
+    @State private var opacity: Double = 1.0
+    
+    var body: some View {
+        Circle()
+            .fill(.ultraThinMaterial)
+            .frame(width: 50, height: 50)
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .position(point)
+            .onAppear {
+                // Initial scale animation
+                withAnimation(.easeOut(duration: 0.2)) {
+                    scale = 0.8
+                }
+                
+                // Pulse animation
+                withAnimation(.easeInOut(duration: 0.6).repeatCount(3, autoreverses: true)) {
+                    opacity = 0.6
+                }
+                
+                // Final fade out
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        opacity = 0.0
+                        scale = 0.6
+                    }
+                }
+            }
+    }
+}

@@ -326,7 +326,7 @@ class CenterFramingService: CompositionService {
     ) -> (CompositionStatus, String) {
         
         // Handle edge proximity first (only if truly dangerous)
-        if context.edgeProximity.safetyMargin < 0.03 { // Only if < 3% margin
+        if context.edgeProximity.safetyMargin < 0.03 {
             return (.needsAdjustment, "Too close to edge")
         }
         
@@ -361,9 +361,6 @@ class CenterFramingService: CompositionService {
         let horizontalMagnitude = abs(distanceFromCenterX)
         let verticalMagnitude = abs(distanceFromCenterY)
         
-        // CORRECTED: User perspective directions - move in SAME direction as subject offset
-        // If subject is to the RIGHT of center (distanceFromCenterX > 0), user moves RIGHT to follow
-        // If subject is BELOW center (distanceFromCenterY > 0), user moves DOWN to follow
         let horizontalDirection = distanceFromCenterX > 0 ? "left" : "right"
         let verticalDirection = distanceFromCenterY > 0 ? "up" : "down"
         
@@ -387,7 +384,7 @@ class CenterFramingService: CompositionService {
         var path = Path()
         let centerX = frameSize.width / 2
         let centerY = frameSize.height / 2
-        let crosshairSize: CGFloat = 30
+        let crosshairSize: CGFloat = 24
         
         // Horizontal line
         path.move(to: CGPoint(x: centerX - crosshairSize, y: centerY))
@@ -402,7 +399,7 @@ class CenterFramingService: CompositionService {
             path: path,
             color: .white,
             opacity: 0.8,
-            lineWidth: 2
+            lineWidth: 1.5
         )
     }
     
@@ -745,8 +742,8 @@ class SymmetryService: CompositionService {
             type: .symmetryLine,
             path: path,
             color: .cyan,
-            opacity: 0.6,
-            lineWidth: 2
+            opacity: 0.4,
+            lineWidth: 1
         )
     }
     
@@ -768,7 +765,7 @@ class SymmetryService: CompositionService {
             path: path,
             color: .purple,
             opacity: 0.2,
-            lineWidth: 2
+            lineWidth: 1
         )
     }
 }
