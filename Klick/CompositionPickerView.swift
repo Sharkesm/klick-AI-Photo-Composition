@@ -75,7 +75,7 @@ struct CompositionOptionRow: View {
                 VStack(alignment: .leading, spacing: 8) {
                     // Title row with checkmark
                     HStack(alignment: .center, spacing: 12) {
-                        Text(type.rawValue)
+                        Text(type.displayName)
                             .font(.headline)
                             .foregroundColor(.primary)
                             .lineLimit(nil)

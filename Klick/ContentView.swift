@@ -27,10 +27,10 @@ struct ContentView: View {
             
             // Camera view - show immediately when permissions granted
             if hasCameraPermission {
-                                        CameraView(
-                            feedbackMessage: $feedbackMessage,
-                            feedbackIcon: $feedbackIcon,
-                            showFeedback: $showFeedback,
+                CameraView(
+                    feedbackMessage: $feedbackMessage,
+                    feedbackIcon: $feedbackIcon,
+                    showFeedback: $showFeedback,
                     detectedFaceBoundingBox: $detectedFaceBoundingBox,
                     isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                     compositionManager: compositionManager,
@@ -79,7 +79,7 @@ struct ContentView: View {
                     HStack(alignment: .center) {
                         Spacer()
                         // Composition indicator
-                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.rawValue)
+                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.displayName)
                         Spacer()
                         
                     }
