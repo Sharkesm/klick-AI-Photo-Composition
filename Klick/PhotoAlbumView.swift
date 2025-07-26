@@ -24,7 +24,7 @@ struct AnimatedIntroView: View {
             // Stacked images with animations
             ZStack {
                 // Left image (Rectangle_8) - behind and to the left
-                Image("Rectangle_11")
+                Image("Rectangle_13")
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 140, height: 180)
@@ -52,7 +52,7 @@ struct AnimatedIntroView: View {
                     .animation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0.2).delay(0.5), value: showRightImage)
                 
                 // Center image (Rectangle_7) - front and center
-                Image("Rectangle_13")
+                Image("Rectangle_11")
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 140, height: 180)

@@ -50,7 +50,7 @@ struct CameraQualitySelector: View {
         }) {
             VStack(spacing: 4) {
                 Text(selectedQuality.displayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
                     .padding(10)
             }

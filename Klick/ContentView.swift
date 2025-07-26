@@ -2,6 +2,88 @@ import SwiftUI
 import AVFoundation
 import Photos
 
+// MARK: - Flash Mode Enum
+enum FlashMode: String, CaseIterable {
+    case off = "off"
+    case auto = "auto"
+    case on = "on"
+    
+    var displayName: String {
+        switch self {
+        case .off:
+            return "OFF"
+        case .auto:
+            return "AUTO"
+        case .on:
+            return "ON"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .off:
+            return "bolt.slash"
+        case .auto:
+            return "bolt.badge.a"
+        case .on:
+            return "bolt"
+        }
+    }
+    
+    var captureFlashMode: AVCaptureDevice.FlashMode {
+        switch self {
+        case .off:
+            return .off
+        case .auto:
+            return .auto
+        case .on:
+            return .on
+        }
+    }
+}
+
+// MARK: - Flash Control View
+struct FlashControl: View {
+    @Binding var selectedFlashMode: FlashMode
+    @State private var showFlashChange = false
+    
+    var body: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showFlashChange = true
+                
+                // Cycle through flash modes
+                let allCases = FlashMode.allCases
+                if let currentIndex = allCases.firstIndex(of: selectedFlashMode) {
+                    let nextIndex = (currentIndex + 1) % allCases.count
+                    selectedFlashMode = allCases[nextIndex]
+                }
+            }
+        }) {
+            VStack(spacing: 4) {
+                Image(systemName: selectedFlashMode.iconName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.black.opacity(0.5))
+            .clipShape(Capsule())
+            .scaleEffect(showFlashChange ? 1.1 : 1.0)
+        }
+        .onChange(of: showFlashChange) { newValue in
+            if newValue {
+                // Reset scale after animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        showFlashChange = false
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct ContentView: View {
     @AppStorage("photoAlbumSnapshot") private var photoAlbumSnapshot: Bool = false
     
@@ -24,6 +106,9 @@ struct ContentView: View {
     
     // Camera quality state
     @State private var selectedCameraQuality: CameraQuality = .hd720p
+    
+    // Flash state
+    @State private var selectedFlashMode: FlashMode = .auto
     
     // Photo album state
     @State private var photoAlbumOffset: CGFloat = 0
@@ -51,6 +136,7 @@ struct ContentView: View {
                     isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                     compositionManager: compositionManager,
                     cameraQuality: $selectedCameraQuality,
+                    flashMode: $selectedFlashMode,
                     isSessionActive: $isCameraSessionActive,
                     onCameraReady: {
                         // Camera is ready, hide loading
@@ -96,7 +182,7 @@ struct ContentView: View {
                     .transition(.opacity)
             }
             
-            // Top controls - composition indicator, quality selector and frame settings
+            // Top controls - composition indicator, quality selector and flash control
             if hasCameraPermission && !cameraLoading {
                 VStack {
                     HStack(alignment: .center) {
@@ -110,9 +196,8 @@ struct ContentView: View {
                         
                         Spacer()
                         
-                        // Placeholder for future top-right control
-                        Color.clear
-                            .frame(width: 50, height: 50)
+                        // Flash control (right)
+                        FlashControl(selectedFlashMode: $selectedFlashMode)
                     }
                     .frame(alignment: .center)
                     .padding(.top, 60)

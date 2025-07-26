@@ -10,6 +10,7 @@ struct CameraView: View {
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
+    @Binding var flashMode: FlashMode
     @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
     let onPhotoCaptured: ((UIImage) -> Void)?
@@ -31,6 +32,7 @@ struct CameraView: View {
                 isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                 compositionManager: compositionManager,
                 cameraQuality: $cameraQuality,
+                flashMode: $flashMode,
                 isSessionActive: $isSessionActive,
                 onCameraReady: onCameraReady,
                 focusPoint: $focusPoint,
@@ -68,6 +70,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
+    @Binding var flashMode: FlashMode
     @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
     @Binding var focusPoint: CGPoint
@@ -369,9 +372,13 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 settings.photoQualityPrioritization = .quality
             }
             
-            // Enable flash if available and needed
-            if photoOutput.supportedFlashModes.contains(.auto) {
-                settings.flashMode = .auto
+            // Set flash mode based on user selection
+            let desiredFlashMode = parent.flashMode.captureFlashMode
+            if photoOutput.supportedFlashModes.contains(desiredFlashMode) {
+                settings.flashMode = desiredFlashMode
+            } else {
+                // Fallback to off if desired mode not supported
+                settings.flashMode = .off
             }
             
             // Capture the photo
