@@ -10,6 +10,7 @@ struct CameraView: View {
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
+    @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
     
     // Focus-related state
@@ -29,6 +30,7 @@ struct CameraView: View {
                 isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                 compositionManager: compositionManager,
                 cameraQuality: $cameraQuality,
+                isSessionActive: $isSessionActive,
                 onCameraReady: onCameraReady,
                 focusPoint: $focusPoint,
                 showFocusIndicator: $showFocusIndicator
@@ -59,6 +61,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
+    @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
     @Binding var focusPoint: CGPoint
     @Binding var showFocusIndicator: Bool
@@ -165,6 +168,23 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         // Update both preview layer and stored view frame
         context.coordinator.previewLayer?.frame = uiView.bounds
         context.coordinator.viewFrame = uiView.bounds
+        
+        // Handle session active/inactive state
+        if let session = context.coordinator.session {
+            if isSessionActive && !session.isRunning {
+                // Start session if it should be active but isn't running
+                DispatchQueue.global(qos: .background).async {
+                    session.startRunning()
+                    print("📷 Camera session started (from updateUIView)")
+                }
+            } else if !isSessionActive && session.isRunning {
+                // Stop session if it should be inactive but is running
+                DispatchQueue.global(qos: .background).async {
+                    session.stopRunning()
+                    print("📷 Camera session stopped (from updateUIView)")
+                }
+            }
+        }
         
         // Update camera quality if it has changed
         if let session = context.coordinator.session,

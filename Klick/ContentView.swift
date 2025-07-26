@@ -22,6 +22,13 @@ struct ContentView: View {
     // Camera quality state
     @State private var selectedCameraQuality: CameraQuality = .hd720p
     
+    // Photo album state
+    @State private var photoAlbumOffset: CGFloat = 0
+    @State private var isDragging = false
+    @State private var showPhotoAlbumGlimpse = false
+    @State private var isPhotoAlbumFullScreen = false
+    @State private var isCameraSessionActive = true
+    
     var body: some View {
         ZStack {
             // Black background
@@ -38,6 +45,7 @@ struct ContentView: View {
                     isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                     compositionManager: compositionManager,
                     cameraQuality: $selectedCameraQuality,
+                    isSessionActive: $isCameraSessionActive,
                     onCameraReady: {
                         // Camera is ready, hide loading
                         print("Camera ready callback triggered")
@@ -215,7 +223,17 @@ struct ContentView: View {
                         
                         // Capture button
                         Button(action: {
-                            // Capture functionality (optional for MVP)
+                            // Show glimpse of photo album when capturing
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showPhotoAlbumGlimpse = true
+                            }
+                            
+                            // Hide glimpse after 1.5 seconds
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showPhotoAlbumGlimpse = false
+                                }
+                            }
                         }) {
                             Circle()
                                 .fill(Color.white)
@@ -243,6 +261,46 @@ struct ContentView: View {
                     .padding(.bottom, 50)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.8)))
+            }
+            
+            // Photo Album View - positioned at the bottom and can be dragged up
+            if hasCameraPermission && !cameraLoading {
+                GeometryReader { geometry in
+                    let screenHeight = geometry.size.height
+                    let glimpseHeight: CGFloat = 120
+                    let fullScreenOffset: CGFloat = 0
+                    let hiddenOffset: CGFloat = screenHeight - 50
+                    let glimpseOffset: CGFloat = screenHeight - glimpseHeight
+                    
+                    PhotoAlbumView(
+                        isFullScreen: $isPhotoAlbumFullScreen,
+                        onTap: {
+                            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                if isPhotoAlbumFullScreen {
+                                    // Close full screen - return to hidden state
+                                    photoAlbumOffset = hiddenOffset
+                                    isPhotoAlbumFullScreen = false
+                                    showPhotoAlbumGlimpse = false
+                                } else {
+                                    // Open full screen
+                                    photoAlbumOffset = fullScreenOffset
+                                    isPhotoAlbumFullScreen = true
+                                    showPhotoAlbumGlimpse = false
+                                }
+                            }
+                        }
+                    )
+                    .frame(height: screenHeight)
+                    .offset(y: calculatePhotoAlbumOffset(
+                        screenHeight: screenHeight,
+                        glimpseHeight: glimpseHeight,
+                        fullScreenOffset: fullScreenOffset,
+                        hiddenOffset: hiddenOffset,
+                        glimpseOffset: glimpseOffset
+                    ))
+                    .animation(.easeInOut(duration: 0.3), value: showPhotoAlbumGlimpse)
+                }
+                .ignoresSafeArea()
             }
         }
         .sheet(isPresented: $showEducationalContent) {
@@ -281,6 +339,24 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: cameraLoading)
         .animation(.easeInOut(duration: 0.3), value: hasCameraPermission)
+    }
+    
+    private func calculatePhotoAlbumOffset(
+        screenHeight: CGFloat,
+        glimpseHeight: CGFloat,
+        fullScreenOffset: CGFloat,
+        hiddenOffset: CGFloat,
+        glimpseOffset: CGFloat
+    ) -> CGFloat {
+        if isDragging {
+            return photoAlbumOffset
+        } else if isPhotoAlbumFullScreen {
+            return fullScreenOffset
+        } else if showPhotoAlbumGlimpse {
+            return glimpseOffset
+        } else {
+            return hiddenOffset
+        }
     }
     
     private func requestCameraPermission() {
