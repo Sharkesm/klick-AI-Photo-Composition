@@ -19,6 +19,9 @@ struct ContentView: View {
     @State private var isCompositionAnalysisEnabled = true
     @State private var areOverlaysHidden = false
     
+    // Camera quality state
+    @State private var selectedCameraQuality: CameraQuality = .hd720p
+    
     var body: some View {
         ZStack {
             // Black background
@@ -34,6 +37,7 @@ struct ContentView: View {
                     detectedFaceBoundingBox: $detectedFaceBoundingBox,
                     isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                     compositionManager: compositionManager,
+                    cameraQuality: $selectedCameraQuality,
                     onCameraReady: {
                         // Camera is ready, hide loading
                         print("Camera ready callback triggered")
@@ -73,15 +77,23 @@ struct ContentView: View {
                     .transition(.opacity)
             }
             
-            // Top controls - composition indicator and frame settings
+            // Top controls - composition indicator, quality selector and frame settings
             if hasCameraPermission && !cameraLoading {
                 VStack {
                     HStack(alignment: .center) {
-                        Spacer()
-                        // Composition indicator
-                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.displayName)
+                        // Camera quality selector (left)
+                        CameraQualitySelector(selectedQuality: $selectedCameraQuality)
+                        
                         Spacer()
                         
+                        // Composition indicator (center)
+                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.displayName)
+                        
+                        Spacer()
+                        
+                        // Placeholder for future top-right control
+                        Color.clear
+                            .frame(width: 50, height: 50)
                     }
                     .frame(alignment: .center)
                     .padding(.top, 60)

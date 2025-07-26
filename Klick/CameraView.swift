@@ -9,12 +9,15 @@ struct CameraView: View {
     @Binding var detectedFaceBoundingBox: CGRect?
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
+    @Binding var cameraQuality: CameraQuality
     let onCameraReady: () -> Void
     
     // Focus-related state
     @State private var focusPoint: CGPoint = .zero
     @State private var showFocusIndicator = false
     
+    @State private var isChangingQuality = false
+
     var body: some View {
         ZStack {
             // Camera view
@@ -25,10 +28,19 @@ struct CameraView: View {
                 detectedFaceBoundingBox: $detectedFaceBoundingBox,
                 isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                 compositionManager: compositionManager,
+                cameraQuality: $cameraQuality,
                 onCameraReady: onCameraReady,
                 focusPoint: $focusPoint,
                 showFocusIndicator: $showFocusIndicator
             )
+            
+            // Show loading overlay during quality change
+            if isChangingQuality {
+                ProgressView()
+                    .scaleEffect(0.8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+            }
             
             // Focus indicator overlay
             if showFocusIndicator {
@@ -46,6 +58,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     @Binding var detectedFaceBoundingBox: CGRect?
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
+    @Binding var cameraQuality: CameraQuality
     let onCameraReady: () -> Void
     @Binding var focusPoint: CGPoint
     @Binding var showFocusIndicator: Bool
@@ -71,7 +84,8 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         
         // Create camera session
         let session = AVCaptureSession()
-        session.sessionPreset = .photo
+        session.sessionPreset = cameraQuality.sessionPreset
+        print("📷 Camera quality set to: \(cameraQuality.displayName) (\(cameraQuality.sessionPreset.rawValue))")
         
         // Add camera input
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
@@ -151,6 +165,86 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         // Update both preview layer and stored view frame
         context.coordinator.previewLayer?.frame = uiView.bounds
         context.coordinator.viewFrame = uiView.bounds
+        
+        // Update camera quality if it has changed
+        if let session = context.coordinator.session,
+           session.sessionPreset != cameraQuality.sessionPreset {
+            updateCameraQuality(session: session, newQuality: cameraQuality, forContext: context)
+        }
+    }
+    
+    private func updateCameraQuality(session: AVCaptureSession, newQuality: CameraQuality, forContext context: Context) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Check if the new preset is supported
+            guard session.canSetSessionPreset(newQuality.sessionPreset) else {
+                print("⚠️ Camera quality \(newQuality.displayName) not supported")
+                return
+            }
+            
+            // Begin configuration transaction
+            session.beginConfiguration()
+            
+            // Set the new preset
+            session.sessionPreset = newQuality.sessionPreset
+            
+            // Reconfigure video output for optimal quality
+            if let videoOutput = session.outputs.first(where: { $0 is AVCaptureVideoDataOutput }) as? AVCaptureVideoDataOutput {
+                
+                // Use optimal video settings without forcing specific dimensions
+                let videoSettings: [String: Any] = [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                ]
+                
+                videoOutput.videoSettings = videoSettings
+                
+                // Ensure proper connection configuration
+                if let connection = videoOutput.connection(with: .video) {
+                    connection.videoOrientation = .portrait
+                    if connection.isVideoMirroringSupported {
+                        connection.isVideoMirrored = false
+                    }
+                    
+                    // Enable video stabilization for better quality
+                    if connection.isVideoStabilizationSupported {
+                        connection.preferredVideoStabilizationMode = .auto
+                    }
+                }
+            }
+            
+            // Commit all changes atomically
+            session.commitConfiguration()
+            
+            // Brief pause to allow session to stabilize
+            Thread.sleep(forTimeInterval: 0.1)
+            
+            print("✅ Camera quality updated to: \(newQuality.displayName) (\(newQuality.sessionPreset.rawValue))")
+            
+            // Update UI on main thread
+            DispatchQueue.main.async {
+                // Force preview layer to refresh
+                if let previewLayer = context.coordinator.previewLayer {
+                    previewLayer.connection?.isEnabled = false
+                    previewLayer.connection?.isEnabled = true
+                }
+            }
+        }
+    }
+
+    // Helper methods for optimal resolution (kept for reference but not used to avoid crashes)
+    private func getOptimalWidth(for quality: CameraQuality) -> Int {
+        switch quality {
+        case .hd720p: return 1280
+        case .hd1080p: return 1920
+        case .uhd4K: return 3840
+        }
+    }
+
+    private func getOptimalHeight(for quality: CameraQuality) -> Int {
+        switch quality {
+        case .hd720p: return 720
+        case .hd1080p: return 1080
+        case .uhd4K: return 2160
+        }
     }
     
     func makeCoordinator() -> Coordinator {
