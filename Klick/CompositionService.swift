@@ -142,12 +142,12 @@ class CompositionContextAnalyzer {
     static func analyzeContext(observation: VNDetectedObjectObservation, frameSize: CGSize) -> CompositionContext {
         let boundingBox = observation.boundingBox
         
-        // Calculate subject size
+        // Calculate subject size - relaxed thresholds for distant subjects
         let subjectArea = boundingBox.width * boundingBox.height
         let subjectSize: SubjectSize
-        if subjectArea < 0.25 {
+        if subjectArea < 0.15 {  // Lowered from 0.25 to accommodate distant subjects
             subjectSize = .small
-        } else if subjectArea < 0.45 {
+        } else if subjectArea < 0.35 {  // Lowered from 0.45 to be more inclusive
             subjectSize = .medium
         } else {
             subjectSize = .large
@@ -159,8 +159,8 @@ class CompositionContextAnalyzer {
         let offsetX = (centerX - 0.5) * 2.0 // Normalize to -1.0 to 1.0
         let offsetY = (centerY - 0.5) * 2.0
         
-        // Edge proximity analysis
-        let edgeMargin = 0.05 // 5% safety margin
+        // Edge proximity analysis - more lenient for distant subjects
+        let edgeMargin = 0.03 // Reduced from 0.05 to 3% safety margin
         let tooCloseToEdge = boundingBox.minX < edgeMargin || 
                             boundingBox.maxX > (1.0 - edgeMargin) ||
                             boundingBox.minY < edgeMargin || 
@@ -183,11 +183,11 @@ class CompositionContextAnalyzer {
             safetyMargin: safetyMargin
         )
         
-        // Headroom analysis (portrait-specific)
+        // Headroom analysis (portrait-specific) - more lenient
         let headroomRatio = 1.0 - boundingBox.maxY // Space above subject
-        let excessiveHeadroom = headroomRatio > 0.3 // More than 30% headroom
-        let cutoffLimbs = boundingBox.minY < 0.02 // Very close to bottom edge
-        let portraitOptimal = headroomRatio > 0.1 && headroomRatio < 0.25 && !cutoffLimbs
+        let excessiveHeadroom = headroomRatio > 0.4 // Increased from 0.3 to 40% headroom
+        let cutoffLimbs = boundingBox.minY < 0.01 // Very close to bottom edge (1% instead of 2%)
+        let portraitOptimal = headroomRatio > 0.05 && headroomRatio < 0.4 && !cutoffLimbs // More lenient range
         
         let headroom = HeadroomAnalysis(
             excessiveHeadroom: excessiveHeadroom,
@@ -246,7 +246,7 @@ class BackgroundStateMonitor {
 
 class CenterFramingService: CompositionService {
     let name = "Center Framing"
-    private let baseCenterTolerance: Double = 0.15 // Increased from 0.10 for more realistic centering
+    private let centerTolerance: Double = 0.12  // More strict tolerance for proper centering
     
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
         let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
@@ -256,36 +256,32 @@ class CenterFramingService: CompositionService {
             y: observation.boundingBox.midY
         )
         
+        // Use simple geometric center for all subjects - no complexity
         let frameCenter = CGPoint(x: 0.5, y: 0.5)
         
-        // Adaptive tolerance based on subject size and framing
-        let adaptiveTolerance = calculateAdaptiveTolerance(context: context)
-        
         // Calculate distance from center (normalized coordinates)
-        let distanceFromCenterX = abs(subjectCenter.x - frameCenter.x)
-        let distanceFromCenterY = abs(subjectCenter.y - frameCenter.y)
+        let distanceFromCenterX = subjectCenter.x - frameCenter.x
+        let distanceFromCenterY = subjectCenter.y - frameCenter.y
+        let totalDistance = sqrt(distanceFromCenterX * distanceFromCenterX + distanceFromCenterY * distanceFromCenterY)
         
-        // Check if subject is centered within tolerance
-        let isCenteredX = distanceFromCenterX < adaptiveTolerance
-        let isCenteredY = distanceFromCenterY < adaptiveTolerance
-        let isCentered = isCenteredX && isCenteredY
+        // Simple evaluation - is it centered or not?
+        let isCentered = totalDistance <= centerTolerance
         
         // Calculate score based on distance from center
         let maxDistance = sqrt(0.5 * 0.5 + 0.5 * 0.5)
-        let currentDistance = sqrt(distanceFromCenterX * distanceFromCenterX + distanceFromCenterY * distanceFromCenterY)
-        let baseScore = max(0, 1 - (currentDistance / maxDistance))
+        let baseScore = max(0, 1 - (totalDistance / maxDistance))
         
-        // Enhanced scoring with symmetry analysis
+        // Optional symmetry analysis for bonus scoring (only if centered)
         var finalScore = baseScore
         var symmetryScore: Double = 0.0
         
         if let pixelBuffer = pixelBuffer, isCentered {
             symmetryScore = calculateSymmetryScore(pixelBuffer: pixelBuffer)
-            finalScore = (baseScore * 0.7) + (symmetryScore * 0.3) // Weighted combination
+            finalScore = (baseScore * 0.8) + (symmetryScore * 0.2) // Light symmetry bonus
         }
         
-        // Generate status and suggestion
-        let (status, suggestion) = generateCenterFramingFeedback(
+        // Generate simple, clear feedback
+        let (status, suggestion) = generateSimpleCenterFramingFeedback(
             isCentered: isCentered,
             symmetryScore: symmetryScore,
             distanceFromCenterX: distanceFromCenterX,
@@ -293,19 +289,19 @@ class CenterFramingService: CompositionService {
             context: context
         )
         
-        // Create overlays
+        // Create simple overlays
         var overlayElements: [OverlayElement] = []
         overlayElements.append(createCenterCrosshair(frameSize: frameSize))
         
-        // Add symmetry indicator if centered
-        if isCentered {
+        // Add symmetry indicator if well-centered
+        if isCentered && symmetryScore > 0.7 {
             overlayElements.append(createSymmetryIndicator(
                 frameSize: frameSize, 
-                isSymmetrical: symmetryScore > 0.8
+                isSymmetrical: true
             ))
         }
         
-        // Add safety zone if needed
+        // Add safety zone only if actually too close to edge
         if context.edgeProximity.tooCloseToEdge {
             overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
         }
@@ -321,29 +317,7 @@ class CenterFramingService: CompositionService {
         )
     }
     
-    private func calculateAdaptiveTolerance(context: CompositionContext) -> Double {
-        var tolerance = baseCenterTolerance
-        
-        // Adjust for subject size - larger subjects get more tolerance
-        switch context.subjectSize {
-        case .large:
-            tolerance *= 1.3 // 13% tolerance for large subjects
-        case .medium:
-            tolerance *= 1.1 // 11% tolerance for medium subjects  
-        case .small:
-            tolerance *= 0.9 // 9% tolerance for small subjects (tighter framing)
-        }
-        
-        // Adjust for vertical framing (portrait mode)
-        // If subject is tall relative to frame, be more lenient on vertical centering
-        if context.headroom.portraitOptimal {
-            tolerance *= 1.1
-        }
-        
-        return tolerance
-    }
-    
-    private func generateCenterFramingFeedback(
+    private func generateSimpleCenterFramingFeedback(
         isCentered: Bool,
         symmetryScore: Double,
         distanceFromCenterX: Double,
@@ -351,32 +325,26 @@ class CenterFramingService: CompositionService {
         context: CompositionContext
     ) -> (CompositionStatus, String) {
         
-        // Handle edge proximity first
-        if context.edgeProximity.tooCloseToEdge {
+        // Handle edge proximity first (only if truly dangerous)
+        if context.edgeProximity.safetyMargin < 0.03 { // Only if < 3% margin
             return (.needsAdjustment, "Too close to edge")
         }
         
-        // Handle headroom issues
-        if context.headroom.excessiveHeadroom {
-            return (.needsAdjustment, "Too much headroom")
+        // Handle severe headroom issues
+        if context.headroom.excessiveHeadroom && context.headroom.cutoffLimbs {
+            return (.needsAdjustment, "Move closer")
         }
         
-        if context.headroom.cutoffLimbs {
-            return (.needsAdjustment, "Subject cut off")
-        }
-        
-        // Centering-based feedback
+        // Simple centering feedback
         if isCentered {
             if symmetryScore > 0.8 {
-                return (.perfect, "Perfect center!")
-            } else if symmetryScore > 0.6 {
-                return (.good, "Well centered")
+                return (.perfect, "Perfect!")
             } else {
-                return (.good, "Good center")
+                return (.good, "Centered")
             }
         } else {
-            // Provide precise directional guidance
-            let suggestion = generateCenteringGuidance(
+            // Provide simple directional guidance
+            let suggestion = generateSimpleDirection(
                 distanceFromCenterX: distanceFromCenterX,
                 distanceFromCenterY: distanceFromCenterY
             )
@@ -384,25 +352,58 @@ class CenterFramingService: CompositionService {
         }
     }
     
-    private func generateCenteringGuidance(
+    /// Generate simple, clear directional guidance from USER'S PERSPECTIVE
+    private func generateSimpleDirection(
         distanceFromCenterX: Double,
         distanceFromCenterY: Double
     ) -> String {
-        let horizontalDirection = distanceFromCenterX > 0 ? "left" : "right"
-        let verticalDirection = distanceFromCenterY > 0 ? "down" : "up"
         
         let horizontalMagnitude = abs(distanceFromCenterX)
         let verticalMagnitude = abs(distanceFromCenterY)
         
-        if horizontalMagnitude > baseCenterTolerance && verticalMagnitude > baseCenterTolerance {
+        // CORRECTED: User perspective directions - move in SAME direction as subject offset
+        // If subject is to the RIGHT of center (distanceFromCenterX > 0), user moves RIGHT to follow
+        // If subject is BELOW center (distanceFromCenterY > 0), user moves DOWN to follow
+        let horizontalDirection = distanceFromCenterX > 0 ? "left" : "right"
+        let verticalDirection = distanceFromCenterY > 0 ? "up" : "down"
+        
+        // Use stricter thresholds for directional guidance
+        let directionThreshold = 0.05 // 5% threshold for direction guidance
+        
+        // Simple, clear guidance
+        if horizontalMagnitude > directionThreshold && verticalMagnitude > directionThreshold {
             return "Move \(horizontalDirection) and \(verticalDirection)"
-        } else if horizontalMagnitude > baseCenterTolerance {
+        } else if horizontalMagnitude > directionThreshold {
             return "Move \(horizontalDirection)"
-        } else if verticalMagnitude > baseCenterTolerance {
+        } else if verticalMagnitude > directionThreshold {
             return "Move \(verticalDirection)"
         } else {
             return "Almost centered"
         }
+    }
+    
+    /// Create simple center crosshair
+    func createCenterCrosshair(frameSize: CGSize) -> OverlayElement {
+        var path = Path()
+        let centerX = frameSize.width / 2
+        let centerY = frameSize.height / 2
+        let crosshairSize: CGFloat = 30
+        
+        // Horizontal line
+        path.move(to: CGPoint(x: centerX - crosshairSize, y: centerY))
+        path.addLine(to: CGPoint(x: centerX + crosshairSize, y: centerY))
+        
+        // Vertical line
+        path.move(to: CGPoint(x: centerX, y: centerY - crosshairSize))
+        path.addLine(to: CGPoint(x: centerX, y: centerY + crosshairSize))
+        
+        return OverlayElement(
+            type: .centerCrosshair,
+            path: path,
+            color: .white,
+            opacity: 0.8,
+            lineWidth: 2
+        )
     }
     
     private func createSafetyZoneOverlay(frameSize: CGSize) -> OverlayElement {
@@ -423,29 +424,6 @@ class CenterFramingService: CompositionService {
             path: path,
             color: .orange,
             opacity: 0.25,
-            lineWidth: 2
-        )
-    }
-    
-    func createCenterCrosshair(frameSize: CGSize) -> OverlayElement {
-        var path = Path()
-        let centerX = frameSize.width / 2
-        let centerY = frameSize.height / 2
-        let crosshairSize: CGFloat = 30
-        
-        // Horizontal line
-        path.move(to: CGPoint(x: centerX - crosshairSize, y: centerY))
-        path.addLine(to: CGPoint(x: centerX + crosshairSize, y: centerY))
-        
-        // Vertical line
-        path.move(to: CGPoint(x: centerX, y: centerY - crosshairSize))
-        path.addLine(to: CGPoint(x: centerX, y: centerY + crosshairSize))
-        
-        return OverlayElement(
-            type: .centerCrosshair,
-            path: path,
-            color: .white,
-            opacity: 0.8,
             lineWidth: 2
         )
     }
