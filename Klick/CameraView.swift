@@ -12,6 +12,7 @@ struct CameraView: View {
     @Binding var cameraQuality: CameraQuality
     @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
+    let onPhotoCaptured: ((UIImage) -> Void)?
     
     // Focus-related state
     @State private var focusPoint: CGPoint = .zero
@@ -33,7 +34,8 @@ struct CameraView: View {
                 isSessionActive: $isSessionActive,
                 onCameraReady: onCameraReady,
                 focusPoint: $focusPoint,
-                showFocusIndicator: $showFocusIndicator
+                showFocusIndicator: $showFocusIndicator,
+                onPhotoCaptured: onPhotoCaptured
             )
             
             // Show loading overlay during quality change
@@ -51,6 +53,11 @@ struct CameraView: View {
             }
         }
     }
+    
+    // Public method to trigger photo capture
+    func capturePhoto() {
+        // This will be handled by the UIViewRepresentable coordinator
+    }
 }
 
 struct CameraUIViewRepresentable: UIViewRepresentable {
@@ -65,6 +72,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     let onCameraReady: () -> Void
     @Binding var focusPoint: CGPoint
     @Binding var showFocusIndicator: Bool
+    let onPhotoCaptured: ((UIImage) -> Void)?
     
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -73,6 +81,9 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         // Add tap gesture recognizer for focus
         let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(context.coordinator.handleTap(_:)))
         view.addGestureRecognizer(tapGesture)
+        
+        // Store the capture callback in coordinator
+        context.coordinator.onPhotoCaptured = onPhotoCaptured
         
         // Set up camera session asynchronously to avoid blocking UI
         DispatchQueue.global(qos: .userInitiated).async {
@@ -116,6 +127,16 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             if connection.isVideoMirroringSupported {
                 connection.isVideoMirrored = false
             }
+        }
+        
+        // Add photo output for capturing images
+        let photoOutput = AVCapturePhotoOutput()
+        if session.canAddOutput(photoOutput) {
+            session.addOutput(photoOutput)
+            context.coordinator.photoOutput = photoOutput
+            print("✅ Photo output configured")
+        } else {
+            print("❌ Failed to add photo output")
         }
         
         print("✅ Video output configured")
@@ -168,6 +189,9 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         // Update both preview layer and stored view frame
         context.coordinator.previewLayer?.frame = uiView.bounds
         context.coordinator.viewFrame = uiView.bounds
+        
+        // Update the photo capture callback
+        context.coordinator.onPhotoCaptured = onPhotoCaptured
         
         // Handle session active/inactive state
         if let session = context.coordinator.session {
@@ -271,7 +295,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         Coordinator(self)
     }
     
-    class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePhotoCaptureDelegate {
         private var frameCount = 0
         private var isAppInBackground = false
         
@@ -282,6 +306,8 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         var cameraStartTime = CACurrentMediaTime()
         var cameraReady = false
         var cameraDevice: AVCaptureDevice?
+        var photoOutput: AVCapturePhotoOutput?
+        var onPhotoCaptured: ((UIImage) -> Void)?
     
         init(_ parent: CameraUIViewRepresentable) {
             self.parent = parent
@@ -301,6 +327,86 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 name: UIApplication.willEnterForegroundNotification,
                 object: nil
             )
+            
+            // Listen for capture photo notifications
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(capturePhotoNotification),
+                name: NSNotification.Name("CapturePhoto"),
+                object: nil
+            )
+        }
+        
+        // MARK: - Photo Capture Methods
+        
+        func capturePhoto() {
+            guard let photoOutput = photoOutput else {
+                print("❌ Photo output not available")
+                return
+            }
+            
+            // Create photo settings with preferred codec
+            let settings: AVCapturePhotoSettings
+            
+            // Configure photo settings based on available codecs
+            if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
+                settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+            } else if photoOutput.availablePhotoCodecTypes.contains(.jpeg) {
+                settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+            } else {
+                // Fallback to default settings
+                settings = AVCapturePhotoSettings()
+            }
+            
+            // Enable high resolution capture if available (modern API)
+            // Only set quality prioritization if the output supports it
+            if photoOutput.maxPhotoQualityPrioritization.rawValue >= AVCapturePhotoOutput.QualityPrioritization.balanced.rawValue {
+                settings.photoQualityPrioritization = .balanced
+            }
+            
+            // If the output supports quality prioritization, use it
+            if photoOutput.maxPhotoQualityPrioritization == .quality {
+                settings.photoQualityPrioritization = .quality
+            }
+            
+            // Enable flash if available and needed
+            if photoOutput.supportedFlashModes.contains(.auto) {
+                settings.flashMode = .auto
+            }
+            
+            // Capture the photo
+            photoOutput.capturePhoto(with: settings, delegate: self)
+            print("📸 Photo capture initiated")
+        }
+        
+        // MARK: - AVCapturePhotoCaptureDelegate
+        
+        func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+            if let error = error {
+                print("❌ Photo capture error: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let imageData = photo.fileDataRepresentation(),
+                  let image = UIImage(data: imageData) else {
+                print("❌ Failed to convert photo to UIImage")
+                return
+            }
+            
+            // Correct image orientation for portrait mode
+            let correctedImage = image.fixOrientation()
+            
+            print("✅ Photo captured successfully")
+            
+            // Call the callback on main thread
+            DispatchQueue.main.async {
+                self.onPhotoCaptured?(correctedImage)
+            }
+        }
+        
+        func photoOutput(_ output: AVCapturePhotoOutput, didCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
+            // Photo capture started - could add capture animation here
+            print("📷 Photo capture started")
         }
         
         @objc private func appDidEnterBackground() {
@@ -318,6 +424,16 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 guard let session = self?.session, !session.isRunning else { return }
                 session.startRunning()
             }
+        }
+        
+        @objc private func capturePhotoNotification() {
+            // Only capture if camera is ready and not in background
+            guard cameraReady && !isAppInBackground else {
+                print("⚠️ Cannot capture photo - camera not ready or app in background")
+                return
+            }
+            
+            capturePhoto()
         }
         
         deinit {
@@ -608,5 +724,72 @@ struct FocusIndicatorView: View {
                     }
                 }
             }
+    }
+}
+
+// MARK: - UIImage Extension for Orientation Correction
+
+extension UIImage {
+    func fixOrientation() -> UIImage {
+        // If the image is already in the correct orientation, return it as is
+        if imageOrientation == .up {
+            return self
+        }
+        
+        // Calculate the transform needed to fix the orientation
+        var transform = CGAffineTransform.identity
+        
+        switch imageOrientation {
+        case .down, .downMirrored:
+            transform = transform.translatedBy(x: size.width, y: size.height)
+            transform = transform.rotated(by: .pi)
+        case .left, .leftMirrored:
+            transform = transform.translatedBy(x: size.width, y: 0)
+            transform = transform.rotated(by: .pi / 2)
+        case .right, .rightMirrored:
+            transform = transform.translatedBy(x: 0, y: size.height)
+            transform = transform.rotated(by: -.pi / 2)
+        default:
+            break
+        }
+        
+        switch imageOrientation {
+        case .upMirrored, .downMirrored:
+            transform = transform.translatedBy(x: size.width, y: 0)
+            transform = transform.scaledBy(x: -1, y: 1)
+        case .leftMirrored, .rightMirrored:
+            transform = transform.translatedBy(x: size.height, y: 0)
+            transform = transform.scaledBy(x: -1, y: 1)
+        default:
+            break
+        }
+        
+        // Create a new context and apply the transform
+        guard let cgImage = cgImage,
+              let colorSpace = cgImage.colorSpace,
+              let context = CGContext(data: nil,
+                                     width: Int(size.width),
+                                     height: Int(size.height),
+                                     bitsPerComponent: cgImage.bitsPerComponent,
+                                     bytesPerRow: 0,
+                                     space: colorSpace,
+                                     bitmapInfo: cgImage.bitmapInfo.rawValue) else {
+            return self
+        }
+        
+        context.concatenate(transform)
+        
+        switch imageOrientation {
+        case .left, .leftMirrored, .right, .rightMirrored:
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size.height, height: size.width))
+        default:
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+        }
+        
+        guard let newCGImage = context.makeImage() else {
+            return self
+        }
+        
+        return UIImage(cgImage: newCGImage)
     }
 }

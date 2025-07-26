@@ -7,8 +7,14 @@ struct PhotoAlbumView: View {
         GridItem(.flexible(), spacing: 8)
     ]
     
+    
+    var glipseRevealStarted: Bool
     @Binding var isFullScreen: Bool
+    @ObservedObject var photoManager: PhotoManager
     let onTap: () -> Void
+    
+    @State private var selectedPhoto: CapturedPhoto?
+    @State private var showPhotoDetail = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -32,40 +38,166 @@ struct PhotoAlbumView: View {
                             .clipShape(Capsule())
                             
                             Spacer()
+                            
+                            // Photo count
+                            Text("\(photoManager.capturedPhotos.count) photos")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.black.opacity(0.7))
                         }
                         .padding(.top, 60) // Account for safe area
                         .padding(.horizontal, 20)
                         .padding(.bottom, 20)
                     } else {
-                        Text("Tap to view")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.black)
+                        VStack(spacing: 4) {
+                            Text("Tap to view")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.black)
+                            
+                            if !photoManager.capturedPhotos.isEmpty && glipseRevealStarted {
+                                Text("\(photoManager.capturedPhotos.count) photos")
+                                    .font(.system(size: 12, weight: .regular))
+                                    .foregroundColor(.black.opacity(0.7))
+                            }
+                        }
+                        .padding(.top, 10)
                         Spacer()
                     }
                 }
                 
                 // Photo grid section
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(0..<12, id: \.self) { index in
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.gray)
-                                .aspectRatio(9.0/16.0, contentMode: .fit)
-                        }
+                if photoManager.capturedPhotos.isEmpty {
+                    // Empty state
+                    VStack(spacing: 16) {
+                        Spacer()
+                        
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 40))
+                            .foregroundColor(.black.opacity(0.3))
+                        
+                        Text("No photos yet")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.black.opacity(0.6))
+                        
+                        Text("Capture your first photo to get started")
+                            .font(.system(size: 14))
+                            .foregroundColor(.black.opacity(0.5))
+                            .multilineTextAlignment(.center)
+                        
+                        Spacer()
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 100) // Extra padding for bottom safe area
+                    .frame(maxWidth: .infinity)
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(photoManager.capturedPhotos) { photo in
+                                PhotoThumbnailView(photo: photo) {
+                                    selectedPhoto = photo
+                                    showPhotoDetail = true
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 100) // Extra padding for bottom safe area
+                    }
                 }
             }
         }
         .background(Color.yellow)
         .clipShape(
-            RoundedCorners(topLeading: 50, topTrailing: 50, bottomLeading: 0, bottomTrailing: 0)
+            RoundedCorners(topLeading: 30, topTrailing: 30, bottomLeading: 0, bottomTrailing: 0)
         )
         .onTapGesture {
             if !isFullScreen {
                 onTap()
             }
+        }
+        .sheet(isPresented: $showPhotoDetail) {
+            if let photo = selectedPhoto {
+                PhotoDetailView(photo: photo, photoManager: photoManager, isPresented: $showPhotoDetail)
+            }
+        }
+    }
+}
+
+struct PhotoThumbnailView: View {
+    let photo: CapturedPhoto
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            Image(uiImage: photo.image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(minHeight: 120)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct PhotoDetailView: View {
+    let photo: CapturedPhoto
+    @ObservedObject var photoManager: PhotoManager
+    @Binding var isPresented: Bool
+    @State private var showDeleteAlert = false
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                VStack {
+                    Spacer()
+                    
+                    // Main photo
+                    Image(uiImage: photo.image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .clipped()
+                    
+                    Spacer()
+                    
+                    // Photo info
+                    VStack(spacing: 8) {
+                        Text("Captured \(photo.dateCaptured, style: .date) at \(photo.dateCaptured, style: .time)")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(.bottom, 20)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        isPresented = false
+                    }
+                    .foregroundColor(.white)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        showDeleteAlert = true
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+        }
+        .alert("Delete Photo", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                photoManager.deletePhoto(photo)
+                isPresented = false
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to delete this photo? This action cannot be undone.")
         }
     }
 }
@@ -105,7 +237,3 @@ struct RoundedCorners: Shape {
         return path
     }
 }
-
-#Preview {
-    PhotoAlbumView(isFullScreen: .constant(false), onTap: {})
-} 

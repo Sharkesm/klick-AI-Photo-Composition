@@ -1,7 +1,10 @@
 import SwiftUI
 import AVFoundation
+import Photos
 
 struct ContentView: View {
+    @AppStorage("photoAlbumSnapshot") private var photoAlbumSnapshot: Bool = false
+    
     @State private var feedbackMessage: String?
     @State private var feedbackIcon: String?
     @State private var showFeedback = false
@@ -24,10 +27,13 @@ struct ContentView: View {
     
     // Photo album state
     @State private var photoAlbumOffset: CGFloat = 0
-    @State private var isDragging = false
     @State private var showPhotoAlbumGlimpse = false
     @State private var isPhotoAlbumFullScreen = false
     @State private var isCameraSessionActive = true
+    
+    // Photo management
+    @StateObject private var photoManager = PhotoManager()
+    @State private var cameraViewRef: CameraView?
     
     var body: some View {
         ZStack {
@@ -52,6 +58,11 @@ struct ContentView: View {
                         withAnimation(.easeOut(duration: 0.5)) {
                             cameraLoading = false
                         }
+                    },
+                    onPhotoCaptured: { image in
+                        // Save the captured photo
+                        photoManager.savePhoto(image)
+                        print("📸 Photo captured and saved")
                     }
                 )
                 .ignoresSafeArea()
@@ -223,6 +234,13 @@ struct ContentView: View {
                         
                         // Capture button
                         Button(action: {
+                            // Trigger photo capture
+                            capturePhoto()
+                            
+                            if !photoAlbumSnapshot {
+                                photoAlbumSnapshot = true
+                            }
+                            
                             // Show glimpse of photo album when capturing
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 showPhotoAlbumGlimpse = true
@@ -234,6 +252,7 @@ struct ContentView: View {
                                     showPhotoAlbumGlimpse = false
                                 }
                             }
+                            
                         }) {
                             Circle()
                                 .fill(Color.white)
@@ -264,16 +283,18 @@ struct ContentView: View {
             }
             
             // Photo Album View - positioned at the bottom and can be dragged up
-            if hasCameraPermission && !cameraLoading {
+            if hasCameraPermission && !cameraLoading && photoAlbumSnapshot {
                 GeometryReader { geometry in
                     let screenHeight = geometry.size.height
-                    let glimpseHeight: CGFloat = 120
+                    let glimpseHeight: CGFloat = 80
                     let fullScreenOffset: CGFloat = 0
                     let hiddenOffset: CGFloat = screenHeight - 50
-                    let glimpseOffset: CGFloat = screenHeight - glimpseHeight
+                    let glimpseOffset: CGFloat = showPhotoAlbumGlimpse ? screenHeight - glimpseHeight : 0
                     
                     PhotoAlbumView(
+                        glipseRevealStarted: glimpseOffset > 0,
                         isFullScreen: $isPhotoAlbumFullScreen,
+                        photoManager: photoManager,
                         onTap: {
                             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                 if isPhotoAlbumFullScreen {
@@ -329,6 +350,9 @@ struct ContentView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 print("ContentView onAppear - requesting camera permission")
                 requestCameraPermission()
+                
+                // Request photo library permission for saving photos
+                photoManager.requestPhotoLibraryPermission()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -348,15 +372,19 @@ struct ContentView: View {
         hiddenOffset: CGFloat,
         glimpseOffset: CGFloat
     ) -> CGFloat {
-        if isDragging {
-            return photoAlbumOffset
-        } else if isPhotoAlbumFullScreen {
+        if isPhotoAlbumFullScreen {
             return fullScreenOffset
         } else if showPhotoAlbumGlimpse {
             return glimpseOffset
         } else {
             return hiddenOffset
         }
+    }
+    
+    private func capturePhoto() {
+        // This will be implemented by accessing the camera coordinator directly
+        // For now, we'll use a notification-based approach
+        NotificationCenter.default.post(name: NSNotification.Name("CapturePhoto"), object: nil)
     }
     
     private func requestCameraPermission() {
