@@ -40,6 +40,15 @@ enum FlashMode: String, CaseIterable {
             return .on
         }
     }
+    
+    var captureColor: Color {
+        switch self {
+        case .on:
+            return .yellow
+        default:
+            return .white
+        }
+    }
 }
 
 // MARK: - Flash Control View
@@ -63,7 +72,7 @@ struct FlashControl: View {
             VStack(spacing: 4) {
                 Image(systemName: selectedFlashMode.iconName)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(selectedFlashMode.captureColor)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
