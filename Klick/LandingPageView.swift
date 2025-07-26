@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct LandingPageView: View {
+    @AppStorage("onboardingIntroduction") var onboardingIntroduction: Bool = false
+    
     @State private var scrollOffset1: CGFloat = 0
     @State private var scrollOffset2: CGFloat = 0
     @State private var isAnimating = false
@@ -40,8 +42,11 @@ struct LandingPageView: View {
     
     var body: some View {
         ZStack {
-            // Landing page content
-            landingPageContent
+            
+            if !onboardingIntroduction {
+                // Landing page content
+                landingPageContent
+            }
             
             // ContentView with scaling circular mask (see-through reveal)
             if showContentViewTransition {
@@ -69,6 +74,11 @@ struct LandingPageView: View {
                         .animation(.easeInOut(duration: 1.2), value: circleDrawingProgress)
                         .animation(.easeInOut(duration: 0.8), value: hideBorderCircle)
                 }
+            }
+        }
+        .onAppear {
+            if onboardingIntroduction {
+                startTransition()
             }
         }
     }
@@ -266,7 +276,10 @@ struct LandingPageView: View {
             hideBorderCircle = true
         }
         
-        // Transition complete - ContentView is fully revealed with smooth see-through effect
+        // Set onboarding introduciton key
+        if !onboardingIntroduction {
+            onboardingIntroduction = true
+        }
     }
     
     private func startScrollingAnimations() {
