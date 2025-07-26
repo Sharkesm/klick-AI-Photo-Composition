@@ -15,89 +15,154 @@ struct PhotoAlbumView: View {
     
     @State private var selectedPhoto: CapturedPhoto?
     @State private var showPhotoDetail = false
+    @State private var isSelectionMode = false
+    @State private var selectedPhotos: Set<String> = []
+    @State private var showDeleteAlert = false
     
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Top section with "Slide to view" text or close button
-                VStack {
-                    if isFullScreen {
-                        HStack {
-                            Button(action: onTap) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 16, weight: .medium))
-                                    Text("Close")
-                                        .font(.system(size: 16, weight: .medium))
+            ZStack {
+                VStack(spacing: 0) {
+                    // Top section with "Slide to view" text or close button
+                    VStack {
+                        if isFullScreen {
+                            HStack {
+                                Button(action: onTap) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 16, weight: .medium))
+                                    }
+                                    .foregroundColor(.black)
                                 }
-                                .foregroundColor(.black)
+                                .padding(10)
+                                .background(Color.black.opacity(0.15))
+                                .clipShape(Capsule())
+                                
+                                Spacer()
+                                
+                                // Delete button (only show when in selection mode and photos are selected)
+                                if isSelectionMode && !selectedPhotos.isEmpty {
+                                    Button(action: {
+                                        showDeleteAlert = true
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 16, weight: .medium))
+                                            Text("\(selectedPhotos.count)")
+                                                .font(.system(size: 16, weight: .medium))
+                                        }
+                                        .foregroundColor(.white)
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(Color.red)
+                                        .clipShape(Capsule())
+                                    }
+                                }
                             }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(Color.black.opacity(0.15))
-                            .clipShape(Capsule())
-                            
+                            .frame(height: 20)
+                            .padding(.top, 60)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
+                        } else {
+                            VStack(spacing: 4) {
+                                Text("Tap to view")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.black)
+                                
+                                if !photoManager.capturedPhotos.isEmpty && glipseRevealStarted {
+                                    Text("\(photoManager.capturedPhotos.count) photos")
+                                        .font(.system(size: 12, weight: .regular))
+                                        .foregroundColor(.black.opacity(0.7))
+                                }
+                            }
+                            .padding(.top, 10)
+                            Spacer()
+                        }
+                    }
+                    
+                    // Photo grid section
+                    if photoManager.capturedPhotos.isEmpty {
+                        // Empty state
+                        VStack(spacing: 16) {
                             Spacer()
                             
-                            // Photo count
-                            Text("\(photoManager.capturedPhotos.count) photos")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.black.opacity(0.7))
-                        }
-                        .padding(.top, 60) // Account for safe area
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
-                    } else {
-                        VStack(spacing: 4) {
-                            Text("Tap to view")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.black)
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.black.opacity(0.3))
                             
-                            if !photoManager.capturedPhotos.isEmpty && glipseRevealStarted {
-                                Text("\(photoManager.capturedPhotos.count) photos")
-                                    .font(.system(size: 12, weight: .regular))
-                                    .foregroundColor(.black.opacity(0.7))
-                            }
+                            Text("No photos yet")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.black.opacity(0.6))
+                            
+                            Text("Capture your first photo to get started")
+                                .font(.system(size: 14))
+                                .foregroundColor(.black.opacity(0.5))
+                                .multilineTextAlignment(.center)
+                            
+                            Spacer()
                         }
-                        .padding(.top, 10)
-                        Spacer()
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        ScrollView {
+                            LazyVGrid(columns: columns, spacing: 12) {
+                                ForEach(photoManager.capturedPhotos) { photo in
+                                    PhotoThumbnailView(
+                                        photo: photo,
+                                        isSelectionMode: isSelectionMode,
+                                        isSelected: selectedPhotos.contains(photo.id)
+                                    ) {
+                                        if isSelectionMode {
+                                            togglePhotoSelection(photo)
+                                        } else {
+                                            selectedPhoto = photo
+                                            showPhotoDetail = true
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, isFullScreen && !photoManager.capturedPhotos.isEmpty ? 120 : 100) // Extra padding for floating buttons
+                        }
                     }
                 }
                 
-                // Photo grid section
-                if photoManager.capturedPhotos.isEmpty {
-                    // Empty state
-                    VStack(spacing: 16) {
+                // Floating bottom bar with Select and Delete buttons
+                if isFullScreen && !photoManager.capturedPhotos.isEmpty {
+                    VStack {
                         Spacer()
                         
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(.black.opacity(0.3))
-                        
-                        Text("No photos yet")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.black.opacity(0.6))
-                        
-                        Text("Capture your first photo to get started")
-                            .font(.system(size: 14))
-                            .foregroundColor(.black.opacity(0.5))
-                            .multilineTextAlignment(.center)
-                        
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity)
-                } else {
-                    ScrollView {
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(photoManager.capturedPhotos) { photo in
-                                PhotoThumbnailView(photo: photo) {
-                                    selectedPhoto = photo
-                                    showPhotoDetail = true
+                        HStack(spacing: 16) {
+                            Spacer()
+                            
+                            // Select/Cancel button
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isSelectionMode.toggle()
+                                    if !isSelectionMode {
+                                        selectedPhotos.removeAll()
+                                    }
                                 }
+                            }) {
+                                HStack(spacing: 8) {
+                                    if isSelectionMode {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 16, weight: .medium))
+                                    } else {
+                                        Text("Select")
+                                            .font(.system(size: 16, weight: .semibold))
+                                    }
+                                }
+                                .foregroundColor(.black)
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 20)
+                                .background(Color.white.opacity(0.9))
+                                .clipShape(Capsule())
                             }
+                            
+                            Spacer()
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 100) // Extra padding for bottom safe area
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 40) // Safe area padding
                     }
                 }
             }
@@ -116,25 +181,84 @@ struct PhotoAlbumView: View {
                 PhotoDetailView(photo: photo, photoManager: photoManager, isPresented: $showPhotoDetail)
             }
         }
+        .alert("Delete Photos", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                deleteSelectedPhotos()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to delete \(selectedPhotos.count) photo\(selectedPhotos.count == 1 ? "" : "s")? This action cannot be undone.")
+        }
+    }
+    
+    private func togglePhotoSelection(_ photo: CapturedPhoto) {
+        if selectedPhotos.contains(photo.id) {
+            selectedPhotos.remove(photo.id)
+        } else {
+            selectedPhotos.insert(photo.id)
+        }
+    }
+    
+    private func deleteSelectedPhotos() {
+        let photosToDelete = photoManager.capturedPhotos.filter { selectedPhotos.contains($0.id) }
+        for photo in photosToDelete {
+            photoManager.deletePhoto(photo)
+        }
+        selectedPhotos.removeAll()
+        isSelectionMode = false
     }
 }
 
 struct PhotoThumbnailView: View {
     let photo: CapturedPhoto
+    let isSelectionMode: Bool
+    let isSelected: Bool
     let onTap: () -> Void
     
     var body: some View {
         Button(action: onTap) {
-            Image(uiImage: photo.image)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(minHeight: 120)
-                .clipped()
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                )
+            ZStack {
+                Image(uiImage: photo.image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(minHeight: 120)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                    )
+                
+                // Selection circle overlay
+                if isSelectionMode {
+                    VStack {
+                        HStack {
+                            ZStack {
+                                Circle()
+                                    .fill(isSelected ? Color.white : Color.clear)
+                                    .frame(width: 18, height: 18)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: 2)
+                                            .frame(width: 18, height: 18)
+                                    )
+                                
+                                if isSelected {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.black)
+                                }
+                            }
+                            .padding(.leading, 8)
+                            .padding(.top, 8)
+                            
+                            Spacer()
+                        }
+                        
+                        Spacer()
+                    }
+                }
+            }
         }
         .buttonStyle(PlainButtonStyle())
     }
