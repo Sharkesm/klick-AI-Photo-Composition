@@ -265,7 +265,7 @@ struct ContentView: View {
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 .scaleEffect(1.5)
                             
-                            Text(hasCameraPermission ? "Starting camera..." : "Requesting camera access...")
+                            Text(hasCameraPermission ? "" : "Requesting camera access...")
                                 .font(.headline)
                                 .foregroundColor(.white)
                         }
@@ -280,7 +280,7 @@ struct ContentView: View {
                     VStack {
                         Spacer()
                         
-                        HStack(spacing: 0) {
+                        HStack(spacing: 8) {
                             // System image icon with translucent background
                             Image(systemName: feedbackIcon ?? "questionmark.circle")
                                 .font(.title2)
@@ -288,14 +288,15 @@ struct ContentView: View {
                                 .frame(width: 32, height: 32)
                                 .background(.ultraThinMaterial)
                                 .clipShape(Circle())
-                            
+                                
                             // Feedback message
                             Text(message)
                                 .font(.headline)
                                 .foregroundColor(.white)
-                                .padding(.horizontal, 16)
                                 .padding(.vertical, 12)
                         }
+                        .padding(.horizontal, 8)
+                        .padding(.trailing, 4)
                         .background(.ultraThinMaterial)
                         .cornerRadius(25)
                         .padding(.bottom, 150) // 20 points above bottom controls
@@ -322,7 +323,7 @@ struct ContentView: View {
                                 .font(.system(size: 22))
                                 .foregroundColor(.white)
                                 .frame(width: 60, height: 60)
-                                .background(Color.black.opacity(0.5))
+                                .background(.ultraThinMaterial)
                                 .clipShape(Circle())
                         }
                         
@@ -367,7 +368,7 @@ struct ContentView: View {
                                 .font(.system(size: 22))
                                 .foregroundColor(.white)
                                 .frame(width: 60, height: 60)
-                                .background(Color.black.opacity(0.5))
+                                .background(.ultraThinMaterial)
                                 .clipShape(Circle())
                         }
                     }
@@ -380,7 +381,7 @@ struct ContentView: View {
             if hasCameraPermission && !cameraLoading && photoAlbumSnapshot {
                 GeometryReader { geometry in
                     let screenHeight = geometry.size.height
-                    let glimpseHeight: CGFloat = 80
+                    let glimpseHeight: CGFloat = 70
                     let fullScreenOffset: CGFloat = 0
                     let hiddenOffset: CGFloat = screenHeight - 50
                     let glimpseOffset: CGFloat = showPhotoAlbumGlimpse ? screenHeight - glimpseHeight : 0
