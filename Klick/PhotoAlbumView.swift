@@ -416,8 +416,6 @@ struct PhotoDetailView: View {
     @ObservedObject var photoManager: PhotoManager
     @Binding var isPresented: Bool
     @State private var showDeleteAlert = false
-    @State private var scrollOffset: CGFloat = 0
-    @State private var photoScale: CGFloat = 1.0
     
         var body: some View {
         NavigationView {
@@ -433,13 +431,13 @@ struct PhotoDetailView: View {
                                 VStack {
                                     Image(uiImage: photo.image)
                                         .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(maxHeight: geometry.size.height * 0.6 * photoScale)
+                                        .aspectRatio(0.5625, contentMode: .fill)
+                                        .frame(maxWidth: .infinity, maxHeight: geometry.size.height * 0.75)
                                         .cornerRadius(12)
                                         .padding(.horizontal)
-                                        .animation(.easeOut(duration: 0.1), value: photoScale)
                                 }
                                 .frame(minHeight: geometry.size.height * 0.8)
+                                .id("photoSection")
                                 
                                 // Metadata section (20% of screen at bottom)
                                 VStack(spacing: 8) {
@@ -448,7 +446,6 @@ struct PhotoDetailView: View {
                                         .fill(Color.white.opacity(0.3))
                                         .frame(width: 36, height: 5)
                                         .padding(.top, 12)
-                                        .padding(.bottom, 20)
                                     
                                     // Horizontal Scrollable Basic Details Section
                                     VStack(alignment: .leading, spacing: 12) {
@@ -543,82 +540,21 @@ struct PhotoDetailView: View {
                                         .padding(.horizontal, 20)
                                         .padding(.bottom, 20)
                                     }
+                                    
+                                    Spacer()
                                 }
-                                .frame(minHeight: geometry.size.height * 0.75)
+                                .frame(minHeight: geometry.size.height * 0.65)
                                 .background(
                                     RoundedRectangle(cornerRadius: 20)
                                         .fill(.ultraThinMaterial)
                                         .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: -5)
                                 )
-                            }
-                        }
-                        .background(
-                            GeometryReader { scrollGeometry in
-                                Color.clear
-                                    .preference(key: ScrollOffsetPreferenceKey.self, value: scrollGeometry.frame(in: .named("scroll")).minY)
-                            }
-                        )
-                        .coordinateSpace(name: "scroll")
-                        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                            scrollOffset = value
-                            
-                            // Calculate photo scale based on scroll position
-                            // When scrolling up (negative values), reduce photo size
-                            let maxScroll: CGFloat = -200 // Maximum scroll distance to affect scaling
-                            let minScale: CGFloat = 0.3   // Minimum scale (30% of original)
-                            let maxScale: CGFloat = 1.0   // Maximum scale (100% of original)
-                            
-                            if scrollOffset >= 0 {
-                                // Not scrolled or scrolled down - full size
-                                photoScale = maxScale
-                            } else {
-                                // Scrolled up - reduce size
-                                let scrollProgress = min(abs(scrollOffset) / abs(maxScroll), 1.0)
-                                photoScale = maxScale - (scrollProgress * (maxScale - minScale))
+                                .id("metadataSection")
                             }
                         }
                     }
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        isPresented = false
-                    } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 12)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Capsule())
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showDeleteAlert = true
-                    }, label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 12)
-                            .background(.red)
-                            .clipShape(Capsule())
-                    })
-                }
-            }
-        }
-        .alert("Delete Photo", isPresented: $showDeleteAlert) {
-            Button("Delete", role: .destructive) {
-                photoManager.deletePhoto(photo)
-                isPresented = false
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Are you sure you want to delete this photo? This action cannot be undone.")
         }
     }
     
@@ -661,14 +597,7 @@ struct PhotoDetailView: View {
     }
 }
 
-// MARK: - Scroll Offset Tracking
 
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
 
 // MARK: - Supporting Views
 
