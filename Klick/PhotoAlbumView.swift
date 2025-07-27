@@ -174,13 +174,21 @@ struct PhotoAlbumView: View {
                     VStack {
                         if isFullScreen {
                             HStack {
-                                Button(action: onTap) {
+                                Button(action: {
+                                    withAnimation(.easeOut) {
+                                        resetSelectionMode()
+                                    }
+                                    
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                        onTap()
+                                    }
+                                }, label: {
                                     HStack(spacing: 8) {
                                         Image(systemName: "chevron.down")
                                             .font(.system(size: 16, weight: .medium))
                                     }
                                     .foregroundColor(.black)
-                                }
+                                })
                                 .padding(10)
                                 .background(Color.black.opacity(0.15))
                                 .clipShape(Capsule())
@@ -337,6 +345,15 @@ struct PhotoAlbumView: View {
         selectedPhotos.removeAll()
         isSelectionMode = false
     }
+    
+    private func resetSelectionMode() {
+        selectedPhoto = nil
+        isSelectionMode = false
+        
+        if !isSelectionMode {
+            selectedPhotos.removeAll()
+        }
+    }
 }
 
 struct PhotoThumbnailView: View {
@@ -399,48 +416,198 @@ struct PhotoDetailView: View {
     @ObservedObject var photoManager: PhotoManager
     @Binding var isPresented: Bool
     @State private var showDeleteAlert = false
+    @State private var scrollOffset: CGFloat = 0
+    @State private var photoScale: CGFloat = 1.0
     
-    var body: some View {
+        var body: some View {
         NavigationView {
-            ZStack {
-                Color.black.ignoresSafeArea()
-                
-                VStack {
-                    Spacer()
+            GeometryReader { geometry in
+                ZStack {
+                    Color.black.ignoresSafeArea()
                     
-                    // Main photo
-                    Image(uiImage: photo.image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .clipped()
-                    
-                    Spacer()
-                    
-                    // Photo info
-                    VStack(spacing: 8) {
-                        Text("Captured \(photo.dateCaptured, style: .date) at \(photo.dateCaptured, style: .time)")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.8))
+                    // Main content with scroll-based photo scaling
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                // Photo section that scales based on scroll
+                                VStack {
+                                    Image(uiImage: photo.image)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxHeight: geometry.size.height * 0.6 * photoScale)
+                                        .cornerRadius(12)
+                                        .padding(.horizontal)
+                                        .animation(.easeOut(duration: 0.1), value: photoScale)
+                                }
+                                .frame(minHeight: geometry.size.height * 0.8)
+                                
+                                // Metadata section (20% of screen at bottom)
+                                VStack(spacing: 8) {
+                                    // Handle bar
+                                    RoundedRectangle(cornerRadius: 2.5)
+                                        .fill(Color.white.opacity(0.3))
+                                        .frame(width: 36, height: 5)
+                                        .padding(.top, 12)
+                                        .padding(.bottom, 20)
+                                    
+                                    // Horizontal Scrollable Basic Details Section
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        // Description Section
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Group {
+                                                Text("Captured with ")
+                                                    .font(.system(size: 16, weight: .medium))
+                                                    .foregroundColor(.gray.opacity(0.85))
+                                                +
+                                                Text(photo.basicInfo.description)
+                                                    .font(.system(size: 16, weight: .semibold))
+                                                    .foregroundColor(.white)
+                                            }
+                                            
+                                            Text(photo.basicInfo.compositionStyle)
+                                                .font(.system(size: 13))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 4)
+                                                .background(Color.blue)
+                                                .clipShape(Capsule())
+                                                .padding(.vertical, 8)
+                                             
+                                            Group {
+                                                Text("Captured on ")
+                                                +
+                                                Text("\(formatFriendlyDate(photo.basicInfo.capturedOn))")
+                                            }
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.white.opacity(0.7))
+                                            
+                                            Text(photo.basicInfo.framingEvaluation)
+                                                .font(.system(size: 12))
+                                                .foregroundColor(.white.opacity(0.7))
+                                        }
+                                        .padding(.horizontal, 20)
+                                        .padding(.vertical, 16)
+                                        
+                                        // 3-column grid layout for basic details
+                                        let columns = [
+                                            GridItem(.flexible(), spacing: 12),
+                                            GridItem(.flexible(), spacing: 12),
+                                            GridItem(.flexible(), spacing: 12)
+                                        ]
+                                        
+                                        LazyVGrid(columns: columns, spacing: 16) {
+                                            BasicDetailCard(
+                                                icon: "grid",
+                                                value: photo.basicInfo.compositionStyle
+                                            )
+                                            
+                                            BasicDetailCard(
+                                                icon: "brain.head.profile",
+                                                value: getFramingScore(photo.basicInfo.framingEvaluation)
+                                            )
+                                            
+                                            BasicDetailCard(
+                                                icon: "camera.fill",
+                                                value: "Wide"
+                                            )
+                                            
+                                            BasicDetailCard(
+                                                icon: "ruler",
+                                                value: formatResolution(photo.metadata.resolution)
+                                            )
+                                            
+                                            if let focalLength = photo.metadata.focalLength {
+                                                BasicDetailCard(
+                                                    icon: "magnifyingglass",
+                                                    value: focalLength
+                                                )
+                                            }
+                                            
+                                            if let iso = photo.metadata.iso {
+                                                BasicDetailCard(
+                                                    icon: "sun.max",
+                                                    value: iso
+                                                )
+                                            }
+                                            
+                                            BasicDetailCard(
+                                                icon: "bolt",
+                                                value: photo.metadata.flash
+                                            )
+                                            
+                                            BasicDetailCard(
+                                                icon: "externaldrive",
+                                                value: photo.metadata.fileSize
+                                            )
+                                        }
+                                        .padding(.horizontal, 20)
+                                        .padding(.bottom, 20)
+                                    }
+                                }
+                                .frame(minHeight: geometry.size.height * 0.75)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .fill(.ultraThinMaterial)
+                                        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: -5)
+                                )
+                            }
+                        }
+                        .background(
+                            GeometryReader { scrollGeometry in
+                                Color.clear
+                                    .preference(key: ScrollOffsetPreferenceKey.self, value: scrollGeometry.frame(in: .named("scroll")).minY)
+                            }
+                        )
+                        .coordinateSpace(name: "scroll")
+                        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                            scrollOffset = value
+                            
+                            // Calculate photo scale based on scroll position
+                            // When scrolling up (negative values), reduce photo size
+                            let maxScroll: CGFloat = -200 // Maximum scroll distance to affect scaling
+                            let minScale: CGFloat = 0.3   // Minimum scale (30% of original)
+                            let maxScale: CGFloat = 1.0   // Maximum scale (100% of original)
+                            
+                            if scrollOffset >= 0 {
+                                // Not scrolled or scrolled down - full size
+                                photoScale = maxScale
+                            } else {
+                                // Scrolled up - reduce size
+                                let scrollProgress = min(abs(scrollOffset) / abs(maxScroll), 1.0)
+                                photoScale = maxScale - (scrollProgress * (maxScale - minScale))
+                            }
+                        }
                     }
-                    .padding(.bottom, 20)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") {
+                    Button {
                         isPresented = false
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Capsule())
                     }
-                    .foregroundColor(.white)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         showDeleteAlert = true
-                    }) {
+                    }, label: {
                         Image(systemName: "trash")
+                            .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.white)
-                    }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 12)
+                            .background(.red)
+                            .clipShape(Capsule())
+                    })
                 }
             }
         }
@@ -453,6 +620,138 @@ struct PhotoDetailView: View {
         } message: {
             Text("Are you sure you want to delete this photo? This action cannot be undone.")
         }
+    }
+    
+    private func formatFriendlyDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    private func formatShortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+    
+    private func getFramingScore(_ evaluation: String) -> String {
+        if evaluation.contains("Excellent") {
+            return "Great"
+        } else if evaluation.contains("Great") {
+            return "Good"
+        } else if evaluation.contains("Good") {
+            return "OK"
+        } else {
+            return "Fair"
+        }
+    }
+    
+    private func formatResolution(_ size: CGSize) -> String {
+        let width = Int(size.width)
+        let height = Int(size.height)
+        
+        if width >= 4000 || height >= 4000 {
+            return "4K"
+        } else if width >= 1920 || height >= 1920 {
+            return "HD"
+        } else {
+            return "SD"
+        }
+    }
+}
+
+// MARK: - Scroll Offset Tracking
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// MARK: - Supporting Views
+
+struct BasicDetailCard: View {
+    let icon: String
+    let value: String
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
+                .frame(width: 20, height: 20)
+            
+            Text(value)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 70)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct SectionHeaderView: View {
+    let title: String
+    let icon: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white.opacity(0.8))
+            
+            Text(title)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+            
+            Spacer()
+        }
+        .padding(.bottom, 4)
+    }
+}
+
+struct DetailRowView: View {
+    let icon: String
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.6))
+                .frame(width: 20, alignment: .leading)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                
+                Text(value)
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
     }
 }
 

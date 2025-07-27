@@ -155,8 +155,10 @@ struct ContentView: View {
                         }
                     },
                     onPhotoCaptured: { image in
-                        // Save the captured photo
-                        photoManager.savePhoto(image)
+                        // Save the captured photo with composition info
+                        let compositionType = compositionManager.currentCompositionType.displayName
+                        let compositionScore = compositionManager.lastResult?.score ?? 0.7
+                        photoManager.savePhoto(image, compositionType: compositionType, compositionScore: compositionScore)
                         print("📸 Photo captured and saved")
                     }
                 )

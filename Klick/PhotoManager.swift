@@ -1,41 +1,58 @@
 import SwiftUI
 import Photos
+import CoreLocation
+import ImageIO
+import MobileCoreServices
+
+// MARK: - Enhanced Photo Metadata Structures
+
+struct PhotoMetadata {
+    let resolution: CGSize
+    let focalLength: String?
+    let iso: String?
+    let exposureTime: String?
+    let flash: String
+    let fileSize: String
+    let fileFormat: String
+}
+
+struct PhotoBasicInfo {
+    let label: String
+    let description: String
+    let capturedOn: Date
+    let compositionStyle: String
+    let compositionHint: String
+    let framingEvaluation: String
+    let cameraUsed: String
+    let location: String?
+}
 
 class PhotoManager: ObservableObject {
     @Published var capturedPhotos: [CapturedPhoto] = []
     
-    private let documentsDirectory: URL
-    private let photosDirectory: URL
+    private let photosDirectory: URL = {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let photosDir = documentsPath.appendingPathComponent("CapturedPhotos")
+        
+        // Create directory if it doesn't exist
+        if !FileManager.default.fileExists(atPath: photosDir.path) {
+            try? FileManager.default.createDirectory(at: photosDir, withIntermediateDirectories: true, attributes: nil)
+        }
+        
+        return photosDir
+    }()
     
     init() {
-        // Set up directories
-        documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        photosDirectory = documentsDirectory.appendingPathComponent("CapturedPhotos")
-        
-        // Create photos directory if it doesn't exist
-        createPhotosDirectoryIfNeeded()
-        
-        // Load existing photos
         loadPhotos()
+        requestPhotoLibraryPermission()
     }
     
-    private func createPhotosDirectoryIfNeeded() {
-        if !FileManager.default.fileExists(atPath: photosDirectory.path) {
-            do {
-                try FileManager.default.createDirectory(at: photosDirectory, withIntermediateDirectories: true)
-                print("✅ Created photos directory at: \(photosDirectory.path)")
-            } catch {
-                print("❌ Failed to create photos directory: \(error)")
-            }
-        }
-    }
-    
-    func savePhoto(_ image: UIImage) {
+    func savePhoto(_ image: UIImage, compositionType: String = "Rule of Thirds", compositionScore: Double = 0.8) {
         let photoId = UUID().uuidString
         let fileName = "\(photoId).jpg"
         let fileURL = photosDirectory.appendingPathComponent(fileName)
         
-        // Convert image to JPEG data
+        // Convert image to JPEG data with metadata preservation
         guard let imageData = image.jpegData(compressionQuality: 0.9) else {
             print("❌ Failed to convert image to JPEG data")
             return
@@ -45,13 +62,19 @@ class PhotoManager: ObservableObject {
             // Save to documents directory
             try imageData.write(to: fileURL)
             
-            // Create captured photo object
+            // Extract metadata from image
+            let metadata = extractMetadata(from: imageData, fileURL: fileURL)
+            let basicInfo = generateBasicInfo(compositionType: compositionType, compositionScore: compositionScore)
+            
+            // Create captured photo object with enhanced metadata
             let capturedPhoto = CapturedPhoto(
                 id: photoId,
                 fileName: fileName,
                 fileURL: fileURL,
                 dateCaptured: Date(),
-                image: image
+                image: image,
+                metadata: metadata,
+                basicInfo: basicInfo
             )
             
             // Add to array (newest first)
@@ -67,6 +90,157 @@ class PhotoManager: ObservableObject {
         } catch {
             print("❌ Failed to save photo: \(error)")
         }
+    }
+    
+    private func extractMetadata(from imageData: Data, fileURL: URL) -> PhotoMetadata {
+        guard let imageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [String: Any] else {
+            return createDefaultMetadata(fileURL: fileURL)
+        }
+        
+        // Get basic image info
+        let pixelWidth = imageProperties[kCGImagePropertyPixelWidth as String] as? Int ?? 0
+        let pixelHeight = imageProperties[kCGImagePropertyPixelHeight as String] as? Int ?? 0
+        let resolution = CGSize(width: pixelWidth, height: pixelHeight)
+        
+        // Get EXIF data if available
+        let exifDict = imageProperties[kCGImagePropertyExifDictionary as String] as? [String: Any]
+        
+        // Extract camera settings
+        let focalLength = extractFocalLength(from: exifDict)
+        let iso = extractISO(from: exifDict)
+        let exposureTime = extractExposureTime(from: exifDict)
+        let flash = extractFlashInfo(from: exifDict)
+        
+        // Calculate file size
+        let fileSize = formatFileSize(fileURL: fileURL)
+        
+        return PhotoMetadata(
+            resolution: resolution,
+            focalLength: focalLength,
+            iso: iso,
+            exposureTime: exposureTime,
+            flash: flash,
+            fileSize: fileSize,
+            fileFormat: "JPEG"
+        )
+    }
+    
+    private func createDefaultMetadata(fileURL: URL) -> PhotoMetadata {
+        return PhotoMetadata(
+            resolution: CGSize(width: 3024, height: 4032), // Default iPhone resolution
+            focalLength: "26mm (wide angle)",
+            iso: nil,
+            exposureTime: nil,
+            flash: "Off",
+            fileSize: formatFileSize(fileURL: fileURL),
+            fileFormat: "JPEG"
+        )
+    }
+    
+    private func extractFocalLength(from exifDict: [String: Any]?) -> String? {
+        guard let exif = exifDict,
+              let focalLength = exif[kCGImagePropertyExifFocalLength as String] as? Double else {
+            return "26mm (wide angle)" // Default for iPhone wide camera
+        }
+        
+        let focalLengthMM = Int(focalLength)
+        if focalLengthMM <= 15 {
+            return "\(focalLengthMM)mm (ultra wide)"
+        } else if focalLengthMM <= 30 {
+            return "\(focalLengthMM)mm (wide angle)"
+        } else {
+            return "\(focalLengthMM)mm (telephoto)"
+        }
+    }
+    
+    private func extractISO(from exifDict: [String: Any]?) -> String? {
+        guard let exif = exifDict,
+              let iso = exif[kCGImagePropertyExifISOSpeedRatings as String] as? [Int],
+              let isoValue = iso.first else {
+            return nil
+        }
+        return "ISO \(isoValue)"
+    }
+    
+    private func extractExposureTime(from exifDict: [String: Any]?) -> String? {
+        guard let exif = exifDict,
+              let exposureTime = exif[kCGImagePropertyExifExposureTime as String] as? Double else {
+            return nil
+        }
+        
+        if exposureTime < 1.0 {
+            let denominator = Int(1.0 / exposureTime)
+            return "1/\(denominator) sec"
+        } else {
+            return String(format: "%.1f sec", exposureTime)
+        }
+    }
+    
+    private func extractFlashInfo(from exifDict: [String: Any]?) -> String {
+        guard let exif = exifDict,
+              let flash = exif[kCGImagePropertyExifFlash as String] as? Int else {
+            return "Off"
+        }
+        
+        switch flash {
+        case 0: return "Off"
+        case 1: return "Fired"
+        case 5: return "Fired (no return detected)"
+        case 7: return "Fired (return detected)"
+        case 9: return "Auto – Fired"
+        case 13: return "Auto – Fired (no return)"
+        case 15: return "Auto – Fired (return detected)"
+        case 16: return "Off (compulsory)"
+        case 24: return "Auto – Off"
+        case 25: return "Auto – Fired (red-eye reduction)"
+        default: return "Unknown"
+        }
+    }
+    
+    private func formatFileSize(fileURL: URL) -> String {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+            if let fileSize = attributes[.size] as? Int64 {
+                let formatter = ByteCountFormatter()
+                formatter.allowedUnits = [.useMB, .useKB]
+                formatter.countStyle = .file
+                return formatter.string(fromByteCount: fileSize)
+            }
+        } catch {
+            print("❌ Failed to get file size: \(error)")
+        }
+        return "Unknown"
+    }
+    
+    private func generateBasicInfo(compositionType: String, compositionScore: Double) -> PhotoBasicInfo {
+        let compositionHints = [
+            "Rule of Thirds": "Subject aligned on intersection points",
+            "Center Framing": "Subject positioned in center frame",
+            "Symmetry": "Balanced composition with symmetrical elements"
+        ]
+        
+        let framingEvaluations = [
+            "Excellent framing! Perfect composition alignment.",
+            "Great framing! Well-positioned subject.",
+            "Good framing with room for improvement.",
+            "Consider repositioning for better composition."
+        ]
+        
+        let evaluation = compositionScore >= 0.8 ? framingEvaluations[0] :
+                        compositionScore >= 0.6 ? framingEvaluations[1] :
+                        compositionScore >= 0.4 ? framingEvaluations[2] : framingEvaluations[3]
+        
+        return PhotoBasicInfo(
+            label: "Photo",
+            description: "Klick composition analysis",
+            capturedOn: Date(),
+            compositionStyle: compositionType,
+            compositionHint: compositionHints[compositionType] ?? "Creative composition style",
+            framingEvaluation: evaluation,
+            cameraUsed: "Rear Camera – Wide",
+            location: nil // TODO: Implement location if needed
+        )
     }
     
     private func saveToPhotoLibrary(_ image: UIImage) {
@@ -120,12 +294,18 @@ class PhotoManager: ObservableObject {
                 if let imageData = try? Data(contentsOf: fileURL),
                    let image = UIImage(data: imageData) {
                     
+                    // Extract metadata for existing photos
+                    let metadata = extractMetadata(from: imageData, fileURL: fileURL)
+                    let basicInfo = generateBasicInfo(compositionType: "Rule of Thirds", compositionScore: 0.7)
+                    
                     let capturedPhoto = CapturedPhoto(
                         id: photoId,
                         fileName: fileName,
                         fileURL: fileURL,
                         dateCaptured: dateCaptured,
-                        image: image
+                        image: image,
+                        metadata: metadata,
+                        basicInfo: basicInfo
                     )
                     
                     loadedPhotos.append(capturedPhoto)
@@ -183,6 +363,8 @@ struct CapturedPhoto: Identifiable, Equatable {
     let fileURL: URL
     let dateCaptured: Date
     let image: UIImage
+    let metadata: PhotoMetadata
+    let basicInfo: PhotoBasicInfo
     
     static func == (lhs: CapturedPhoto, rhs: CapturedPhoto) -> Bool {
         return lhs.id == rhs.id
