@@ -14,7 +14,8 @@
 ### Technical Stack
 - **Framework**: SwiftUI + UIKit (UIViewRepresentable for camera)
 - **Computer Vision**: Apple Vision framework (VNDetectFaceRectanglesRequest, VNDetectHumanRectanglesRequest)
-- **Camera**: AVFoundation (AVCaptureSession, AVCaptureVideoDataOutput)
+- **Camera**: AVFoundation (AVCaptureSession, AVCapturePhotoOutput, AVCaptureVideoDataOutput)
+- **Storage**: FileManager (local storage), Photos framework (photo library integration)
 - **Image Processing**: Core Image, Accelerate framework
 - **Platform**: iOS 16.0+, iPhone 12+
 
@@ -42,13 +43,18 @@
 ```mermaid
 graph TD
     A[Launch App] --> B[Onboarding Animation]
-    B --> C[Request Camera Permission]
+    B --> C[Request Permissions]
     C --> D[Camera Feed Active]
     D --> E[Subject Detection]
     E --> F[Composition Analysis]
     F --> G[Live Feedback]
     G --> H[User Adjusts Frame]
     H --> F
+    
+    D --> I[Capture Photo]
+    I --> J[Save to Storage]
+    J --> K[Gallery Preview]
+    K --> L[View/Delete Photos]
     
     D --> I[Access Settings]
     I --> J[Toggle Features]
@@ -115,7 +121,22 @@ graph TD
 - **Symmetry Line**: Vertical symmetry indicator
 - **Guide Lines**: Dynamic composition guides
 
-### 5. Progressive Performance Optimization
+### 5. Comprehensive Photo Management
+
+**Concept**: Complete photo lifecycle management from capture to storage to viewing and deletion.
+
+**Implementation Reference**:
+- [`PhotoManager.swift`](Klick/PhotoManager.swift) - Storage and file management
+- [`PhotoAlbumView.swift`](Klick/PhotoAlbumView.swift) - Gallery interface
+- [`CameraView.swift:345-436`](Klick/CameraView.swift) - Photo capture pipeline
+
+**Key Features**:
+- High-quality HEVC/JPEG photo capture with flash support
+- Local storage with automatic photo library integration
+- Responsive gallery with three interaction states
+- Individual and batch photo deletion with safety confirmations
+
+### 6. Progressive Performance Optimization
 
 **Concept**: Multi-layered performance optimization that maintains quality while ensuring smooth real-time operation.
 
@@ -178,12 +199,15 @@ var cameraStartTime = CACurrentMediaTime()
 
 ### User Experience Goals
 - **Learning Effectiveness**: Users improve composition skills through practice
-- **Engagement**: Smooth, responsive interaction encourages continued use
+- **Photo Quality**: High-quality captures with professional camera settings
+- **Workflow Efficiency**: Seamless capture-to-gallery workflow
 - **Accessibility**: Intuitive interface for photographers of all levels
 
 ### Technical Performance Goals
 - **Frame Rate**: Maintain 30fps camera preview
 - **Analysis Speed**: Composition feedback within 100ms
+- **Capture Quality**: HEVC/JPEG with quality prioritization
+- **Storage Efficiency**: 90% JPEG compression with UUID organization
 - **Memory Usage**: < 100MB peak memory consumption
 - **Battery Impact**: Minimal impact on device battery life
 

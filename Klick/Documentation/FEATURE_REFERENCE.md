@@ -2,98 +2,129 @@
 
 ## 📋 Feature Overview
 
-This document provides detailed information about each feature in Klick, including implementation details, code references, and usage patterns.
+Comprehensive reference for all Klick features, including implementation details and code references.
 
 ---
 
-## 🎬 Onboarding & Landing Experience
+## 🎬 Onboarding Experience
 
 ### Animated Landing Page
-**Description**: Immersive onboarding experience with scrolling photo gallery and smooth transition to camera.
-
-**Code References**:
-- [`LandingPageView.swift:1-321`](Klick/LandingPageView.swift) - Complete implementation
-- [`KlickApp.swift:12-16`](Klick/KlickApp.swift) - App entry point
+**Purpose**: Engaging introduction with photo gallery animation and smooth camera transition.
 
 **Key Features**:
-- Dual-row scrolling photo animation
+- Dual-row scrolling photo animation (15-second cycles)
 - Sequential text and icon animations
-- Circular reveal transition to camera
-- 10 sample photography images from assets
+- Circular reveal transition to camera interface
+- 10 curated photography samples from assets
 
-**Implementation Details**:
-```swift
-// Dual-row animation with opposite directions
-withAnimation(.linear(duration: 15).repeatForever(autoreverses: true)) {
-    scrollOffset1 = -UIScreen.main.bounds.width / 1.5  // Left to right
-    scrollOffset2 = -100  // Right to left
-}
+**Code Reference**: [`LandingPageView.swift`](Klick/LandingPageView.swift)
 
-// Circular reveal transition
-ContentView()
-    .mask(
-        Circle()
-            .scaleEffect(fillCircle ? 50 : 0.01)
-            .animation(.spring(response: 1.0, dampingFraction: 0.75))
-    )
-```
-
-**User Journey**: Launch → Animated gallery → "Let's go" → Circular transition → Camera
+**User Flow**: Launch → Animated gallery → "Let's go" → Camera
 
 ---
 
 ## 📹 Camera System
 
-### Real-Time Camera Feed
-**Description**: High-performance camera preview with minimal latency and proper aspect ratio handling.
+### Live Camera Feed
+**Purpose**: Real-time camera preview with professional-grade performance.
 
-**Code References**:
-- [`CameraView.swift:1-305`](Klick/CameraView.swift) - Complete camera implementation
-- [`CameraView.swift:21-95`](Klick/CameraView.swift) - Session setup
+**Key Features**:
+- High-quality camera preview with minimal latency
+- Background session initialization for smooth UI
+- Proper aspect ratio handling and orientation support
+- Memory-efficient preview layer management
 
-**Technical Implementation**:
-```swift
-// Asynchronous camera setup to avoid UI blocking
-DispatchQueue.global(qos: .userInitiated).async {
-    self.setupCameraSession(for: view, context: context)
-}
+**Code Reference**: [`CameraView.swift:21-147`](Klick/CameraView.swift)
 
-// High-quality session configuration
-session.sessionPreset = .photo
-connection.videoOrientation = .portrait
-previewLayer.videoGravity = .resizeAspectFill
-```
+### Camera Controls
+**Purpose**: Interactive camera controls for better photo capture.
 
-**Performance Features**:
-- Background session initialization
-- Proper orientation handling
-- Memory-conscious preview layer management
-- Graceful permission handling
+**Key Features**:
+- **Tap-to-Focus**: Touch anywhere on screen to focus and adjust exposure
+- **Flash Control**: Auto, on, or off flash modes with device compatibility
+- **Focus Indicator**: Visual feedback showing focus point location
+- **Quality Settings**: Configurable camera quality presets
 
-### Camera Permission Management
-**Description**: Comprehensive permission handling with user-friendly error states.
+**Code Reference**: [`CameraView.swift:477-517`](Klick/CameraView.swift)
 
-**Code References**:
-- [`ContentView.swift:246-302`](Klick/ContentView.swift) - Permission logic
-- [`ContentView.swift:100-140`](Klick/ContentView.swift) - Permission UI states
+### Permission Management
+**Purpose**: Seamless permission handling with user-friendly error states.
 
-**Permission States**:
-- **Not Determined**: Show loading, request permission
-- **Authorized**: Initialize camera immediately
-- **Denied/Restricted**: Show settings redirect UI
+**Key Features**:
+- Automatic permission request on app launch
+- Settings redirect for denied permissions
+- Loading states during permission checks
+- Graceful fallback for restricted access
 
-**UI States**:
-```swift
-if permissionStatus == .denied || permissionStatus == .restricted {
-    // Settings redirect UI
-    Button("Open Settings") {
-        UIApplication.shared.open(UIApplication.openSettingsURLString)
-    }
-} else {
-    // Loading state with progress indicator
-    ProgressView().progressViewStyle(CircularProgressViewStyle(tint: .white))
-}
-```
+**Code Reference**: [`ContentView.swift:246-302`](Klick/ContentView.swift)
+
+---
+
+## 📸 Photo Management System
+
+### Photo Capture
+**Purpose**: High-quality photo capture with professional camera settings.
+
+**Key Features**:
+- HEVC/JPEG format support with quality prioritization
+- Flash mode integration (auto, on, off)
+- Automatic image orientation correction
+- Background processing for smooth UI performance
+
+**Code Reference**: [`CameraView.swift:345-436`](Klick/CameraView.swift)
+
+**Capture Flow**: Button press → Settings configuration → AVCapturePhotoOutput → Image processing → Storage
+
+### Photo Storage & Management
+**Purpose**: Local photo storage with efficient file management.
+
+**Key Features**:
+- Local storage in Documents directory with JPEG compression (90% quality)
+- Automatic photo library integration (with user permission)
+- UUID-based file naming system
+- Thread-safe photo array management
+
+**Code Reference**: [`PhotoManager.swift`](Klick/PhotoManager.swift)
+
+**Storage Path**: `Documents/CapturedPhotos/[UUID].jpg`
+
+### Photo Gallery
+**Purpose**: Intuitive photo browsing with multiple interaction modes.
+
+**Key Features**:
+- **Grid Layout**: 3-column responsive grid with 12pt spacing
+- **Three States**: Hidden → Glimpse (80pt) → Full-screen
+- **Animated Intro**: Engaging empty state with stacked photo animation
+- **Smooth Transitions**: Spring-based animations between states
+
+**Code Reference**: [`PhotoAlbumView.swift`](Klick/PhotoAlbumView.swift)
+
+**Interaction Flow**: 
+- First capture → Glimpse appears → Tap to expand → Full gallery
+
+### Photo Viewing & Details
+**Purpose**: Full-screen photo viewing with metadata display.
+
+**Key Features**:
+- Aspect-fit photo display on black background
+- Capture date and time information
+- Navigation toolbar with close/delete actions
+- Modal presentation with slide transition
+
+**Code Reference**: [`PhotoAlbumView.swift:397-447`](Klick/PhotoAlbumView.swift)
+
+### Photo Deletion System
+**Purpose**: Flexible photo deletion with safety confirmations.
+
+**Key Features**:
+- **Individual Deletion**: Delete from photo detail view
+- **Batch Deletion**: Multi-select mode with checkmark indicators
+- **Safety Alerts**: Confirmation dialogs for all delete operations
+- **File System Cleanup**: Automatic file removal from storage
+
+**Code Reference**: [`PhotoAlbumView.swift:175-210`](Klick/PhotoAlbumView.swift)
+
+**Deletion Flow**: Select → Confirm → File removal → UI update
 
 ---
 
@@ -422,9 +453,9 @@ DispatchQueue.global(qos: .userInitiated).async {
 - [`ContentView.swift:172-215`](Klick/ContentView.swift) - Control bar implementation
 
 **Controls**:
-1. **Composition Picker** (Left): Switch composition types
-2. **Capture Button** (Center): Photo capture (placeholder)
-3. **Settings Button** (Right): Access frame settings
+1. **Composition Picker** (Left): Switch between composition analysis modes
+2. **Capture Button** (Center): High-quality photo capture with gallery preview
+3. **Settings Button** (Right): Access camera and analysis settings
 
 **Design Specifications**:
 - **Touch Targets**: 60x60pt minimum (accessibility compliant)

@@ -1,114 +1,106 @@
-# Klick - Smart Photo Composition App (MVP)
+# Klick - Smart Photo Composition App
 
-A real-time camera assistant that teaches beginner and intermediate photographers how to frame better photos using the Rule of Thirds composition technique.
+A real-time camera assistant that teaches photographers composition techniques through live feedback and intelligent subject detection.
 
-## 🎯 App Objective
+## 🎯 What It Does
 
-Klick provides live camera composition guides with real-time subject detection and Rule of Thirds recommendations using overlays and educational prompts.
+Klick provides instant composition guidance while you frame photos, helping you learn photography techniques through practice rather than theory.
 
-## ✨ MVP Features
+## ✨ Core Features
 
-### Phase 1: Live Camera Feed ✅
-- Real-time camera preview with minimal latency
-- Uses AVCaptureSession for rear camera access
-- SwiftUI integration with UIViewRepresentable
-- Proper aspect ratio handling (.resizeAspectFill)
+### 📹 **Camera System**
+- **Live Camera Feed**: Real-time preview with minimal latency
+- **Tap-to-Focus**: Touch anywhere to focus and adjust exposure
+- **Flash Control**: Auto, on, or off flash modes
+- **Background Processing**: Smooth performance without UI lag
 
-### Phase 2: Rule of Thirds Grid ✅
-- 3x3 grid overlay (2 vertical + 2 horizontal lines)
-- Semi-transparent white lines (alpha 0.6, 1pt width)
-- Smooth animation on show/hide
-- Scales with different screen sizes
+### 📸 **Photo Management**
+- **Photo Capture**: High-quality JPEG/HEVC photo capture
+- **Local Storage**: Photos saved to app's document directory
+- **Photo Library Integration**: Automatic saving to device photo library
+- **Gallery View**: Grid-based photo browser with smooth animations
+- **Photo Viewing**: Full-screen photo display with capture details
+- **Delete Options**: Individual or batch photo deletion
 
-### Phase 3: Subject Detection ✅
-- Face detection using VNDetectFaceRectanglesRequest
-- Object detection using VNRecognizeObjectsRequest
-- Real-time frame analysis with throttling (every 3rd frame)
-- Background queue processing for performance
+### 🧠 **Smart Detection**
+- **Face Detection**: Prioritizes human faces for composition analysis
+- **Human Detection**: Falls back to full-body detection when no faces found
+- **Real-Time Processing**: Analyzes every 3rd frame for optimal performance
 
-### Phase 4: Rule of Thirds Evaluation ✅
-- Calculates four key intersection points
-- Compares subject center to nearest intersection
-- 10% tolerance threshold for alignment
-- Live feedback messages:
-  - ✅ "Nice framing!" when aligned
-  - ⚠️ "Try placing your subject on a third" when not aligned
+### 🎨 **Composition Analysis**
+- **Rule of Thirds**: 3×3 grid with intersection point guidance
+- **Center Framing**: Crosshair overlay with symmetry analysis
+- **Symmetry Detection**: Pixel-level vertical symmetry evaluation
+- **Live Feedback**: Instant directional guidance ("Move left", "Perfect!")
 
-### Phase 5: Educational Content ✅
-- Tappable ℹ️ info icon
-- Educational popup explaining Rule of Thirds
-- Dismissible sheet with smooth animations
-- Clear, simple explanations for beginners
+### 🎓 **Learning Features**
+- **Educational Content**: Built-in explanations of composition techniques
+- **Interactive Learning**: Learn by doing with real-time feedback
+- **Progressive Guidance**: Adaptive tolerance for easier learning
 
-### Phase 6: Minimal UI ✅
-- Clean, intuitive interface
-- Bottom control bar with large hit areas (60x60pt)
-- Three main buttons:
-  - 📷 Capture Button (placeholder)
-  - 👁️ Grid Toggle
-  - ℹ️ Info/Educational Content
+### ⚙️ **Customization**
+- **Composition Types**: Switch between Rule of Thirds, Center Framing, and Symmetry
+- **Toggle Controls**: Enable/disable face detection, overlays, and analysis
+- **Visual Settings**: Customize overlay visibility and analysis behavior
 
 ## 🛠 Technical Stack
 
-- **SwiftUI** - Modern UI framework
-- **AVFoundation** - Camera capture and video processing
-- **Vision** - Face and object detection
-- **Core ML** - Machine learning integration
-- **iOS 16+** - Target platform
+- **SwiftUI + UIKit**: Modern UI with reliable camera integration
+- **AVFoundation**: Camera capture and video processing
+- **Vision Framework**: Face and human detection
+- **Core Image**: Image processing and analysis
+- **iOS 16.0+**: Modern iOS features and APIs
 
 ## 📱 Requirements
 
-- iPhone 12 and newer
-- iOS 16.0+
-- Camera permission required
+- **Device**: iPhone 12 or newer
+- **iOS**: 16.0 or later
+- **Permissions**: Camera and Photo Library access
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 1. Open `Klick.xcodeproj` in Xcode
 2. Select your target device (iPhone 12+ recommended)
-3. Build and run the project
-4. Grant camera permissions when prompted
-5. Start framing photos with Rule of Thirds guidance!
+3. Build and run (`⌘+R`)
+4. Grant camera and photo library permissions
+5. Start taking better photos with real-time guidance!
 
-## 🎨 UI/UX Design
+## 🎨 Design Philosophy
 
-- **Clean Interface**: Minimal distractions during photography
-- **Large Touch Targets**: All buttons meet 44x44pt minimum
-- **Smooth Animations**: 0.3s easeInOut transitions
-- **Clear Feedback**: Immediate visual and textual guidance
-- **Educational Focus**: Learning through interaction
+- **Minimal Interface**: Clean design that doesn't distract from photography
+- **Instant Feedback**: Real-time guidance without delays
+- **Learning-Focused**: Educational approach to skill building
+- **Accessible**: Large touch targets and high-contrast overlays
 
-## 🔧 Performance Optimizations
+## 🔧 Performance Features
 
-- Frame throttling (process every 3rd frame)
-- Background queue processing
-- Efficient Vision framework usage
-- Memory-conscious image handling
+- **Frame Throttling**: Processes every 3rd frame for smooth performance
+- **Background Processing**: Computer vision runs on background queues
+- **Memory Optimization**: Efficient image handling and caching
+- **Battery Conscious**: Minimal impact on device battery life
 
-## 📋 MVP Completion Criteria
+## 📋 Current Status
 
-✅ Live camera preview with minimal delay  
-✅ Rule of Thirds grid overlay  
-✅ Face/object detection and highlighting  
-✅ Real-time Rule of Thirds evaluation  
-✅ Live feedback on framing accuracy  
-✅ Educational popup explaining the technique  
-✅ Smooth performance on iPhone 12+  
-✅ Touch-friendly, clean UI  
+✅ **Completed Features**
+- Live camera preview with tap-to-focus
+- Real-time face and human detection
+- Three composition analysis modes
+- Photo capture with quality settings
+- Local photo storage and gallery
+- Individual and batch photo deletion
+- Educational content system
+- Comprehensive settings panel
 
-## 🚫 Not Implemented (Future Versions)
-
-- Golden Ratio detection
-- Leading Lines analysis
-- Multi-rule recommendations
-- Symmetry analysis
-- Capture history/gallery
-- User accounts
-- External model integration
+⏳ **Future Enhancements**
+- Golden Ratio composition analysis
+- Leading Lines detection
+- Advanced symmetry techniques
+- Cloud storage integration
+- Photo sharing capabilities
 
 ## 📄 License
 
-This project is developed as an MVP for educational purposes.
+This project is developed for educational purposes.
 
 ---
 
