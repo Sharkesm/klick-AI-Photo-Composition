@@ -38,16 +38,18 @@ struct PhotoDetailView: View {
                                         // Always show thumbnail as base layer
                                         Image(uiImage: photo.thumbnail)
                                             .resizable()
-                                            .aspectRatio(contentMode: .fit)
-                                            .frame(maxWidth: .infinity, maxHeight: geometry.size.height * 0.75)
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(maxHeight: geometry.size.height * 0.75)
                                             .cornerRadius(12)
-                                        
+                                    
                                         // Show high-res image on top when loaded
                                         if let fullResImage = fullResolutionImage {
                                             Image(uiImage: fullResImage)
                                                 .resizable()
-                                                .aspectRatio(contentMode: .fit)
-                                                .frame(maxWidth: .infinity, maxHeight: geometry.size.height * 0.75)
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(maxWidth: .infinity)
+                                                .frame(maxHeight: geometry.size.height * 0.75)
                                                 .cornerRadius(12)
                                                 .transition(.opacity)
                                         }
@@ -65,7 +67,7 @@ struct PhotoDetailView: View {
                                         }
                                     }
                                 }
-                                .frame(minHeight: geometry.size.height * 0.8)
+                                .frame(maxWidth: .infinity, minHeight: geometry.size.height * 0.8)
                                 .id("photoSection")
                                 .onAppear {
                                     print("📷 PhotoDetailView appeared for photo: \(photo.id)")
