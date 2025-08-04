@@ -17,6 +17,7 @@ struct PhotoAlbumView: View {
     var glipseRevealStarted: Bool
     @Binding var isFullScreen: Bool
     @ObservedObject var photoManager: PhotoManager
+
     let onTap: () -> Void
     
     @State private var selectedPhoto: CapturedPhoto?
@@ -101,6 +102,21 @@ struct PhotoAlbumView: View {
                     } else {
                         ScrollView {
                             LazyVGrid(columns: columns, spacing: 12) {
+                                // Add photo canvas at the beginning - only show when not in selection mode
+                                if !isSelectionMode {
+                                    AddPhotoCanvasView {
+                                        // Close the photo album to go back to camera
+                                        withAnimation(.easeOut) {
+                                            clearSelectedPhoto()
+                                        }
+                                        
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                            onTap()
+                                        }
+                                    }
+                                }
+                                
+                                // Sort photos by creation date in descending order (latest first)
                                 ForEach(photoManager.capturedPhotos) { photo in
                                     PhotoThumbnailView(
                                         photo: photo,
@@ -115,65 +131,51 @@ struct PhotoAlbumView: View {
                                             print("✅ Selected photo set to: \(photo.id)")
                                         }
                                     }
-                                    
-                                    // Add photo canvas - only show when not in selection mode
-                                    if !isSelectionMode {
-                                        AddPhotoCanvasView {
-                                            // Close the photo album to go back to camera
-                                            withAnimation(.easeOut) {
-                                                clearSelectedPhoto()
-                                            }
-                                            
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                                onTap()
-                                            }
-                                        }
-                                    }
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, isFullScreen && !photoManager.capturedPhotos.isEmpty ? 120 : 100) // Extra padding for floating buttons
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, isFullScreen && !photoManager.capturedPhotos.isEmpty ? 100 : 20) // Bottom padding for floating button
                         }
                     }
-                    
-                    // Floating bottom bar with Select and Delete buttons
-                    if isFullScreen && !photoManager.capturedPhotos.isEmpty {
-                        VStack {
+                }
+                
+                // Floating bottom bar with Select button - positioned as overlay
+                if isFullScreen && !photoManager.capturedPhotos.isEmpty {
+                    VStack {
+                        Spacer()
+                        
+                        HStack(spacing: 16) {
                             Spacer()
                             
-                            HStack(spacing: 16) {
-                                Spacer()
-                                
-                                // Select/Cancel button
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isSelectionMode.toggle()
-                                        if !isSelectionMode {
-                                            selectedPhotos.removeAll()
-                                        }
+                            // Select/Cancel button
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isSelectionMode.toggle()
+                                    if !isSelectionMode {
+                                        selectedPhotos.removeAll()
                                     }
-                                }) {
-                                    HStack(spacing: 8) {
-                                        if isSelectionMode {
-                                            Image(systemName: "xmark")
-                                                .font(.system(size: 16, weight: .medium))
-                                        } else {
-                                            Text("Select")
-                                                .font(.system(size: 16, weight: .semibold))
-                                        }
-                                    }
-                                    .foregroundColor(.black)
-                                    .padding(.vertical, 12)
-                                    .padding(.horizontal, 20)
-                                    .background(Color.white.opacity(0.9))
-                                    .clipShape(Capsule())
                                 }
-                                
-                                Spacer()
+                            }) {
+                                HStack(spacing: 8) {
+                                    if isSelectionMode {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 16, weight: .medium))
+                                    } else {
+                                        Text("Select")
+                                            .font(.system(size: 16, weight: .semibold))
+                                    }
+                                }
+                                .foregroundColor(.black)
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 20)
+                                .background(Color.white.opacity(0.9))
+                                .clipShape(Capsule())
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 40) // Safe area padding
+                            
+                            Spacer()
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 40) // Safe area padding
                     }
                 }
             }

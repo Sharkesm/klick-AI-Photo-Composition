@@ -70,8 +70,6 @@ struct PhotoDetailView: View {
                                 .frame(maxWidth: .infinity, minHeight: geometry.size.height * 0.8)
                                 .id("photoSection")
                                 .onAppear {
-                                    print("📷 PhotoDetailView appeared for photo: \(photo.id)")
-                                    print("📷 Thumbnail size: \(photo.thumbnail.size)")
                                     // Reset state and load full resolution image when view appears
                                     fullResolutionImage = nil
                                     isLoadingFullResolution = false

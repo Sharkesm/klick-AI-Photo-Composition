@@ -403,15 +403,17 @@ class PhotoManager: ObservableObject {
                     
                     let batchPhotos = self.processBatch(batch)
                     loadedPhotos.append(contentsOf: batchPhotos)
-                    
-                    // Update UI with each batch for progressive loading
-                    DispatchQueue.main.async {
-                        self.capturedPhotos = loadedPhotos
-                    }
-                    
-                    // Small delay between batches to prevent UI blocking
-                    Thread.sleep(forTimeInterval: 0.05)
                 }
+                
+                let sortedPhotos = loadedPhotos.sorted { $0.dateCaptured > $1.dateCaptured }
+                
+                // Update UI with each batch for progressive loading
+                DispatchQueue.main.async {
+                    self.capturedPhotos = loadedPhotos
+                }
+                
+                // Small delay between batches to prevent UI blocking
+                Thread.sleep(forTimeInterval: 0.05)
                 
                 DispatchQueue.main.async {
                     self.isLoading = false
