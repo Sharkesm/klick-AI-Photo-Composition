@@ -14,6 +14,10 @@ struct PhotoDetailView: View {
     @State private var showDeleteAlert = false
     @State private var fullResolutionImage: UIImage?
     @State private var isLoadingFullResolution = false
+    @State private var isSavingToLibrary = false
+    @State private var showSaveAlert = false
+    @State private var saveAlertMessage = ""
+    @State private var saveAlertIsSuccess = false
     
     init(photo: CapturedPhoto, photoManager: PhotoManager, isPresented: Binding<Bool>, onDismiss: (() -> Void)? = nil) {
         self.photo = photo
@@ -65,6 +69,35 @@ struct PhotoDetailView: View {
                                             .background(Color.black.opacity(0.3))
                                             .clipShape(RoundedRectangle(cornerRadius: 8))
                                         }
+                                        
+                                        // Download button overlay - positioned at top leading
+                                        VStack {
+                                            HStack {
+                                                Spacer()
+                                                Button(action: {
+                                                    savePhotoToLibrary()
+                                                }) {
+                                                    HStack(spacing: 6) {
+                                                        if isSavingToLibrary {
+                                                            ProgressView()
+                                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                                .scaleEffect(0.75)
+                                                        } else {
+                                                            Image(systemName: "arrow.down.to.line")
+                                                                .font(.system(size: 12, weight: .semibold))
+                                                        }
+                                                    }
+                                                    .foregroundColor(.white)
+                                                    .padding(8)
+                                                    .background(photoManager.isPhotoSavedToLibrary(photo) ? Color.green.opacity(0.8) : Color.black.opacity(0.6))
+                                                    .clipShape(Circle())
+                                                }
+                                                .disabled(isSavingToLibrary)
+                                            }
+                                            .padding(.top, 10)
+                                            Spacer()
+                                        }
+                                        .padding(20)
                                     }
                                 }
                                 .frame(maxWidth: .infinity, minHeight: geometry.size.height * 0.8)
@@ -191,6 +224,38 @@ struct PhotoDetailView: View {
                         }
                     }
                 }
+            }
+        }
+        .alert(saveAlertIsSuccess ? "Success" : "Error", isPresented: $showSaveAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveAlertMessage)
+        }
+    }
+    
+    private func savePhotoToLibrary() {
+        // Check if photo is already saved
+        if photoManager.isPhotoSavedToLibrary(photo) {
+            saveAlertIsSuccess = true
+            saveAlertMessage = "Photo is already saved to your photo library!"
+            showSaveAlert = true
+            return
+        }
+        
+        isSavingToLibrary = true
+        
+        photoManager.savePhotoToLibrary(photo) { [self] success, error in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                isSavingToLibrary = false
+                saveAlertIsSuccess = success
+                
+                if success {
+                    saveAlertMessage = "Photo saved to your photo library successfully!"
+                } else {
+                    saveAlertMessage = error ?? "Failed to save photo to library"
+                }
+                
+                showSaveAlert = true
             }
         }
     }

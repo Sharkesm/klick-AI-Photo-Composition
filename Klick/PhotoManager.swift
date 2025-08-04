@@ -36,6 +36,9 @@ class PhotoManager: ObservableObject {
     // Lazy loading state
     private var hasLoadedPhotos = false
     
+    // Track photos saved to photo library
+    private var savedToLibraryPhotos: Set<String> = []
+    
     // Performance optimization properties
     private let thumbnailCache = NSCache<NSString, UIImage>()
     private let fullImageCache = NSCache<NSString, UIImage>()
@@ -69,6 +72,7 @@ class PhotoManager: ObservableObject {
         setupCaches()
         loadPhotoCountOnly() // Only load count for preview
         requestPhotoLibraryPermission()
+        loadSavedPhotosState() // Load saved photos state
     }
     
     private func setupCaches() {
@@ -134,9 +138,6 @@ class PhotoManager: ObservableObject {
             }
             
             print("✅ Photo and thumbnail saved successfully: \(fileName)")
-            
-            // Also save to photo library if permission granted
-            saveToPhotoLibrary(image)
             
         } catch {
             print("❌ Failed to save photo: \(error)")
@@ -345,7 +346,49 @@ class PhotoManager: ObservableObject {
         )
     }
     
-    private func saveToPhotoLibrary(_ image: UIImage) {
+    // Public method for manually saving photos to photo library
+    func savePhotoToLibrary(_ photo: CapturedPhoto, completion: @escaping (Bool, String?) -> Void) {
+        // Load the full resolution image first
+        loadFullResolutionImage(for: photo) { image in
+            guard let image = image else {
+                DispatchQueue.main.async {
+                    completion(false, "Failed to load photo")
+                }
+                return
+            }
+            
+            self.saveToPhotoLibrary(image) { success, error in
+                DispatchQueue.main.async {
+                    if success {
+                        // Mark photo as saved to library
+                        self.savedToLibraryPhotos.insert(photo.id)
+                        self.saveSavedPhotosState()
+                    }
+                    completion(success, error)
+                }
+            }
+        }
+    }
+    
+    // Check if a photo has been saved to photo library
+    func isPhotoSavedToLibrary(_ photo: CapturedPhoto) -> Bool {
+        return savedToLibraryPhotos.contains(photo.id)
+    }
+    
+    // Save the saved photos state to UserDefaults
+    private func saveSavedPhotosState() {
+        let savedPhotosArray = Array(savedToLibraryPhotos)
+        UserDefaults.standard.set(savedPhotosArray, forKey: "SavedToLibraryPhotos")
+    }
+    
+    // Load the saved photos state from UserDefaults
+    private func loadSavedPhotosState() {
+        if let savedPhotosArray = UserDefaults.standard.array(forKey: "SavedToLibraryPhotos") as? [String] {
+            savedToLibraryPhotos = Set(savedPhotosArray)
+        }
+    }
+    
+    private func saveToPhotoLibrary(_ image: UIImage, completion: ((Bool, String?) -> Void)? = nil) {
         let status = PHPhotoLibrary.authorizationStatus()
         
         switch status {
@@ -355,20 +398,28 @@ class PhotoManager: ObservableObject {
             }) { success, error in
                 if success {
                     print("✅ Photo saved to photo library")
+                    completion?(true, nil)
                 } else if let error = error {
                     print("❌ Failed to save to photo library: \(error)")
+                    completion?(false, error.localizedDescription)
+                } else {
+                    completion?(false, "Unknown error occurred")
                 }
             }
         case .denied, .restricted:
             print("⚠️ Photo library access denied")
+            completion?(false, "Photo library access denied")
         case .notDetermined:
             PHPhotoLibrary.requestAuthorization { status in
                 if status == .authorized {
-                    self.saveToPhotoLibrary(image)
+                    self.saveToPhotoLibrary(image, completion: completion)
+                } else {
+                    completion?(false, "Photo library access denied")
                 }
             }
         @unknown default:
             print("❓ Unknown photo library authorization status")
+            completion?(false, "Unknown photo library authorization status")
         }
     }
     
