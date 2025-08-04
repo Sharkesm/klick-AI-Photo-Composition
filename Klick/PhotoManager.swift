@@ -31,6 +31,10 @@ struct PhotoBasicInfo {
 class PhotoManager: ObservableObject {
     @Published var capturedPhotos: [CapturedPhoto] = []
     @Published var isLoading = false
+    @Published var photoCount: Int = 0 // For preview without loading photos
+    
+    // Lazy loading state
+    private var hasLoadedPhotos = false
     
     // Performance optimization properties
     private let thumbnailCache = NSCache<NSString, UIImage>()
@@ -63,7 +67,7 @@ class PhotoManager: ObservableObject {
     
     init() {
         setupCaches()
-        loadPhotosAsync() // Make loading async
+        loadPhotoCountOnly() // Only load count for preview
         requestPhotoLibraryPermission()
     }
     
@@ -120,9 +124,13 @@ class PhotoManager: ObservableObject {
                 basicInfo: basicInfo
             )
             
-            // Add to array (newest first)
+            // Add to array (newest first) only if photos are already loaded
             DispatchQueue.main.async {
-                self.capturedPhotos.insert(capturedPhoto, at: 0)
+                if self.hasLoadedPhotos {
+                    self.capturedPhotos.insert(capturedPhoto, at: 0)
+                }
+                // Always update photo count
+                self.photoCount += 1
             }
             
             print("✅ Photo and thumbnail saved successfully: \(fileName)")
@@ -364,7 +372,53 @@ class PhotoManager: ObservableObject {
         }
     }
     
-    // OPTIMIZATION 3: Async photo loading
+    // OPTIMIZATION: Load only photo count for preview (fast startup)
+    private func loadPhotoCountOnly() {
+        loadingQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            guard FileManager.default.fileExists(atPath: self.photosDirectory.path) else {
+                DispatchQueue.main.async {
+                    self.photoCount = 0
+                }
+                return
+            }
+            
+            do {
+                let fileURLs = try FileManager.default.contentsOfDirectory(
+                    at: self.photosDirectory,
+                    includingPropertiesForKeys: nil,
+                    options: []
+                )
+                
+                let photoFiles = fileURLs.filter { $0.pathExtension.lowercased() == "jpg" }
+                
+                DispatchQueue.main.async {
+                    self.photoCount = photoFiles.count
+                    print("📊 Photo count loaded: \(photoFiles.count) photos")
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.photoCount = 0
+                    print("❌ Failed to load photo count: \(error)")
+                }
+            }
+        }
+    }
+    
+    // OPTIMIZATION: Public method to trigger full photo loading when needed
+    func loadPhotosIfNeeded() {
+        guard !hasLoadedPhotos else {
+            print("📷 Photos already loaded, skipping")
+            return
+        }
+        
+        print("🚀 Starting lazy photo loading...")
+        hasLoadedPhotos = true
+        loadPhotosAsync()
+    }
+    
+    // OPTIMIZATION 3: Async photo loading (now called only when needed)
     private func loadPhotosAsync() {
         isLoading = true
         
@@ -409,7 +463,7 @@ class PhotoManager: ObservableObject {
                 
                 // Update UI with each batch for progressive loading
                 DispatchQueue.main.async {
-                    self.capturedPhotos = loadedPhotos
+                    self.capturedPhotos = sortedPhotos
                 }
                 
                 // Small delay between batches to prevent UI blocking
@@ -542,6 +596,8 @@ class PhotoManager: ObservableObject {
             
             DispatchQueue.main.async {
                 self.capturedPhotos.removeAll { $0.id == photo.id }
+                // Update photo count
+                self.photoCount = max(0, self.photoCount - 1)
             }
             
             print("✅ Photo and thumbnail deleted: \(photo.fileName)")

@@ -83,8 +83,8 @@ struct PhotoAlbumView: View {
                                     .font(.system(size: 16, weight: .medium))
                                     .foregroundColor(.black)
                                 
-                                if !photoManager.capturedPhotos.isEmpty && glipseRevealStarted {
-                                    Text("\(photoManager.capturedPhotos.count) photos")
+                                if photoManager.photoCount > 0 && glipseRevealStarted {
+                                    Text("\(photoManager.photoCount) photos")
                                         .font(.system(size: 12, weight: .regular))
                                         .foregroundColor(.black.opacity(0.7))
                                 }
@@ -95,10 +95,21 @@ struct PhotoAlbumView: View {
                     }
                     
                     // Photo grid section
-                    if photoManager.capturedPhotos.isEmpty {
+                    if photoManager.photoCount == 0 {
                         AnimatedIntroView {
                             onTap()
                         }
+                    } else if photoManager.isLoading {
+                        // Loading state for lazy loading
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Loading photos...")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.black.opacity(0.7))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.top, 60)
                     } else {
                         ScrollView {
                             LazyVGrid(columns: columns, spacing: 12) {
@@ -134,13 +145,13 @@ struct PhotoAlbumView: View {
                                 }
                             }
                             .padding(.horizontal, 16)
-                            .padding(.bottom, isFullScreen && !photoManager.capturedPhotos.isEmpty ? 100 : 20) // Bottom padding for floating button
+                            .padding(.bottom, isFullScreen && photoManager.photoCount > 0 && !photoManager.isLoading ? 100 : 20) // Bottom padding for floating button
                         }
                     }
                 }
                 
                 // Floating bottom bar with Select button - positioned as overlay
-                if isFullScreen && !photoManager.capturedPhotos.isEmpty {
+                if isFullScreen && photoManager.photoCount > 0 && !photoManager.isLoading {
                     VStack {
                         Spacer()
                         
@@ -185,6 +196,8 @@ struct PhotoAlbumView: View {
             )
             .onTapGesture {
                 if !isFullScreen {
+                    // Trigger lazy loading when photo album is about to be opened
+                    photoManager.loadPhotosIfNeeded()
                     onTap()
                 }
             }
@@ -204,6 +217,18 @@ struct PhotoAlbumView: View {
             } message: {
                 Text("Are you sure you want to delete \(selectedPhotos.count) photo\(selectedPhotos.count == 1 ? "" : "s")? This action cannot be undone.")
             }
+            .onAppear {
+                // Trigger lazy loading when view appears in full screen mode
+                if isFullScreen {
+                    photoManager.loadPhotosIfNeeded()
+                }
+            }
+            .onChange(of: isFullScreen) { newValue in
+                // Trigger lazy loading when transitioning to full screen
+                if newValue {
+                    photoManager.loadPhotosIfNeeded()
+                }
+            }
         }
     }
     
@@ -220,8 +245,11 @@ struct PhotoAlbumView: View {
         for photo in photosToDelete {
             photoManager.deletePhoto(photo)
         }
-        selectedPhotos.removeAll()
-        isSelectionMode = false
+        
+        withAnimation(.easeOut) {
+            selectedPhotos.removeAll()
+            isSelectionMode = false
+        }
     }
     
     func resetSelectionMode() {
