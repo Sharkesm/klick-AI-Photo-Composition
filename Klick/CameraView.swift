@@ -11,6 +11,7 @@ struct CameraView: View {
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
     @Binding var flashMode: FlashMode
+    @Binding var zoomLevel: ZoomLevel
     @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
     let onPhotoCaptured: ((UIImage, Data?) -> Void)?
@@ -33,6 +34,7 @@ struct CameraView: View {
                 compositionManager: compositionManager,
                 cameraQuality: $cameraQuality,
                 flashMode: $flashMode,
+                zoomLevel: $zoomLevel,
                 isSessionActive: $isSessionActive,
                 onCameraReady: onCameraReady,
                 focusPoint: $focusPoint,
@@ -55,11 +57,6 @@ struct CameraView: View {
             }
         }
     }
-    
-    // Public method to trigger photo capture
-    func capturePhoto() {
-        // This will be handled by the UIViewRepresentable coordinator
-    }
 }
 
 struct CameraUIViewRepresentable: UIViewRepresentable {
@@ -71,6 +68,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
     @Binding var flashMode: FlashMode
+    @Binding var zoomLevel: ZoomLevel
     @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
     @Binding var focusPoint: CGPoint
@@ -104,20 +102,23 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         session.sessionPreset = cameraQuality.sessionPreset
         print("📷 Camera quality set to: \(cameraQuality.displayName) (\(cameraQuality.sessionPreset.rawValue))")
         
-        // Add camera input
-        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+        // Add camera input - select camera based on zoom level
+        let deviceType = zoomLevel.deviceType
+        guard let camera = AVCaptureDevice.default(deviceType, for: .video, position: .back) ?? 
+              AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: camera) else {
             DispatchQueue.main.async {
-                print("❌ Failed to setup camera input")
+                print("❌ Failed to setup camera input for zoom level \(zoomLevel.displayName)")
             }
             return
         }
         
-        print("✅ Camera input configured")
+        print("✅ Camera input configured for zoom level \(zoomLevel.displayName) using device: \(camera.deviceType.rawValue)")
         session.addInput(input)
         
         // Store camera device reference for focus control
         context.coordinator.cameraDevice = camera
+        context.coordinator.currentZoomLevel = zoomLevel
         
         // Add video output for processing
         let videoOutput = AVCaptureVideoDataOutput()
@@ -218,6 +219,12 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
            session.sessionPreset != cameraQuality.sessionPreset {
             updateCameraQuality(session: session, newQuality: cameraQuality, forContext: context)
         }
+        
+        // Update camera device if zoom level has changed
+        if let session = context.coordinator.session,
+           context.coordinator.currentZoomLevel != zoomLevel {
+            updateCameraDevice(session: session, newZoomLevel: zoomLevel, forContext: context)
+        }
     }
     
     private func updateCameraQuality(session: AVCaptureSession, newQuality: CameraQuality, forContext context: Context) {
@@ -276,6 +283,56 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             }
         }
     }
+    
+    private func updateCameraDevice(session: AVCaptureSession, newZoomLevel: ZoomLevel, forContext context: Context) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Begin configuration transaction
+            session.beginConfiguration()
+            
+            // Remove existing camera input
+            if let currentInput = session.inputs.first as? AVCaptureDeviceInput {
+                session.removeInput(currentInput)
+            }
+            
+            // Add new camera input based on zoom level
+            let deviceType = newZoomLevel.deviceType
+            guard let newCamera = AVCaptureDevice.default(deviceType, for: .video, position: .back) ?? 
+                  AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+                  let newInput = try? AVCaptureDeviceInput(device: newCamera) else {
+                print("❌ Failed to create input for zoom level \(newZoomLevel.displayName)")
+                session.commitConfiguration()
+                return
+            }
+            
+            // Add the new input
+            if session.canAddInput(newInput) {
+                session.addInput(newInput)
+                
+                // Update coordinator references
+                context.coordinator.cameraDevice = newCamera
+                context.coordinator.currentZoomLevel = newZoomLevel
+                
+                print("✅ Camera device updated to zoom level \(newZoomLevel.displayName) using device: \(newCamera.deviceType.rawValue)")
+            } else {
+                print("❌ Cannot add input for zoom level \(newZoomLevel.displayName)")
+            }
+            
+            // Commit all changes atomically
+            session.commitConfiguration()
+            
+            // Brief pause to allow session to stabilize
+            Thread.sleep(forTimeInterval: 0.1)
+            
+            // Update UI on main thread
+            DispatchQueue.main.async {
+                // Force preview layer to refresh
+                if let previewLayer = context.coordinator.previewLayer {
+                    previewLayer.connection?.isEnabled = false
+                    previewLayer.connection?.isEnabled = true
+                }
+            }
+        }
+    }
 
     // Helper methods for optimal resolution (kept for reference but not used to avoid crashes)
     private func getOptimalWidth(for quality: CameraQuality) -> Int {
@@ -311,6 +368,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         var cameraDevice: AVCaptureDevice?
         var photoOutput: AVCapturePhotoOutput?
         var onPhotoCaptured: ((UIImage, Data?) -> Void)?
+        var currentZoomLevel: ZoomLevel = .wide
     
         init(_ parent: CameraUIViewRepresentable) {
             self.parent = parent
