@@ -154,17 +154,25 @@ class PhotoManager: ObservableObject {
         return metadata as CFDictionary
     }
     
-    func savePhoto(_ image: UIImage, compositionType: String = "Rule of Thirds", compositionScore: Double = 0.8) {
+    func savePhoto(_ image: UIImage, compositionType: String = "Rule of Thirds", compositionScore: Double = 0.8, imageData: Data? = nil) {
         let photoId = UUID().uuidString
         let fileName = "\(photoId).jpg"
         let thumbnailFileName = "\(photoId)_thumb.jpg"
         let fileURL = photosDirectory.appendingPathComponent(fileName)
         let thumbnailURL = thumbnailsDirectory.appendingPathComponent(thumbnailFileName)
         
-        // Convert image to JPEG data with enhanced metadata preservation
-        guard let imageData = createJPEGDataWithMetadata(from: image) else {
-            print("❌ Failed to convert image to JPEG data with metadata")
-            return
+        // Use provided imageData with actual metadata, or create enhanced metadata
+        let finalImageData: Data
+        if let providedData = imageData {
+            finalImageData = providedData
+            print("✅ Using provided image data with actual capture metadata")
+        } else {
+            guard let createdData = createJPEGDataWithMetadata(from: image) else {
+                print("❌ Failed to convert image to JPEG data with metadata")
+                return
+            }
+            finalImageData = createdData
+            print("⚠️ Using created image data with default metadata")
         }
         
         // Generate thumbnail
@@ -176,13 +184,13 @@ class PhotoManager: ObservableObject {
         
         do {
             // Save full-resolution image to documents directory
-            try imageData.write(to: fileURL)
+            try finalImageData.write(to: fileURL)
             
             // Save thumbnail to thumbnails directory
             try thumbnailData.write(to: thumbnailURL)
             
             // Extract metadata from image
-            let metadata = extractMetadata(from: imageData, fileURL: fileURL)
+            let metadata = extractMetadata(from: finalImageData, fileURL: fileURL)
             let basicInfo = generateBasicInfo(compositionType: compositionType, compositionScore: compositionScore)
             
             // Create captured photo object with enhanced metadata

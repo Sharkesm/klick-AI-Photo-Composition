@@ -13,7 +13,7 @@ struct CameraView: View {
     @Binding var flashMode: FlashMode
     @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
-    let onPhotoCaptured: ((UIImage) -> Void)?
+    let onPhotoCaptured: ((UIImage, Data?) -> Void)?
     
     // Focus-related state
     @State private var focusPoint: CGPoint = .zero
@@ -75,7 +75,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     let onCameraReady: () -> Void
     @Binding var focusPoint: CGPoint
     @Binding var showFocusIndicator: Bool
-    let onPhotoCaptured: ((UIImage) -> Void)?
+    let onPhotoCaptured: ((UIImage, Data?) -> Void)?
     
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -310,7 +310,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         var cameraReady = false
         var cameraDevice: AVCaptureDevice?
         var photoOutput: AVCapturePhotoOutput?
-        var onPhotoCaptured: ((UIImage) -> Void)?
+        var onPhotoCaptured: ((UIImage, Data?) -> Void)?
     
         init(_ parent: CameraUIViewRepresentable) {
             self.parent = parent
@@ -403,14 +403,53 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             // Log captured photo metadata for debugging
             self.logCaptureMetadata(photo: photo)
             
+            // Create enhanced image data with actual capture metadata
+            let enhancedImageData = self.createImageDataWithActualMetadata(image: image, capturePhoto: photo)
+            
             // Correct image orientation for portrait mode
             let correctedImage = image.fixOrientation()
             
-            print("✅ Photo captured successfully with enhanced metadata")
+            print("✅ Photo captured successfully with actual metadata preserved")
             
-            // Call the callback on main thread
+            // Call the callback on main thread with both image and metadata
             DispatchQueue.main.async {
-                self.onPhotoCaptured?(correctedImage)
+                // Pass both the corrected image and the enhanced data with actual metadata
+                self.onPhotoCaptured?(correctedImage, enhancedImageData)
+            }
+        }
+        
+        // MARK: - Enhanced Metadata Creation
+        
+        private func createImageDataWithActualMetadata(image: UIImage, capturePhoto: AVCapturePhoto) -> Data? {
+            guard let cgImage = image.cgImage else {
+                return image.jpegData(compressionQuality: 0.9)
+            }
+            
+            // Get actual metadata from captured photo
+            guard let actualMetadata = capturePhoto.metadata as? [String: Any] else {
+                print("⚠️ No metadata available from capture, using default JPEG")
+                return image.jpegData(compressionQuality: 0.9)
+            }
+            
+            // Create mutable data for the image
+            let mutableData = NSMutableData()
+            
+            // Create image destination with JPEG format
+            guard let destination = CGImageDestinationCreateWithData(mutableData, UTType.jpeg.identifier as CFString, 1, nil) else {
+                return image.jpegData(compressionQuality: 0.9)
+            }
+            
+            // Use actual captured metadata instead of hardcoded values
+            CGImageDestinationAddImage(destination, cgImage, actualMetadata as CFDictionary)
+            
+            // Finalize the image creation
+            if CGImageDestinationFinalize(destination) {
+                print("✅ Image created with actual capture metadata")
+                return mutableData as Data
+            } else {
+                // Fallback to standard JPEG creation
+                print("⚠️ Failed to create image with metadata, using standard JPEG")
+                return image.jpegData(compressionQuality: 0.9)
             }
         }
         

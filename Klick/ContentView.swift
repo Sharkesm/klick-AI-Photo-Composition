@@ -154,12 +154,12 @@ struct ContentView: View {
                             cameraLoading = false
                         }
                     },
-                    onPhotoCaptured: { image in
-                        // Save the captured photo with composition info
+                    onPhotoCaptured: { image, imageData in
+                        // Save the captured photo with composition info and actual metadata
                         let compositionType = compositionManager.currentCompositionType.displayName
                         let compositionScore = compositionManager.lastResult?.score ?? 0.7
-                        photoManager.savePhoto(image, compositionType: compositionType, compositionScore: compositionScore)
-                        print("📸 Photo captured and saved")
+                        photoManager.savePhoto(image, compositionType: compositionType, compositionScore: compositionScore, imageData: imageData)
+                        print("📸 Photo captured and saved with actual metadata")
                     }
                 )
                 .ignoresSafeArea()
