@@ -197,9 +197,21 @@ struct PhotoDetailView: View {
                                                 )
                                             }
                                             
+                                            if let exposureTime = photo.metadata.exposureTime {
+                                                BasicDetailCard(
+                                                    icon: "timer",
+                                                    value: exposureTime
+                                                )
+                                            }
+                                            
                                             BasicDetailCard(
                                                 icon: "bolt",
                                                 value: photo.metadata.flash
+                                            )
+                                            
+                                            BasicDetailCard(
+                                                icon: "doc.text",
+                                                value: photo.metadata.fileFormat
                                             )
                                             
                                             BasicDetailCard(

@@ -400,14 +400,52 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 return
             }
             
+            // Log captured photo metadata for debugging
+            self.logCaptureMetadata(photo: photo)
+            
             // Correct image orientation for portrait mode
             let correctedImage = image.fixOrientation()
             
-            print("✅ Photo captured successfully")
+            print("✅ Photo captured successfully with enhanced metadata")
             
             // Call the callback on main thread
             DispatchQueue.main.async {
                 self.onPhotoCaptured?(correctedImage)
+            }
+        }
+        
+        // MARK: - Enhanced Metadata Logging
+        
+        private func logCaptureMetadata(photo: AVCapturePhoto) {
+            // Log available metadata from the capture
+            if let metadata = photo.metadata as? [String: Any] {
+                print("📊 Capture Metadata Available:")
+                
+                // Log EXIF data
+                if let exifDict = metadata[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+                    if let iso = exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? [Int] {
+                        print("   📷 ISO: \(iso)")
+                    }
+                    if let exposureTime = exifDict[kCGImagePropertyExifExposureTime as String] as? Double {
+                        print("   ⏱️ Exposure Time: \(exposureTime) sec")
+                    }
+                    if let focalLength = exifDict[kCGImagePropertyExifFocalLength as String] as? Double {
+                        print("   🔍 Focal Length: \(focalLength)mm")
+                    }
+                    if let flash = exifDict[kCGImagePropertyExifFlash as String] as? Int {
+                        print("   ⚡ Flash: \(flash)")
+                    }
+                }
+                
+                // Log TIFF data
+                if let tiffDict = metadata[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
+                    if let make = tiffDict[kCGImagePropertyTIFFMake as String] as? String {
+                        print("   📱 Camera Make: \(make)")
+                    }
+                    if let model = tiffDict[kCGImagePropertyTIFFModel as String] as? String {
+                        print("   📱 Camera Model: \(model)")
+                    }
+                }
             }
         }
         
