@@ -229,21 +229,23 @@ struct ContentView: View {
                 VStack(spacing: 20) {
                     if permissionStatus == .denied || permissionStatus == .restricted {
                         // Permission denied state
-                        VStack(spacing: 16) {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 60))
-                                .foregroundColor(.white.opacity(0.6))
-                            
-                            Text("Camera Access Required")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                            
-                            Text("Please enable camera access in Settings to use Klick")
-                                .font(.body)
-                                .foregroundColor(.white.opacity(0.8))
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
+                        VStack(spacing: 22) {
+                            VStack(spacing: 16) {
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.white.opacity(0.6))
+                                
+                                Text("Camera Access Required")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                
+                                Text("Please enable camera access in Settings to use Klick, and capture those amazing photos.")
+                                    .font(.body)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 40)
+                            }
                             
                             Button(action: {
                                 // Open Settings
@@ -265,11 +267,7 @@ struct ContentView: View {
                         VStack(spacing: 16) {
                             ProgressView()
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(1.5)
-                            
-                            Text(hasCameraPermission ? "" : "Requesting camera access...")
-                                .font(.headline)
-                                .foregroundColor(.white)
+                                .scaleEffect(0.85)
                         }
                     }
                 }
@@ -520,8 +518,4 @@ struct ContentView: View {
             cameraLoading = false
         }
     }
-}
-
-#Preview {
-    ContentView()
 }
