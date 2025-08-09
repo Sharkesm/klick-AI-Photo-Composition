@@ -228,7 +228,7 @@ struct PhotoDetailView: View {
                                 .frame(minHeight: geometry.size.height * 0.65)
                                 .background(
                                     RoundedRectangle(cornerRadius: 20)
-                                        .fill(.ultraThinMaterial)
+                                        .fill(Color(red: 37/255, green: 41/255, blue: 46/255))
                                         .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: -5)
                                 )
                                 .id("metadataSection")

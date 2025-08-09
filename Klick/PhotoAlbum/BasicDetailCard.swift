@@ -31,7 +31,7 @@ struct BasicDetailCard: View {
         .padding(.horizontal, 6)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.1))
+                .fill(Color(red: 43/255, green: 48/255, blue: 54/255))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.white.opacity(0.2), lineWidth: 1)
