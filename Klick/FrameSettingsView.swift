@@ -85,6 +85,8 @@ struct FrameSettingsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 24)
+                    
+                    MadeWithLoveView(location: "🇹🇿")
                 }
             }
             .toolbar {

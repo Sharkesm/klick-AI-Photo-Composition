@@ -32,11 +32,10 @@ struct FaceHighlightOverlayView: View {
                 ZStack {
                     // Main rectangle outline
                     Rectangle()
-                        .stroke(Color.green, lineWidth: 2)
+                        .stroke(Color.yellow, lineWidth: 1)
                         .frame(width: finalRect.width, height: finalRect.height)
                         .position(x: finalRect.midX, y: finalRect.midY)
                         .cornerRadius(4)
-                        .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                     
                     // Corner indicators for better visibility
                     CornerIndicatorsView(rect: finalRect)
@@ -66,7 +65,7 @@ struct FaceHighlightOverlayView: View {
 struct CornerIndicatorsView: View {
     let rect: CGRect
     private let cornerSize: CGFloat = 15
-    private let cornerThickness: CGFloat = 3
+    private let cornerThickness: CGFloat = 1
     
     var body: some View {
         let corners = [
@@ -130,7 +129,7 @@ struct CornerIndicator: View {
                 path.addLine(to: CGPoint(x: position.x, y: position.y - size))
             }
         }
-        .stroke(Color.green, lineWidth: thickness)
+        .stroke(Color.yellow, lineWidth: thickness)
     }
 }
 
