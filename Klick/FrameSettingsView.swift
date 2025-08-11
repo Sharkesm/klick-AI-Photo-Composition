@@ -6,6 +6,7 @@ struct FrameSettingsView: View {
     @Binding var isCompositionAnalysisEnabled: Bool
     @Binding var areOverlaysHidden: Bool
     @ObservedObject var compositionManager: CompositionManager
+    @State private var showOnboarding = false
     
     var body: some View {
         NavigationView {
@@ -67,24 +68,68 @@ struct FrameSettingsView: View {
                             isEnabled: $areOverlaysHidden,
                             accentColor: .purple
                         )
+                    
+                        Divider()
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
+                
+                    // How Klick Works Section
+                    VStack(spacing: 16) {
+                        Button(action: {
+                            showOnboarding = true
+                        }) {
+                            HStack(alignment: .center, spacing: 16) {
+                                Image(systemName: "questionmark.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.blue)
+                                    .frame(width: 50, height: 50)
+                                    .background(Color.blue.opacity(0.1))
+                                    .clipShape(Circle())
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("How Klick Works")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    
+                                    Text("Learn about Klick's features and composition tips")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.blue.opacity(0.05))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.horizontal, 20)
+                    }
+                    .padding(.bottom, 24)
                     
                     // Performance Info Section
-                    VStack(spacing: 16) {
-                        Divider()
-                            .padding(.horizontal, 20)
-                        
-                        InfoSection(
-                            icon: "speedometer",
-                            title: "Performance Impact",
-                            description: "Disabling live analysis improves battery life and camera performance. Hiding overlays has minimal impact.",
-                            color: .orange
-                        )
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
+//                    VStack(spacing: 16) {
+//                        InfoSection(
+//                            icon: "speedometer",
+//                            title: "Performance Impact",
+//                            description: "Disabling live analysis improves battery life and camera performance. Hiding overlays has minimal impact.",
+//                            color: .orange
+//                        )
+//                    }
+//                    .padding(.horizontal, 20)
+//                    .padding(.bottom, 24)
                     
                     MadeWithLoveView(location: "🇹🇿")
                 }
@@ -96,6 +141,9 @@ struct FrameSettingsView: View {
                     }
                     .fontWeight(.semibold)
                 }
+            }
+            .sheet(isPresented: $showOnboarding) {
+                OnboardingView(isPresented: $showOnboarding)
             }
         }
     }
@@ -147,7 +195,7 @@ struct SettingRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 16)
+        .padding(.vertical, 8)
         .animation(.easeInOut(duration: 0.2), value: isEnabled)
     }
 }

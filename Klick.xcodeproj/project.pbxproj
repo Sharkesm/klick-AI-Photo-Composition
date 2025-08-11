@@ -271,6 +271,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Klick/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Klick;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Klick needs access to your camera to capture photos for composition analysis";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Klick needs permission to save your captured photos to your photo library";
@@ -312,6 +313,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Klick/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Klick;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Klick needs access to your camera to capture photos for composition analysis";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Klick needs permission to save your captured photos to your photo library";

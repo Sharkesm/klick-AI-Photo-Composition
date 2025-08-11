@@ -2,284 +2,9 @@ import SwiftUI
 import AVFoundation
 import Photos
 
-// MARK: - Zoom Level Enum
-enum ZoomLevel: String, CaseIterable {
-    case ultraWide
-    case wide
-    case telephoto2x
-    case telephoto5x
-    
-    var displayName: String {
-        return self.rawValue
-    }
-    
-    var zoomFactor: CGFloat {
-        switch self {
-        case .ultraWide:
-            return 0.5
-        case .wide:
-            return 1.0
-        case .telephoto2x:
-            return 2.0
-        case .telephoto5x:
-            return 5.0
-        }
-    }
-    
-    var zoomLabel: String {
-        switch self {
-        case .ultraWide:
-            return ".5"
-        case .wide:
-            return "1"
-        case .telephoto2x:
-            return "2"
-        case .telephoto5x:
-            return "5"
-        }
-    }
-    
-    var deviceType: AVCaptureDevice.DeviceType {
-        switch self {
-        case .ultraWide:
-            return .builtInUltraWideCamera
-        case .wide:
-            return .builtInWideAngleCamera
-        case .telephoto2x, .telephoto5x:
-            return .builtInTelephotoCamera
-        }
-    }
-    
-    var isAvailable: Bool {
-        let discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [deviceType],
-            mediaType: .video,
-            position: .back
-        )
-        return !discoverySession.devices.isEmpty
-    }
-    
-    // Get the best available device for this zoom level
-    static func getAvailableZoomLevels() -> [ZoomLevel] {
-        return allCases.filter { $0.isAvailable }
-    }
-}
-
-// MARK: - Zoom Controls View
-struct ZoomControlsView: View {
-    @Binding var selectedZoomLevel: ZoomLevel
-    @State private var showZoomChange = false
-    @State private var isRevealed = false
-    
-    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-    
-        var body: some View {
-        ZStack {
-            // Morphing Container - starts as capsule like FlashControl, expands to rounded rectangle
-            RoundedRectangle(
-                cornerRadius: isRevealed ? 25 : 50,
-                style: .continuous
-            )
-            .fill(Color.black.opacity(isRevealed ? 0.4 : 0.5))
-            .background(.ultraThinMaterial.opacity(isRevealed ? 0.1 : 0))
-            .frame(
-                width: isRevealed ? 46 : 40,
-                height: isRevealed ? CGFloat(ZoomLevel.getAvailableZoomLevels().count * 44) : 40
-            )
-            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isRevealed)
-            
-            VStack(spacing: isRevealed ? 6 : 0) {
-                // Default button that transforms into the first zoom option
-                Button {
-                    if isRevealed {
-                        isRevealed = false
-                    } else {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8, blendDuration: 0)) {
-                            isRevealed.toggle()
-                        }
-                        impactFeedback.impactOccurred()
-                        impactFeedback.prepare()
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        if isRevealed {
-                            Image(systemName: "x.circle.fill")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.white)
-                        } else {
-                            Text("\(selectedZoomLevel.zoomLabel)x")
-                                .font(.system(size: isRevealed ? 16 : 14, weight: .medium))
-                                .foregroundColor(isRevealed ? (selectedZoomLevel == ZoomLevel.getAvailableZoomLevels().first ? .yellow : .white) : .white)
-                                .padding(.top, 6)
-                        }
-                    }
-                    .padding(.horizontal, isRevealed ? 0 : 12)
-                    .padding(.vertical, isRevealed ? 0 : 8)
-                    .background(Color.clear)
-                    .clipShape(Circle())
-                    .scaleEffect(isRevealed && selectedZoomLevel == ZoomLevel.getAvailableZoomLevels().first ? 1.1 : 0.95)
-                    .shadow(color: isRevealed && selectedZoomLevel == ZoomLevel.getAvailableZoomLevels().first ? .yellow.opacity(0.3) : .clear, radius: 4)
-                }
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isRevealed)
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedZoomLevel)
-                .padding(.bottom, 6)
-                
-                // Additional zoom options that appear when expanded
-                if isRevealed {
-                    ForEach(Array(ZoomLevel.getAvailableZoomLevels().enumerated()), id: \.element) { index, zoomLevel in
-                        Button(action: {
-                            // Add haptic feedback
-                            impactFeedback.impactOccurred()
-                            impactFeedback.prepare()
-                            
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                selectedZoomLevel = zoomLevel
-                                showZoomChange = true
-                            }
-                            
-                            // Collapse after selection with slight delay
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
-                                    isRevealed = false
-                                }
-                            }
-                        }) {
-                            Text(zoomLevel.zoomLabel)
-                                .font(.system(size: selectedZoomLevel == zoomLevel ? 14 : 11, weight: .medium))
-                                .foregroundColor(selectedZoomLevel == zoomLevel ? .yellow : .white)
-                                .padding(.horizontal, selectedZoomLevel == zoomLevel ? 12 : 10)
-                                .padding(.vertical, selectedZoomLevel == zoomLevel ? 8 : 6)
-                                .background(Color.black.opacity(selectedZoomLevel == zoomLevel ? 0.8 : 0.6))
-                                .clipShape(Circle())
-                                .scaleEffect(selectedZoomLevel == zoomLevel ? 1.0 : 0.9)
-                                .shadow(color: selectedZoomLevel == zoomLevel ? .yellow.opacity(0.3) : .clear, radius: 4)
-                        }
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.1).combined(with: .opacity).combined(with: .move(edge: .top)),
-                            removal: .scale(scale: 0.1).combined(with: .opacity).combined(with: .move(edge: .top))
-                        ))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(Double(index + 1) * 0.08), value: isRevealed)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedZoomLevel)
-                    }
-                }
-            }
-            .padding(.horizontal, isRevealed ? 16 : 12)
-            .padding(.vertical, 8)
-            .onChange(of: showZoomChange) { newValue in
-                if newValue {
-                    // Reset animation state
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        withAnimation(.easeOut(duration: 0.1)) {
-                            showZoomChange = false
-                        }
-                    }
-                }
-            }
-        }
-        .onTapGesture {
-            // Tap outside to collapse
-            if isRevealed {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
-                    isRevealed = false
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Flash Mode Enum
-enum FlashMode: String, CaseIterable {
-    case off = "off"
-    case auto = "auto"
-    case on = "on"
-    
-    var displayName: String {
-        switch self {
-        case .off:
-            return "OFF"
-        case .auto:
-            return "AUTO"
-        case .on:
-            return "ON"
-        }
-    }
-    
-    var iconName: String {
-        switch self {
-        case .off:
-            return "bolt.slash"
-        case .auto:
-            return "bolt.badge.a"
-        case .on:
-            return "bolt"
-        }
-    }
-    
-    var captureFlashMode: AVCaptureDevice.FlashMode {
-        switch self {
-        case .off:
-            return .off
-        case .auto:
-            return .auto
-        case .on:
-            return .on
-        }
-    }
-    
-    var captureColor: Color {
-        switch self {
-        case .on:
-            return .yellow
-        default:
-            return .white
-        }
-    }
-}
-
-// MARK: - Flash Control View
-struct FlashControl: View {
-    @Binding var selectedFlashMode: FlashMode
-    @State private var showFlashChange = false
-    
-    var body: some View {
-        Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                showFlashChange = true
-                
-                // Cycle through flash modes
-                let allCases = FlashMode.allCases
-                if let currentIndex = allCases.firstIndex(of: selectedFlashMode) {
-                    let nextIndex = (currentIndex + 1) % allCases.count
-                    selectedFlashMode = allCases[nextIndex]
-                }
-            }
-        }) {
-            VStack(spacing: 4) {
-                Image(systemName: selectedFlashMode.iconName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(selectedFlashMode.captureColor)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.black.opacity(0.5))
-            .clipShape(Capsule())
-            .scaleEffect(showFlashChange ? 1.1 : 1.0)
-        }
-        .onChange(of: showFlashChange) { newValue in
-            if newValue {
-                // Reset scale after animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        showFlashChange = false
-                    }
-                }
-            }
-        }
-    }
-}
-
 struct ContentView: View {
     @AppStorage("photoAlbumSnapshot") private var photoAlbumSnapshot: Bool = false
+    @AppStorage("hasShowedIntroductionGuide") private var hasShowedIntroductionGuide: Bool = false
     
     @State private var feedbackMessage: String?
     @State private var feedbackIcon: String?
@@ -317,6 +42,9 @@ struct ContentView: View {
     @StateObject private var photoManager = PhotoManager()
     @State private var cameraViewRef: CameraView?
     
+    // Onboarding
+    @State private var showOnboarding = false
+    
     var body: some View {
         ZStack {
             // Black background
@@ -351,29 +79,17 @@ struct ContentView: View {
                         print("📸 Photo captured and saved with actual metadata")
                     }
                 )
-                .ignoresSafeArea(edges: .top)
+                .ignoresSafeArea(edges: .all)
             }
             
-            // Composition overlay - only show when camera is ready, analysis is enabled, and overlays are not hidden
-            if hasCameraPermission && !cameraLoading && compositionManager.isEnabled && isCompositionAnalysisEnabled && !areOverlaysHidden {
-                GeometryReader { geometry in
-                    // Always show basic overlays (grid, crosshair, etc.)
-                    ForEach(Array(compositionManager.getBasicOverlays(frameSize: geometry.size).enumerated()), id: \.offset) { index, element in
-                        element.path
-                            .stroke(element.color.opacity(element.opacity), lineWidth: element.lineWidth)
-                    }
-                    
-                    // Show subject-specific overlays when available
-                    if let result = compositionManager.lastResult {
-                        ForEach(Array(result.overlayElements.enumerated()), id: \.offset) { index, element in
-                            element.path
-                                .stroke(element.color.opacity(element.opacity), lineWidth: element.lineWidth)
-                        }
-                    }
-                }
-                .ignoresSafeArea()
-                .transition(.opacity)
-            }
+            // Composition overlays
+            CompositionOverlaysView(
+                compositionManager: compositionManager,
+                hasCameraPermission: hasCameraPermission,
+                cameraLoading: cameraLoading,
+                isCompositionAnalysisEnabled: isCompositionAnalysisEnabled,
+                areOverlaysHidden: areOverlaysHidden
+            )
             
             // Face highlight overlay - only show when camera is ready and facial recognition is enabled
             if hasCameraPermission && !cameraLoading && isFacialRecognitionEnabled {
@@ -382,195 +98,71 @@ struct ContentView: View {
                     .transition(.opacity)
             }
             
-            // Top controls - composition indicator, quality selector and flash control
-            if hasCameraPermission && !cameraLoading {
-                VStack(spacing: 6) {
-                    HStack(alignment: .top) {
-                        // Camera quality selector (left)
-                        CameraQualitySelector(selectedQuality: $selectedCameraQuality)
-                        
-                        Spacer()
-                        
-                        // Composition indicator (center)
-                        CompositionIndicatorView(compositionManager: compositionManager, compositionType: compositionManager.currentCompositionType.displayName)
-                        
-                        Spacer()
-                        
-                        FlashControl(selectedFlashMode: $selectedFlashMode)
-                    }
-                    .frame(alignment: .top)
-                    .padding(.top, 60)
-                    .padding(.horizontal, 20)
+            // Top controls
+            TopControlsView(
+                selectedCameraQuality: $selectedCameraQuality,
+                selectedFlashMode: $selectedFlashMode,
+                selectedZoomLevel: $selectedZoomLevel,
+                compositionManager: compositionManager,
+                hasCameraPermission: hasCameraPermission,
+                cameraLoading: cameraLoading
+            )
+            
+            // Loading overlay
+            LoadingOverlayView(
+                permissionStatus: permissionStatus,
+                cameraLoading: cameraLoading,
+                hasCameraPermission: hasCameraPermission
+            )
+            
+            // Feedback overlay
+            FeedbackOverlayView(
+                showFeedback: showFeedback,
+                feedbackMessage: feedbackMessage,
+                feedbackIcon: feedbackIcon,
+                hasCameraPermission: hasCameraPermission,
+                cameraLoading: cameraLoading,
+                isCompositionAnalysisEnabled: isCompositionAnalysisEnabled
+            )
+            
+            // Bottom controls
+            BottomControlsView(
+                compositionManager: compositionManager,
+                hasCameraPermission: hasCameraPermission,
+                cameraLoading: cameraLoading,
+                onCapturePhoto: {
+                    // Trigger photo capture
+                    capturePhoto()
                     
-                    HStack {
-                        Spacer()
-                        ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
+                    if !photoAlbumSnapshot {
+                        withAnimation(.linear) {
+                            photoAlbumSnapshot = true
+                        }
                     }
-                    .padding(.horizontal, 8)
                     
-                    Spacer()
-                }
-                .ignoresSafeArea()
-            }
-            
-            // Loading indicator overlay - shows on top when needed
-            if cameraLoading || !hasCameraPermission {
-                // Semi-transparent overlay to dim camera view during loading
-                Color.black.opacity(0.7)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                
-                VStack(spacing: 20) {
-                    if permissionStatus == .denied || permissionStatus == .restricted {
-                        // Permission denied state
-                        VStack(spacing: 22) {
-                            VStack(spacing: 16) {
-                                Image(systemName: "camera.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.white.opacity(0.6))
-                                
-                                Text("Camera Access Required")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white)
-                                
-                                Text("Please enable camera access in Settings to use Klick, and capture those amazing photos.")
-                                    .font(.body)
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal, 40)
-                            }
-                            
-                            Button(action: {
-                                // Open Settings
-                                if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
-                                    UIApplication.shared.open(settingsUrl)
-                                }
-                            }) {
-                                Text("Open Settings")
-                                    .font(.headline)
-                                    .foregroundColor(.black)
-                                    .padding(.horizontal, 30)
-                                    .padding(.vertical, 12)
-                                    .background(Color.white)
-                                    .cornerRadius(25)
-                            }
-                        }
-                    } else {
-                        // Loading state
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.85)
-                        }
+                    // Show glimpse of photo album when capturing
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showPhotoAlbumGlimpse = true
                     }
-                }
-                .transition(.opacity)
-            }
-            
-            // Feedback overlay - only show when camera is ready and analysis is enabled
-            if hasCameraPermission && !cameraLoading && isCompositionAnalysisEnabled {
-                if showFeedback, let message = feedbackMessage {
-                    VStack {
-                        Spacer()
-                        
-                        HStack(spacing: 8) {
-                            // System image icon with translucent background
-                            Image(systemName: feedbackIcon ?? "questionmark.circle")
-                                .font(.title2)
-                                .foregroundColor(.white)
-                                .frame(width: 32, height: 32)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Circle())
-                                
-                            // Feedback message
-                            Text(message)
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .padding(.vertical, 12)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.trailing, 4)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(25)
-                        .padding(.bottom, 150) // 20 points above bottom controls
-                        .scaleEffect(showFeedback ? 1.0 : 0.01)
-                        .opacity(showFeedback ? 1.0 : 0.0)
-                        .animation(.spring, value: showFeedback)
-                    }
-                }
-            }
-            
-            
-            // Bottom controls - only show when camera is ready
-            if hasCameraPermission && !cameraLoading {
-                VStack {
-                    Spacer()
                     
-                    HStack(spacing: 40) {
-                        // Composition type selector button
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showCompositionPicker = true
-                            }
-                        }) {
-                            Image(systemName: compositionManager.currentCompositionType.icon)
-                                .font(.system(size: 22))
-                                .foregroundColor(.white)
-                                .frame(width: 60, height: 60)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Circle())
-                        }
-                        
-                        // Capture button
-                        Button(action: {
-                            // Trigger photo capture
-                            capturePhoto()
-                            
-                            if !photoAlbumSnapshot {
-                                photoAlbumSnapshot = true
-                            }
-                            
-                            // Show glimpse of photo album when capturing
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showPhotoAlbumGlimpse = true
-                            }
-                            
-                            // Hide glimpse after 1.5 seconds
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    showPhotoAlbumGlimpse = false
-                                }
-                            }
-                            
-                        }) {
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.black, lineWidth: 4)
-                                        .frame(width: 70, height: 70)
-                                )
-                        }
-                        
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showFrameSettings = true
-                            }
-                        }) {
-                            Image(systemName: "gear")
-                                .font(.system(size: 22))
-                                .foregroundColor(.white)
-                                .frame(width: 60, height: 60)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Circle())
+                    // Hide glimpse after 1.5 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPhotoAlbumGlimpse = false
                         }
                     }
-                    .padding(.bottom, 50)
+                },
+                onShowCompositionPicker: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCompositionPicker = true
+                    }
+                },
+                onShowFrameSettings: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showFrameSettings = true
+                    }
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.8)))
-            }
+            )
             
             // Photo Album View - positioned at the bottom and can be dragged up
             if hasCameraPermission && !cameraLoading && photoAlbumSnapshot {
@@ -617,6 +209,9 @@ struct ContentView: View {
         .sheet(isPresented: $showEducationalContent) {
             EducationalContentView(isPresented: $showEducationalContent)
                 .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView(isPresented: $showOnboarding)
         }
         .sheet(isPresented: $showCompositionPicker) {
             CompositionPickerView(
@@ -689,6 +284,15 @@ struct ContentView: View {
             hasCameraPermission = true
             // Camera loading will be handled by the camera view callback
             cameraLoading = true
+            
+            guard !hasShowedIntroductionGuide else { return }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                withAnimation(.easeIn) {
+                    hasShowedIntroductionGuide = true
+                    showOnboarding = true
+                }
+            }
         case .notDetermined:
             print("❓ Camera permission not determined, requesting...")
             AVCaptureDevice.requestAccess(for: .video) { granted in
@@ -700,6 +304,15 @@ struct ContentView: View {
                         // Camera loading will be handled by the camera view callback
                         self.cameraLoading = true
                         print("🎬 Camera loading set to true")
+                        
+                        guard !hasShowedIntroductionGuide else { return }
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation(.easeIn) {
+                                hasShowedIntroductionGuide = true
+                                showOnboarding = true
+                            }
+                        }
                     }
                 }
             }
