@@ -9,6 +9,9 @@ import SwiftUI
 
 @main
 struct KlickApp: App {
+    // Register the AppDelegate for SwiftUI App
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
         WindowGroup {
             LandingPageView()

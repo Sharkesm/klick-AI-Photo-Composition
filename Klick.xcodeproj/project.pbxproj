@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		11BB7D7E2E54DCC000407D8D /* FacebookShare in Frameworks */ = {isa = PBXBuildFile; productRef = 11BB7D7D2E54DCC000407D8D /* FacebookShare */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		11E45EBE2E224E8700B252F3 /* Klick.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Klick.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -36,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				11BB7D7E2E54DCC000407D8D /* FacebookShare in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +83,7 @@
 			);
 			name = Klick;
 			packageProductDependencies = (
+				11BB7D7D2E54DCC000407D8D /* FacebookShare */,
 			);
 			productName = Klick;
 			productReference = 11E45EBE2E224E8700B252F3 /* Klick.app */;
@@ -107,6 +113,9 @@
 			);
 			mainGroup = 11E45EB52E224E8700B252F3;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				11BB7D7C2E54DCC000407D8D /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 11E45EBF2E224E8700B252F3 /* Products */;
 			projectDirPath = "";
@@ -365,6 +374,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		11BB7D7C2E54DCC000407D8D /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/facebook-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 14.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		11BB7D7D2E54DCC000407D8D /* FacebookShare */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 11BB7D7C2E54DCC000407D8D /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
+			productName = FacebookShare;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 11E45EB62E224E8700B252F3 /* Project object */;
 }

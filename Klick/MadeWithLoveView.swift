@@ -17,7 +17,7 @@ struct MadeWithLoveView: View {
         HStack(spacing: 4) {
             Text("Made with")
             Text("❤️")
-                .scaleEffect(isPulsing ? 1.2 : 1.0)
+                .scaleEffect(isPulsing ? 1.0 : 0.85)
                 .animation(
                     Animation.easeInOut(duration: 0.8)
                         .repeatForever(autoreverses: true),

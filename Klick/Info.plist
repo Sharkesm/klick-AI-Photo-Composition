@@ -4,5 +4,27 @@
 <dict>
 	<key>UILaunchStoryboardName</key>
 	<string>Launch Screen</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fb-messenger-share-api</string>
+		<string>fbapi</string>
+		<string>instagram-stories</string>
+		<string>instagram</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb777108385264009</string>
+			</array>
+		</dict>
+	</array>
+	<key>FacebookAppID</key>
+	<string>777108385264009</string>
+	<key>FacebookClientToken</key>
+	<string>b1ba8225808ea305584ac3ec9130c087</string>
+	<key>FacebookDisplayName</key>
+	<string>KlickPhoto</string>
 </dict>
 </plist>

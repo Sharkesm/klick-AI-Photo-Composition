@@ -45,6 +45,12 @@ struct ContentView: View {
     // Onboarding
     @State private var showOnboarding = false
     
+    // Image Preview
+    @State private var showImagePreview = false
+    @State private var capturedPreviewImage: UIImage?
+    @State private var processedImage: UIImage?
+    @State private var isProcessingImage = false
+    
     var body: some View {
         ZStack {
             // Black background
@@ -72,11 +78,13 @@ struct ContentView: View {
                         }
                     },
                     onPhotoCaptured: { image, imageData in
-                        // Save the captured photo with composition info and actual metadata
-                        let compositionType = compositionManager.currentCompositionType.displayName
-                        let compositionScore = compositionManager.lastResult?.score ?? 0.7
-                        photoManager.savePhoto(image, compositionType: compositionType, compositionScore: compositionScore, imageData: imageData)
-                        print("📸 Photo captured and saved with actual metadata")
+                        // Show preview instead of immediately saving
+                        capturedPreviewImage = image
+                        processedImage = image // Initialize with original image
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showImagePreview = true
+                        }
+                        print("📸 Photo captured, showing preview")
                     }
                 )
                 .ignoresSafeArea(edges: .all)
@@ -229,6 +237,52 @@ struct ContentView: View {
                 compositionManager: compositionManager
             )
             .presentationDetents([.fraction(0.8)])
+        }
+        .fullScreenCover(isPresented: $showImagePreview) {
+            ImagePreviewView(
+                image: $processedImage,
+                originalImage: capturedPreviewImage,
+                isProcessing: $isProcessingImage,
+                onSave: {
+                    // Save the processed image
+                    if let imageToSave = processedImage {
+                        let compositionType = compositionManager.currentCompositionType.displayName
+                        let compositionScore = compositionManager.lastResult?.score ?? 0.7
+                        photoManager.savePhoto(imageToSave, compositionType: compositionType, compositionScore: compositionScore)
+                        print("📸 Processed photo saved with metadata")
+                        
+                        // Show photo album glimpse
+                        if !photoAlbumSnapshot {
+                            withAnimation(.linear) {
+                                photoAlbumSnapshot = true
+                            }
+                        }
+                        
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPhotoAlbumGlimpse = true
+                        }
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showPhotoAlbumGlimpse = false
+                            }
+                        }
+                    }
+                    
+                    // Close preview
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showImagePreview = false
+                    }
+                },
+                onDiscard: {
+                    // Close preview without saving
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showImagePreview = false
+                    }
+                    capturedPreviewImage = nil
+                    processedImage = nil
+                }
+            )
         }
         .onAppear {
             // Add small delay to ensure transition completes before requesting camera
