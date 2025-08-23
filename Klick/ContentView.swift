@@ -9,7 +9,6 @@ struct ContentView: View {
     @State private var feedbackMessage: String?
     @State private var feedbackIcon: String?
     @State private var showFeedback = false
-    @State private var showEducationalContent = false
     @State private var hasCameraPermission = false
     @State private var cameraLoading = true
     @State private var permissionStatus: AVAuthorizationStatus = .notDetermined
@@ -213,10 +212,6 @@ struct ContentView: View {
                 }
                 .ignoresSafeArea()
             }
-        }
-        .sheet(isPresented: $showEducationalContent) {
-            EducationalContentView(isPresented: $showEducationalContent)
-                .presentationDetents([.medium])
         }
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(isPresented: $showOnboarding)
