@@ -18,7 +18,8 @@ struct BottomControlsView: View {
                 HStack(spacing: 40) {
                     // Composition type selector button
                     Button(action: onShowCompositionPicker) {
-                        Image(systemName: compositionManager.currentCompositionType.icon)
+//                        Image(systemName: compositionManager.currentCompositionType.icon)
+                        Image(systemName: "info.bubble")
                             .font(.system(size: 22))
                             .foregroundColor(.white)
                             .frame(width: 60, height: 60)

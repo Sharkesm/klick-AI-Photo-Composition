@@ -58,34 +58,44 @@ struct ContentView: View {
             
             // Camera view - show immediately when permissions granted
             if hasCameraPermission {
-                CameraView(
-                    feedbackMessage: $feedbackMessage,
-                    feedbackIcon: $feedbackIcon,
-                    showFeedback: $showFeedback,
-                    detectedFaceBoundingBox: $detectedFaceBoundingBox,
-                    isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
-                    compositionManager: compositionManager,
-                    cameraQuality: $selectedCameraQuality,
-                    flashMode: $selectedFlashMode,
-                    zoomLevel: $selectedZoomLevel,
-                    isSessionActive: $isCameraSessionActive,
-                    onCameraReady: {
-                        // Camera is ready, hide loading
-                        print("Camera ready callback triggered")
-                        withAnimation(.easeOut(duration: 0.5)) {
-                            cameraLoading = false
+                ZStack {
+                    CameraView(
+                        feedbackMessage: $feedbackMessage,
+                        feedbackIcon: $feedbackIcon,
+                        showFeedback: $showFeedback,
+                        detectedFaceBoundingBox: $detectedFaceBoundingBox,
+                        isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
+                        compositionManager: compositionManager,
+                        cameraQuality: $selectedCameraQuality,
+                        flashMode: $selectedFlashMode,
+                        zoomLevel: $selectedZoomLevel,
+                        isSessionActive: $isCameraSessionActive,
+                        onCameraReady: {
+                            // Camera is ready, hide loading
+                            print("Camera ready callback triggered")
+                            withAnimation(.easeOut(duration: 0.5)) {
+                                cameraLoading = false
+                            }
+                        },
+                        onPhotoCaptured: { image, imageData in
+                            // Show preview instead of immediately saving
+                            capturedPreviewImage = image
+                            processedImage = image // Initialize with original image
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showImagePreview = true
+                            }
+                            print("📸 Photo captured, showing preview")
                         }
-                    },
-                    onPhotoCaptured: { image, imageData in
-                        // Show preview instead of immediately saving
-                        capturedPreviewImage = image
-                        processedImage = image // Initialize with original image
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showImagePreview = true
-                        }
-                        print("📸 Photo captured, showing preview")
+                    )
+                    
+                    // Ultra thin material overlay when camera is paused
+                    if !isCameraSessionActive {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .ignoresSafeArea(edges: .all)
+                            .transition(.opacity)
                     }
-                )
+                }
                 .ignoresSafeArea(edges: .all)
             }
             
@@ -217,11 +227,25 @@ struct ContentView: View {
             OnboardingView(isPresented: $showOnboarding)
         }
         .sheet(isPresented: $showCompositionPicker) {
-            CompositionPickerView(
-                compositionManager: compositionManager,
-                isPresented: $showCompositionPicker
-            )
-            .presentationDetents([.fraction(0.7)])
+//            CompositionPickerView(
+//                compositionManager: compositionManager,
+//                isPresented: $showCompositionPicker
+//            )
+            CompositionStyleEdView()
+                .presentationDetents([.fraction(1.0)])
+                .presentationDragIndicator(.hidden)
+                .onAppear {
+                    // Pause camera session when sheet appears
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isCameraSessionActive = false
+                    }
+                }
+                .onDisappear {
+                    // Resume camera session when sheet disappears
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isCameraSessionActive = true
+                    }
+                }
         }
         .sheet(isPresented: $showFrameSettings) {
             FrameSettingsView(
