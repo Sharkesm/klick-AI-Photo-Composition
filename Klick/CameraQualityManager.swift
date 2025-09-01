@@ -48,15 +48,12 @@ struct CameraQualitySelector: View {
                 }
             }
         }) {
-            VStack(spacing: 4) {
-                Text(selectedQuality.displayName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(10)
-            }
-            .background(Color.black.opacity(0.5))
-            .clipShape(Capsule())
-            .scaleEffect(showQualityPicker ? 1.1 : 1.0)
+            Text(selectedQuality.displayName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.white)
         }
+        .frame(width: 42, height: 42)
+        .background(Color.black.opacity(0.5))
+        .clipShape(Capsule())
     }
 }

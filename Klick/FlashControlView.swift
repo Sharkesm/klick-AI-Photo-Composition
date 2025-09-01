@@ -68,17 +68,14 @@ struct FlashControl: View {
                 }
             }
         }) {
-            VStack(spacing: 4) {
-                Image(systemName: selectedFlashMode.iconName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(selectedFlashMode.captureColor)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.black.opacity(0.5))
-            .clipShape(Capsule())
-            .scaleEffect(showFlashChange ? 1.1 : 1.0)
+            Image(systemName: selectedFlashMode.iconName)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(selectedFlashMode.captureColor)
+                .scaleEffect(showFlashChange ? 1.0 : 0.95)
         }
+        .frame(width: 42, height: 42)
+        .background(Color.black.opacity(0.5))
+        .clipShape(Capsule())
         .onChange(of: showFlashChange) { newValue in
             if newValue {
                 // Reset scale after animation

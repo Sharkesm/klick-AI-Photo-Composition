@@ -60,7 +60,8 @@ enum ZoomLevel: String, CaseIterable {
     
     // Get the best available device for this zoom level
     static func getAvailableZoomLevels() -> [ZoomLevel] {
-        return allCases.filter { $0.isAvailable }
+        let supportedZoomLevels: [ZoomLevel] = [.ultraWide, .wide, .telephoto2x]
+        return supportedZoomLevels.filter { $0.isAvailable }
     }
 }
 
@@ -72,113 +73,139 @@ struct ZoomControlsView: View {
     
     let impactFeedback = UIImpactFeedbackGenerator(style: .light)
     
+    // Constants for consistent sizing
+    private let controlWidth: CGFloat = 40
+    private let buttonSize: CGFloat = 32
+    private let expandedButtonSpacing: CGFloat = 4
+    
     var body: some View {
-        ZStack {
-            // Morphing Container - starts as capsule like FlashControl, expands to rounded rectangle
-            RoundedRectangle(
-                cornerRadius: isRevealed ? 25 : 50,
-                style: .continuous
-            )
-            .fill(Color.black.opacity(isRevealed ? 0.4 : 0.5))
-            .background(.ultraThinMaterial.opacity(isRevealed ? 0.1 : 0))
-            .frame(
-                width: isRevealed ? 46 : 40,
-                height: isRevealed ? CGFloat(ZoomLevel.getAvailableZoomLevels().count * 44) : 40
-            )
-            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isRevealed)
-            
-            VStack(spacing: isRevealed ? 6 : 0) {
-                // Default button that transforms into the first zoom option
-                Button {
-                    if isRevealed {
-                        isRevealed = false
-                    } else {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8, blendDuration: 0)) {
-                            isRevealed.toggle()
-                        }
-                        impactFeedback.impactOccurred()
-                        impactFeedback.prepare()
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        if isRevealed {
-                            Image(systemName: "x.circle.fill")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.white)
-                        } else {
-                            Text("\(selectedZoomLevel.zoomLabel)x")
-                                .font(.system(size: isRevealed ? 16 : 14, weight: .medium))
-                                .foregroundColor(isRevealed ? (selectedZoomLevel == ZoomLevel.getAvailableZoomLevels().first ? .yellow : .white) : .white)
-                                .padding(.top, 6)
-                        }
-                    }
-                    .padding(.horizontal, isRevealed ? 0 : 12)
-                    .padding(.vertical, isRevealed ? 0 : 8)
-                    .background(Color.clear)
-                    .clipShape(Circle())
-                    .scaleEffect(isRevealed && selectedZoomLevel == ZoomLevel.getAvailableZoomLevels().first ? 1.1 : 0.95)
-                    .shadow(color: isRevealed && selectedZoomLevel == ZoomLevel.getAvailableZoomLevels().first ? .yellow.opacity(0.3) : .clear, radius: 4)
+        VStack(spacing: 5) {
+            // Main toggle button - always at the top
+            Button {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
+                    isRevealed.toggle()
                 }
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isRevealed)
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedZoomLevel)
-                .padding(.bottom, 6)
-                
-                // Additional zoom options that appear when expanded
+                impactFeedback.impactOccurred()
+                impactFeedback.prepare()
+            } label: {
+                ZStack {
+                    // Animated background with smooth color transition
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: isRevealed ? 
+                                    [Color.white, Color.white.opacity(0.95)] : 
+                                    [Color.black.opacity(0.5), Color.black.opacity(0.6)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .background(.ultraThinMaterial.opacity(0.1))
+                        .shadow(
+                            color: isRevealed ? Color.black.opacity(0.1) : .clear, 
+                            radius: isRevealed ? 8 : 0, 
+                            x: 0, 
+                            y: isRevealed ? 4 : 0
+                        )
+                        .animation(.easeInOut(duration: 0.4), value: isRevealed)
+                    
+                    // Content with smooth cross-fade transition
+                    ZStack {
+                        // Zoom level text (visible when collapsed)
+                        Text("\(selectedZoomLevel.zoomLabel)x")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.yellow)
+                            .opacity(isRevealed ? 0.0 : 1.0)
+                            .scaleEffect(isRevealed ? 0.7 : 1.0)
+                            .rotationEffect(.degrees(isRevealed ? 90 : 0))
+                            .animation(.easeInOut(duration: 0.3), value: isRevealed)
+                        
+                        // X mark icon (visible when expanded)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.black)
+                            .opacity(isRevealed ? 1.0 : 0.0)
+                            .scaleEffect(isRevealed ? 1.0 : 0.3)
+                            .rotationEffect(.degrees(isRevealed ? 0 : -90))
+                            .animation(.easeInOut(duration: 0.3).delay(0.1), value: isRevealed)
+                    }
+                }
+            }
+            .frame(width: controlWidth, height: controlWidth)
+            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isRevealed)
+            
+            // Expanded container that slides down smoothly with unified animation
+            ZStack {
                 if isRevealed {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.black.opacity(0.4))
+                        .background(.ultraThinMaterial.opacity(0.1))
+                        .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
+                }
+                
+                VStack(spacing: expandedButtonSpacing) {
                     ForEach(Array(ZoomLevel.getAvailableZoomLevels().enumerated()), id: \.element) { index, zoomLevel in
                         Button(action: {
-                            // Add haptic feedback
                             impactFeedback.impactOccurred()
                             impactFeedback.prepare()
                             
-                            withAnimation(.easeInOut(duration: 0.3)) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
                                 selectedZoomLevel = zoomLevel
                                 showZoomChange = true
                             }
                             
-                            // Collapse after selection with slight delay
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                            // Collapse after selection with unified animation
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     isRevealed = false
                                 }
                             }
                         }) {
                             Text(zoomLevel.zoomLabel)
-                                .font(.system(size: selectedZoomLevel == zoomLevel ? 14 : 11, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(selectedZoomLevel == zoomLevel ? .yellow : .white)
-                                .padding(.horizontal, selectedZoomLevel == zoomLevel ? 12 : 10)
-                                .padding(.vertical, selectedZoomLevel == zoomLevel ? 8 : 6)
-                                .background(Color.black.opacity(selectedZoomLevel == zoomLevel ? 0.8 : 0.6))
-                                .clipShape(Circle())
-                                .scaleEffect(selectedZoomLevel == zoomLevel ? 1.0 : 0.9)
-                                .shadow(color: selectedZoomLevel == zoomLevel ? .yellow.opacity(0.3) : .clear, radius: 4)
                         }
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.1).combined(with: .opacity).combined(with: .move(edge: .top)),
-                            removal: .scale(scale: 0.1).combined(with: .opacity).combined(with: .move(edge: .top))
-                        ))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(Double(index + 1) * 0.08), value: isRevealed)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: selectedZoomLevel)
+                        .frame(width: buttonSize, height: buttonSize)
+                        .background(Color.black.opacity(selectedZoomLevel == zoomLevel ? 0.6 : 0.3))
+                        .clipShape(Circle())
+                        .scaleEffect(selectedZoomLevel == zoomLevel ? 1.0 : 0.9)
+                        .shadow(color: selectedZoomLevel == zoomLevel ? .yellow.opacity(0.3) : .clear, radius: 2)
+                        .opacity(isRevealed ? 1.0 : 0.0)
+                        .scaleEffect(isRevealed ? 1.0 : 0.3)
+                        .offset(y: isRevealed ? 0 : -15)
+                        .animation(
+                            .spring(response: 0.7, dampingFraction: 0.8)
+                            .delay(Double(index) * 0.1), 
+                            value: isRevealed
+                        )
+                        .animation(.easeInOut(duration: 0.25), value: selectedZoomLevel)
                     }
                 }
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, isRevealed ? 16 : 12)
-            .padding(.vertical, 8)
-            .onChange(of: showZoomChange) { newValue in
-                if newValue {
-                    // Reset animation state
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        withAnimation(.easeOut(duration: 0.1)) {
-                            showZoomChange = false
-                        }
+            .frame(width: controlWidth)
+            .frame(height: isRevealed ? CGFloat(ZoomLevel.getAvailableZoomLevels().count * Int(buttonSize + expandedButtonSpacing) + 16) : 0)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .scaleEffect(y: isRevealed ? 1.0 : 0.1, anchor: .top)
+            .opacity(isRevealed ? 1.0 : 0.0)
+            .offset(y: isRevealed ? 0 : -25)
+            .animation(.spring(response: 0.7, dampingFraction: 0.8), value: isRevealed)
+        }
+        .frame(width: controlWidth) // Fixed width to prevent parent layout shifts
+        .animation(.spring(response: 0.8, dampingFraction: 0.9), value: isRevealed)
+        .onChange(of: showZoomChange) { newValue in
+            if newValue {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        showZoomChange = false
                     }
                 }
             }
         }
         .onTapGesture {
-            // Tap outside to collapse
+            // Tap outside to collapse with unified animation
             if isRevealed {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                     isRevealed = false
                 }
             }

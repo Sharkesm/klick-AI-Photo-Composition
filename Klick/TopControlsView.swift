@@ -12,36 +12,19 @@ struct TopControlsView: View {
     var body: some View {
         // Top controls - composition indicator, quality selector and flash control
         if hasCameraPermission && !cameraLoading {
-            VStack(spacing: 6) {
-                HStack(alignment: .top) {
-                    // Camera quality selector (left)
-                    CameraQualitySelector(selectedQuality: $selectedCameraQuality)
-                    
-                    Spacer()
-                    
-                    // Composition indicator (center)
-                    CompositionIndicatorView(
-                        compositionManager: compositionManager,
-                        compositionType: compositionManager.currentCompositionType.displayName
-                    )
-                    
-                    Spacer()
-                    
-                    FlashControl(selectedFlashMode: $selectedFlashMode)
-                }
-                .frame(alignment: .top)
-                .padding(.top, 60)
-                .padding(.horizontal, 20)
-                
-                HStack {
-                    Spacer()
-                    ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
-                }
-                .padding(.horizontal, 8)
+             VStack(spacing: 6) {
+                 HStack {
+                     Spacer()
+                     VStack {
+                         CameraQualitySelector(selectedQuality: $selectedCameraQuality)
+                         FlashControl(selectedFlashMode: $selectedFlashMode)
+                         ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
+                     }
+                 }
+                 .padding(.horizontal, 20)
                 
                 Spacer()
             }
-            .ignoresSafeArea()
         }
     }
 }
