@@ -120,6 +120,7 @@ struct ContentView: View {
                 selectedCameraQuality: $selectedCameraQuality,
                 selectedFlashMode: $selectedFlashMode,
                 selectedZoomLevel: $selectedZoomLevel,
+                showFrameSettings: $showFrameSettings,
                 compositionManager: compositionManager,
                 hasCameraPermission: hasCameraPermission,
                 cameraLoading: cameraLoading
@@ -172,11 +173,6 @@ struct ContentView: View {
                 onShowCompositionPicker: {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showCompositionPicker = true
-                    }
-                },
-                onShowFrameSettings: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showFrameSettings = true
                     }
                 }
             )

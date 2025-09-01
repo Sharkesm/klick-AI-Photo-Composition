@@ -5,6 +5,8 @@ struct TopControlsView: View {
     @Binding var selectedCameraQuality: CameraQuality
     @Binding var selectedFlashMode: FlashMode
     @Binding var selectedZoomLevel: ZoomLevel
+    @Binding var showFrameSettings: Bool
+    
     let compositionManager: CompositionManager
     let hasCameraPermission: Bool
     let cameraLoading: Bool
@@ -13,7 +15,20 @@ struct TopControlsView: View {
         // Top controls - composition indicator, quality selector and flash control
         if hasCameraPermission && !cameraLoading {
              VStack(spacing: 6) {
-                 HStack {
+                 HStack(alignment: .top) {
+                     Button(action: {
+                         withAnimation(.easeInOut(duration: 0.3)) {
+                             showFrameSettings = true
+                         }
+                     }) {
+                         Image(systemName: "gear")
+                             .font(.system(size: 15, weight: .semibold))
+                             .foregroundColor(.white)
+                     }
+                     .frame(width: 42, height: 42)
+                     .background(Color.black.opacity(0.5))
+                     .clipShape(Capsule())
+                     
                      Spacer()
                      VStack {
                          CameraQualitySelector(selectedQuality: $selectedCameraQuality)

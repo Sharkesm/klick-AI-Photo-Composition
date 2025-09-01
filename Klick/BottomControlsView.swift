@@ -7,7 +7,6 @@ struct BottomControlsView: View {
     let cameraLoading: Bool
     let onCapturePhoto: () -> Void
     let onShowCompositionPicker: () -> Void
-    let onShowFrameSettings: () -> Void
     
     var body: some View {
         // Bottom controls - only show when camera is ready
@@ -37,16 +36,6 @@ struct BottomControlsView: View {
                                     .stroke(Color.black, lineWidth: 4)
                                     .frame(width: 70, height: 70)
                             )
-                    }
-                    
-                    // Settings button
-                    Button(action: onShowFrameSettings) {
-                        Image(systemName: "gear")
-                            .font(.system(size: 22))
-                            .foregroundColor(.white)
-                            .frame(width: 60, height: 60)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
                     }
                 }
                 .padding(.bottom, 50)
