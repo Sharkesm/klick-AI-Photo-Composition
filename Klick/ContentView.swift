@@ -92,11 +92,10 @@ struct ContentView: View {
                     if !isCameraSessionActive {
                         Rectangle()
                             .fill(.ultraThinMaterial)
-                            .ignoresSafeArea(edges: .all)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .transition(.opacity)
                     }
                 }
-                .ignoresSafeArea(edges: .all)
             }
             
             // Composition overlays
@@ -125,6 +124,7 @@ struct ContentView: View {
                 hasCameraPermission: hasCameraPermission,
                 cameraLoading: cameraLoading
             )
+            .padding(.top, 20)
             
             // Loading overlay
             LoadingOverlayView(
@@ -176,6 +176,7 @@ struct ContentView: View {
                     }
                 }
             )
+            .padding(.bottom, 50)
             
             // Photo Album View - positioned at the bottom and can be dragged up
             if hasCameraPermission && !cameraLoading && photoAlbumSnapshot {
