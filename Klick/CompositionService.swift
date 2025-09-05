@@ -289,9 +289,8 @@ class CenterFramingService: CompositionService {
             context: context
         )
         
-        // Create simple overlays
+        // Create simple overlays (don't duplicate basic overlays - they're handled separately)
         var overlayElements: [OverlayElement] = []
-        overlayElements.append(createCenterCrosshair(frameSize: frameSize))
         
         // Add symmetry indicator if well-centered
         if isCentered && symmetryScore > 0.7 {
@@ -575,9 +574,8 @@ class SymmetryService: CompositionService {
             context: context
         )
         
-        // Create overlays
+        // Create overlays (don't duplicate basic overlays - they're handled separately)
         var overlayElements: [OverlayElement] = []
-        overlayElements.append(createSymmetryLine(frameSize: frameSize))
         
         if context.edgeProximity.tooCloseToEdge {
             overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
@@ -843,8 +841,8 @@ class RuleOfThirdsService: CompositionService {
             context: context
         )
         
-        // Create overlays with adaptive elements
-        var overlayElements = [createGridOverlay(frameSize: frameSize)]
+        // Create overlays with adaptive elements (don't duplicate basic overlays - they're handled separately)
+        var overlayElements: [OverlayElement] = []
         
         // Add safety zone overlay if subject is too close to edge
         if context.edgeProximity.tooCloseToEdge {

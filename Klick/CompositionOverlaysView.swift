@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Composition Overlays View
 struct CompositionOverlaysView: View {
-    let compositionManager: CompositionManager
+    @ObservedObject var compositionManager: CompositionManager
     let hasCameraPermission: Bool
     let cameraLoading: Bool
     let isCompositionAnalysisEnabled: Bool
@@ -16,6 +16,7 @@ struct CompositionOverlaysView: View {
                 ForEach(Array(compositionManager.getBasicOverlays(frameSize: geometry.size).enumerated()), id: \.offset) { index, element in
                     element.path
                         .stroke(element.color.opacity(element.opacity), lineWidth: element.lineWidth)
+                        .animation(.easeInOut(duration: 0.3), value: compositionManager.currentCompositionType)
                 }
                 
                 // Show subject-specific overlays when available
@@ -23,11 +24,13 @@ struct CompositionOverlaysView: View {
                     ForEach(Array(result.overlayElements.enumerated()), id: \.offset) { index, element in
                         element.path
                             .stroke(element.color.opacity(element.opacity), lineWidth: element.lineWidth)
+                            .animation(.easeInOut(duration: 0.3), value: compositionManager.currentCompositionType)
                     }
                 }
             }
             .ignoresSafeArea()
             .transition(.opacity)
+            .animation(.easeInOut(duration: 0.3), value: compositionManager.currentCompositionType)
         }
     }
 }

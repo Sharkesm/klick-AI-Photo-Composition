@@ -3,17 +3,18 @@ import SwiftUI
 // MARK: - Bottom Controls View
 struct BottomControlsView: View {
     @ObservedObject var compositionManager: CompositionManager
+    
     let hasCameraPermission: Bool
     let cameraLoading: Bool
     let onCapturePhoto: () -> Void
     let onShowCompositionPicker: () -> Void
     
     @State private var selectedIndex: Int = 1 // Default to second item (center framing)
-    @State private var scrollOffset: CGFloat = 0
+    @State private var scrollPosition: Int? = 1 // Optional for scrollPosition binding
     @State private var isInitializing: Bool = true
     
     private let compositionTypes = CompositionType.allCases
-    private let itemSpacing: CGFloat = 30
+    private let itemSpacing: CGFloat = 20
     private let sideItemWidth: CGFloat = 50
     private let centerItemWidth: CGFloat = 80
     
@@ -32,7 +33,6 @@ struct BottomControlsView: View {
                                 ForEach(Array(compositionTypes.enumerated()), id: \.offset) { index, compositionType in
                                     CompositionStyleButton(
                                         compositionType: compositionType,
-                                        isCenter: false, // All items are uniform now
                                         onTap: {
                                             selectCompositionStyle(at: index, proxy: proxy)
                                         },
@@ -109,11 +109,19 @@ struct BottomControlsView: View {
     private func selectCompositionStyle(at index: Int, proxy: ScrollViewProxy) {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0.2)) {
             selectedIndex = index
-            let selectedType = compositionTypes[index]
-            compositionManager.switchToCompositionType(selectedType)
             
             // Scroll to center the selected item
             proxy.scrollTo(index, anchor: .center)
+        }
+        
+        // Update composition type outside of animation block to ensure immediate update
+        let selectedType = compositionTypes[index]
+        compositionManager.switchToCompositionType(selectedType)
+        
+        // Force a UI update by publishing on main queue
+        DispatchQueue.main.async {
+            // This ensures the overlay view reacts immediately to the change
+            self.compositionManager.objectWillChange.send()
         }
     }
     
@@ -131,6 +139,9 @@ struct BottomControlsView: View {
                 self.selectedIndex = newIndex
                 let selectedType = self.compositionTypes[newIndex]
                 self.compositionManager.switchToCompositionType(selectedType)
+                
+                // Force UI update to ensure overlays react immediately
+                self.compositionManager.objectWillChange.send()
             }
         }
     }
@@ -139,7 +150,6 @@ struct BottomControlsView: View {
 // MARK: - Composition Style Button
 struct CompositionStyleButton: View {
     let compositionType: CompositionType
-    let isCenter: Bool
     let onTap: () -> Void
     let onCapture: (() -> Void)?
     
@@ -147,14 +157,13 @@ struct CompositionStyleButton: View {
         Button(action: onTap) {
             // All items are now uniform (no special center styling)
             Image(systemName: compositionType.icon)
-                .font(.system(size: 20))
+                .font(.system(size: 20, weight: .medium))
                 .foregroundColor(.white)
                 .frame(width: 50, height: 50)
                 .padding(3)
-                .background(.ultraThinMaterial.opacity(0.65))
+                .background(.ultraThinMaterial.opacity(0.85))
                 .clipShape(Circle())
                 .scaleEffect(0.9)
-                .opacity(0.8)
         }
         .buttonStyle(PlainButtonStyle())
     }

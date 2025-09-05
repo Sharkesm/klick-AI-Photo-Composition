@@ -22,7 +22,7 @@ class CompositionManager: ObservableObject {
         case .centerFraming:
             return centerFramingService
         case .symmetry:
-            return symmetryService // Now has dedicated symmetry service
+            return symmetryService
         }
     }
     
