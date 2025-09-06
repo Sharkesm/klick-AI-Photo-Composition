@@ -63,6 +63,16 @@ class FilterManager {
         .workingColorSpace: CGColorSpaceCreateDeviceRGB()
     ])
     private var filterCache = NSCache<NSString, UIImage>()
+    private let lutApplier = LUTApplier()
+    
+    private init() {
+        // Configure cache limits
+        filterCache.countLimit = 50 // Limit to 50 cached filter results
+        filterCache.totalCostLimit = 100 * 1024 * 1024 // 100MB limit
+        
+        // Preload common LUTs for better performance
+        lutApplier.preloadCommonLUTs()
+    }
 
     let allFilters: [PhotoFilter] = [
         // 🌞 The Glow Pack
@@ -73,7 +83,7 @@ class FilterManager {
             pack: .glow,
             scenario: "Beach walks, rooftop evenings",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectTransfer"),
+            filterType: .customLUT("Bourbon 64"),
             parameters: [:]
         ),
         PhotoFilter(
@@ -83,17 +93,57 @@ class FilterManager {
             pack: .glow,
             scenario: "Travel, couples at dusk",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectProcess"),
+            filterType: .customLUT("Teigen 28"),
             parameters: [:]
         ),
         PhotoFilter(
             id: "PS1",
             name: "Peach Skin",
-            tagline: "Your selfie’s best friend",
+            tagline: "Your selfie's best friend",
             pack: .glow,
             scenario: "Selfies, beauty/lifestyle posts",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectFade"),
+            filterType: .customLUT("Pitaya 15"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "WS1",
+            name: "Warm Summer",
+            tagline: "Endless summer vibes",
+            pack: .glow,
+            scenario: "Outdoor portraits, vacation shots",
+            previewImageName: nil,
+            filterType: .customLUT("Pasadena 21"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "LK1",
+            name: "Lucky Charm",
+            tagline: "Bright and cheerful",
+            pack: .glow,
+            scenario: "Happy moments, celebrations",
+            previewImageName: nil,
+            filterType: .customLUT("Lucky 64"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "GL1",
+            name: "Golden Light",
+            tagline: "Warm tones and rich colors",
+            pack: .glow,
+            scenario: "Portraits, landscapes, everyday moments",
+            previewImageName: nil,
+            filterType: .customLUT("Golden Light"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "G200",
+            name: "Gold 200",
+            tagline: "Warmth and nostalgia of Kodak's rich hues",
+            pack: .glow,
+            scenario: "Vintage-inspired photography, warm lighting",
+            previewImageName: nil,
+            filterType: .customLUT("Gold 200"),
             parameters: [:]
         ),
 
@@ -105,7 +155,7 @@ class FilterManager {
             pack: .cine,
             scenario: "Urban, night portraits",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectChrome"),
+            filterType: .customLUT("Neon 770"),
             parameters: [:]
         ),
         PhotoFilter(
@@ -115,7 +165,7 @@ class FilterManager {
             pack: .cine,
             scenario: "Studio, dramatic headshots",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectMono"),
+            filterType: .customLUT("Azrael 93"),
             parameters: [:]
         ),
         PhotoFilter(
@@ -125,7 +175,77 @@ class FilterManager {
             pack: .cine,
             scenario: "Lifestyle, retro outfits",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectInstant"),
+            filterType: .customLUT("Reeve 38"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "KB1",
+            name: "Korben Classic",
+            tagline: "Timeless cinematic look",
+            pack: .cine,
+            scenario: "Portrait photography, artistic shots",
+            previewImageName: nil,
+            filterType: .customLUT("Korben 214"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "CH1",
+            name: "Chemical Wash",
+            tagline: "Edgy industrial vibes",
+            pack: .cine,
+            scenario: "Urban exploration, street photography",
+            previewImageName: nil,
+            filterType: .customLUT("Chemical 168"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "FD1",
+            name: "Faded Film",
+            tagline: "Vintage film aesthetic",
+            pack: .cine,
+            scenario: "Nostalgic moments, artistic portraits",
+            previewImageName: nil,
+            filterType: .customLUT("Faded 47"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "P800",
+            name: "Portra 800",
+            tagline: "Classic film with neutral skin tones",
+            pack: .cine,
+            scenario: "Portrait photography, natural lighting",
+            previewImageName: nil,
+            filterType: .customLUT("Portra 800"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "CF1",
+            name: "Coastal Film",
+            tagline: "Gold 200 film characteristics",
+            pack: .cine,
+            scenario: "Color grading, film emulation",
+            previewImageName: nil,
+            filterType: .customLUT("Coastal Film"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "EC1",
+            name: "Elite Chrome",
+            tagline: "Iconic vibrancy of Kodak Elite Chrome",
+            pack: .cine,
+            scenario: "Professional photography, vibrant colors",
+            previewImageName: nil,
+            filterType: .customLUT("Elite Chrome"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "C400",
+            name: "Color 400",
+            tagline: "Rich, bright colors with natural skin tones",
+            pack: .cine,
+            scenario: "Film emulation, sharp details, natural portraits",
+            previewImageName: nil,
+            filterType: .customLUT("Color 400"),
             parameters: [:]
         ),
 
@@ -137,7 +257,7 @@ class FilterManager {
             pack: .aesthetic,
             scenario: "Fashion, minimalist portraits",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectTonal"),
+            filterType: .customLUT("Clouseau 54"),
             parameters: [:]
         ),
         PhotoFilter(
@@ -147,7 +267,7 @@ class FilterManager {
             pack: .aesthetic,
             scenario: "Fun lifestyle, creative reels",
             previewImageName: nil,
-            filterType: .builtIn("CIPhotoEffectNoir"),
+            filterType: .customLUT("Hyla 68"),
             parameters: [:]
         ),
         PhotoFilter(
@@ -157,7 +277,57 @@ class FilterManager {
             pack: .aesthetic,
             scenario: "Cafés, reading, cozy indoors",
             previewImageName: nil,
-            filterType: .builtIn("CISepiaTone"),
+            filterType: .customLUT("Arabica 12"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "VR1",
+            name: "Vireo Soft",
+            tagline: "Gentle and ethereal",
+            pack: .aesthetic,
+            scenario: "Romantic portraits, soft lighting",
+            previewImageName: nil,
+            filterType: .customLUT("Vireo 37"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "CB1",
+            name: "Cobi Fresh",
+            tagline: "Clean and modern",
+            pack: .aesthetic,
+            scenario: "Contemporary lifestyle, social media",
+            previewImageName: nil,
+            filterType: .customLUT("Cobi 3"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "ML1",
+            name: "Milo Vintage",
+            tagline: "Retro charm with modern appeal",
+            pack: .aesthetic,
+            scenario: "Vintage-inspired shoots, creative content",
+            previewImageName: nil,
+            filterType: .customLUT("Milo 5"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "CR100",
+            name: "Creatives 100",
+            tagline: "Beautiful cinematic beach vibes",
+            pack: .aesthetic,
+            scenario: "Beach photography, creative projects",
+            previewImageName: nil,
+            filterType: .customLUT("Creatives 100"),
+            parameters: [:]
+        ),
+        PhotoFilter(
+            id: "P100",
+            name: "Portrait 100",
+            tagline: "Soft and beautiful film look",
+            pack: .aesthetic,
+            scenario: "Portrait photography, soft lighting",
+            previewImageName: nil,
+            filterType: .customLUT("Portrait 100"),
             parameters: [:]
         )
     ]
@@ -175,41 +345,65 @@ class FilterManager {
             return cachedImage
         }
 
-        guard let ciImage = CIImage(image: image) else { return image }
-
-        var processedImage = ciImage
+        var resultImage: UIImage?
 
         // Apply base filter
         switch filter.filterType {
         case .builtIn(let filterName):
+            // Legacy support for built-in filters (if needed)
+            guard let ciImage = CIImage(image: image) else { return image }
+            var processedImage = ciImage
+            
             if let ciFilter = CIFilter(name: filterName) {
                 ciFilter.setValue(processedImage, forKey: kCIInputImageKey)
                 if let output = ciFilter.outputImage {
                     processedImage = output
                 }
             }
+            
+            // Apply adjustments
+            processedImage = applyAdjustments(adjustments, to: processedImage)
+            
+            guard let cgImage = context.createCGImage(processedImage, from: processedImage.extent) else {
+                return image
+            }
+            
+            resultImage = UIImage(cgImage: cgImage)
+            
         case .customLUT(let lutName):
-            // TODO: Implement LUT loading and application
-            break
+            // Apply LUT with intensity from adjustments
+            resultImage = lutApplier.applyLUT(
+                lutFileName: lutName,
+                to: image,
+                intensity: Float(adjustments.intensity)
+            )
+            
+            // Apply additional adjustments (brightness and warmth) if needed
+            if let lutResult = resultImage,
+               (adjustments.brightness != 0 || adjustments.warmth != 0) {
+                guard let ciImage = CIImage(image: lutResult) else { return lutResult }
+                let adjustedImage = applyBrightnessAndWarmth(adjustments, to: ciImage)
+                
+                guard let cgImage = context.createCGImage(adjustedImage, from: adjustedImage.extent) else {
+                    return lutResult
+                }
+                
+                resultImage = UIImage(cgImage: cgImage)
+            }
+            
         case .none:
             return image
         }
 
-        // Apply adjustments
-        processedImage = applyAdjustments(adjustments, to: processedImage)
-
-        guard let cgImage = context.createCGImage(processedImage, from: processedImage.extent) else {
-            return image
-        }
-
-        let resultImage = UIImage(cgImage: cgImage)
+        // Use the original image as fallback
+        let finalResult = resultImage ?? image
 
         // Cache the result
         if useCache {
-            filterCache.setObject(resultImage, forKey: cacheKey)
+            filterCache.setObject(finalResult, forKey: cacheKey)
         }
 
-        return resultImage
+        return finalResult
     }
 
     func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 60, height: 60)) -> UIImage? {
@@ -295,6 +489,48 @@ class FilterManager {
         }
 
         return processedImage
+    }
+    
+    /// Apply only brightness and warmth adjustments (used for LUT post-processing)
+    private func applyBrightnessAndWarmth(_ adjustments: FilterAdjustment, to ciImage: CIImage) -> CIImage {
+        var processedImage = ciImage
+
+        // Brightness adjustment
+        if adjustments.brightness != 0 {
+            let brightnessFilter = CIFilter.colorControls()
+            brightnessFilter.inputImage = processedImage
+            brightnessFilter.brightness = Float(adjustments.brightness)
+            if let output = brightnessFilter.outputImage {
+                processedImage = output
+            }
+        }
+
+        // Temperature adjustment (warmth)
+        if adjustments.warmth != 0 {
+            let temperatureFilter = CIFilter.temperatureAndTint()
+            temperatureFilter.inputImage = processedImage
+            temperatureFilter.neutral = CIVector(x: 6500, y: 0)
+            temperatureFilter.targetNeutral = CIVector(x: 6500 * (1 + adjustments.warmth), y: 0)
+            if let output = temperatureFilter.outputImage {
+                processedImage = output
+            }
+        }
+
+        return processedImage
+    }
+    
+    /// Clear all caches to free memory (call when receiving memory warnings)
+    func clearAllCaches() {
+        filterCache.removeAllObjects()
+        lutApplier.clearCache()
+        print("🗑️ All filter caches cleared")
+    }
+    
+    /// Get memory usage information
+    func getMemoryInfo() -> String {
+        let filterCacheCount = filterCache.countLimit
+        let lutInfo = lutApplier.getCacheInfo()
+        return "Filter Cache: \(filterCacheCount) items, LUT Cache: \(lutInfo.count) items (~\(String(format: "%.1f", lutInfo.estimatedMemoryMB))MB)"
     }
 }
 
