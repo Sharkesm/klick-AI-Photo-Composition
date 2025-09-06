@@ -21,10 +21,8 @@ struct BottomControlsView: View {
     var body: some View {
         // Bottom controls - only show when camera is ready
         if hasCameraPermission && !cameraLoading {
+            // Composition Style Picker with Scroll (iOS 16 Compatible)
             VStack {
-                Spacer()
-                
-                // Composition Style Picker with Scroll (iOS 16 Compatible)
                 ZStack {
                     // Scrollable composition items
                     ScrollViewReader { proxy in
@@ -46,8 +44,8 @@ struct BottomControlsView: View {
                                 // Invisible geometry reader to track scroll position
                                 GeometryReader { geometry in
                                     Color.clear
-                                        .preference(key: ScrollOffsetPreferenceKey.self, 
-                                                  value: geometry.frame(in: .named("scroll")).origin.x)
+                                        .preference(key: ScrollOffsetPreferenceKey.self,
+                                                    value: geometry.frame(in: .named("scroll")).origin.x)
                                 }
                             )
                         }
@@ -65,15 +63,11 @@ struct BottomControlsView: View {
                             compositionManager.switchToCompositionType(defaultType)
                             
                             // Scroll to default center item on appear
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                withAnimation(.easeInOut(duration: 0.5)) {
-                                    proxy.scrollTo(selectedIndex, anchor: .center)
-                                }
+                            proxy.scrollTo(selectedIndex, anchor: .center)
                                 
-                                // Enable scroll tracking after initial positioning
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                                    isInitializing = false
-                                }
+                            // Enable scroll tracking after initial positioning
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                                isInitializing = false
                             }
                         }
                     }
@@ -84,26 +78,21 @@ struct BottomControlsView: View {
                         onCapture: onCapturePhoto
                     )
                 }
-                .overlay(alignment: .bottom) {
-                    // Dynamic label showing current composition
+                
+                HStack {
+                    Spacer()
                     Text(compositionTypes[selectedIndex].displayName)
-                        .font(.system(size: 12))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.white)
                         .padding(.vertical, 5)
                         .padding(.horizontal, 10)
                         .background(.ultraThinMaterial.blendMode(.lighten))
                         .clipShape(Capsule())
-                        .offset(y: 25)
                         .animation(.easeInOut(duration: 0.3), value: selectedIndex)
+                    Spacer()
                 }
             }
-            .transition(
-                .move(edge: .bottom)
-                .combined(with: .opacity)
-                .combined(with: .scale(scale: 0.8))
-            )
-
-        }
+         }
     }
     
     private func selectCompositionStyle(at index: Int, proxy: ScrollViewProxy) {
@@ -159,7 +148,7 @@ struct CompositionStyleButton: View {
             Image(systemName: compositionType.icon)
                 .font(.system(size: 20, weight: .medium))
                 .foregroundColor(.white)
-                .frame(width: 50, height: 50)
+                .frame(width: 60, height: 60)
                 .padding(3)
                 .background(.ultraThinMaterial.opacity(0.85))
                 .clipShape(Circle())
@@ -179,16 +168,16 @@ struct StickyCompositionBorder: View {
             // Fixed center border that never moves
             Circle()
                 .fill(Color.clear)
-                .frame(width: 80, height: 80)
+                .frame(width: 90, height: 90)
                 .overlay(alignment: .center) {
                     Circle()
                         .stroke(Color.white, lineWidth: 4)
-                        .frame(width: 70, height: 70)
+                        .frame(width: 80, height: 80)
                         .overlay(alignment: .center, content: {
                             Image(systemName: compositionType.icon)
                                 .font(.system(size: 24))
                                 .foregroundColor(.black)
-                                .frame(width: 50, height: 50)
+                                .frame(width: 60, height: 60)
                                 .padding(3)
                                 .background(.yellow)
                                 .clipShape(Circle())

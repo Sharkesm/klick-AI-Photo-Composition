@@ -419,7 +419,7 @@ class CenterFramingService: CompositionService {
             type: .safetyZone,
             path: path,
             color: .orange,
-            opacity: 0.25,
+            opacity: 0.0,
             lineWidth: 2
         )
     }
@@ -762,7 +762,7 @@ class SymmetryService: CompositionService {
             type: .safetyZone,
             path: path,
             color: .purple,
-            opacity: 0.2,
+            opacity: 0.0,
             lineWidth: 1
         )
     }
@@ -1006,7 +1006,7 @@ class RuleOfThirdsService: CompositionService {
             type: .safetyZone,
             path: path,
             color: .yellow,
-            opacity: 0.3,
+            opacity: 0.0,
             lineWidth: 2
         )
     }

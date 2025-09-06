@@ -4,32 +4,28 @@ import AVFoundation
 // MARK: - Loading Overlay View
 struct LoadingOverlayView: View {
     let permissionStatus: AVAuthorizationStatus
-    let cameraLoading: Bool
-    let hasCameraPermission: Bool
     
     var body: some View {
-        if cameraLoading || !hasCameraPermission {
-            // Semi-transparent overlay to dim camera view during loading
-            Color.black.opacity(0.7)
-                .ignoresSafeArea()
-                .transition(.opacity)
-                .overlay(
-                    VStack(spacing: 20) {
-                        if permissionStatus == .denied || permissionStatus == .restricted {
-                            // Permission denied state
-                            CameraPermissionView()
-                        } else {
-                            // Loading state
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                    .scaleEffect(0.85)
-                            }
+        // Semi-transparent overlay to dim camera view during loading
+        Color.black.opacity(0.7)
+            .ignoresSafeArea()
+            .transition(.opacity)
+            .overlay(
+                VStack(spacing: 20) {
+                    if permissionStatus == .denied || permissionStatus == .restricted {
+                        // Permission denied state
+                        CameraPermissionView()
+                    } else {
+                        // Loading state
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.85)
                         }
                     }
-                    .transition(.opacity)
-                )
-        }
+                }
+                .transition(.opacity)
+            )
     }
 }
 

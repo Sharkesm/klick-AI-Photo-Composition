@@ -6,6 +6,7 @@ struct TopControlsView: View {
     @Binding var selectedFlashMode: FlashMode
     @Binding var selectedZoomLevel: ZoomLevel
     @Binding var showFrameSettings: Bool
+    @Binding var showCompositionPractice: Bool
     
     let compositionManager: CompositionManager
     let hasCameraPermission: Bool
@@ -34,6 +35,7 @@ struct TopControlsView: View {
                          CameraQualitySelector(selectedQuality: $selectedCameraQuality)
                          FlashControl(selectedFlashMode: $selectedFlashMode)
                          ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
+                         CompositionStylePracticeControl(showCompositionPractice: $showCompositionPractice)
                      }
                  }
                  .padding(.horizontal, 20)

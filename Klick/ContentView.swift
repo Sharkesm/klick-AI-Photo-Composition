@@ -14,7 +14,7 @@ struct ContentView: View {
     @State private var permissionStatus: AVAuthorizationStatus = .notDetermined
     @State private var detectedFaceBoundingBox: CGRect?
     @StateObject private var compositionManager = CompositionManager()
-    @State private var showCompositionPicker = false
+    @State private var showCompositionPractice = false
     
     // Frame settings state
     @State private var showFrameSettings = false
@@ -58,125 +58,140 @@ struct ContentView: View {
             
             // Camera view - show immediately when permissions granted
             if hasCameraPermission {
-                ZStack {
-                    CameraView(
-                        feedbackMessage: $feedbackMessage,
-                        feedbackIcon: $feedbackIcon,
-                        showFeedback: $showFeedback,
-                        detectedFaceBoundingBox: $detectedFaceBoundingBox,
-                        isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
-                        compositionManager: compositionManager,
-                        cameraQuality: $selectedCameraQuality,
-                        flashMode: $selectedFlashMode,
-                        zoomLevel: $selectedZoomLevel,
-                        isSessionActive: $isCameraSessionActive,
-                        onCameraReady: {
-                            // Camera is ready, hide loading
-                            print("Camera ready callback triggered")
-                            withAnimation(.easeOut(duration: 0.5)) {
-                                cameraLoading = false
-                            }
-                        },
-                        onPhotoCaptured: { image, imageData in
-                            // Show preview instead of immediately saving
-                            capturedPreviewImage = image
-                            processedImage = image // Initialize with original image
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showImagePreview = true
-                            }
-                            print("📸 Photo captured, showing preview")
-                        }
-                    )
+                GeometryReader { geometry in
+                    let screenHeight = geometry.size.height
+                    let height = screenHeight - 50
                     
-                    // Ultra thin material overlay when camera is paused
-                    if !isCameraSessionActive {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .transition(.opacity)
+                    VStack {
+                        ZStack {
+                            CameraView(
+                                feedbackMessage: $feedbackMessage,
+                                feedbackIcon: $feedbackIcon,
+                                showFeedback: $showFeedback,
+                                detectedFaceBoundingBox: $detectedFaceBoundingBox,
+                                isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
+                                compositionManager: compositionManager,
+                                cameraQuality: $selectedCameraQuality,
+                                flashMode: $selectedFlashMode,
+                                zoomLevel: $selectedZoomLevel,
+                                isSessionActive: $isCameraSessionActive,
+                                onCameraReady: {
+                                    // Camera is ready, hide loading
+                                    print("Camera ready callback triggered")
+                                    withAnimation(.easeOut(duration: 0.5)) {
+                                        cameraLoading = false
+                                    }
+                                },
+                                onPhotoCaptured: { image, imageData in
+                                    // Show preview instead of immediately saving
+                                    capturedPreviewImage = image
+                                    processedImage = image // Initialize with original image
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showImagePreview = true
+                                    }
+                                    print("📸 Photo captured, showing preview")
+                                }
+                            )
+                            .overlay(alignment: .top, content: {
+                                // Top controls
+                                TopControlsView(
+                                    selectedCameraQuality: $selectedCameraQuality,
+                                    selectedFlashMode: $selectedFlashMode,
+                                    selectedZoomLevel: $selectedZoomLevel,
+                                    showFrameSettings: $showFrameSettings,
+                                    showCompositionPractice: $showCompositionPractice,
+                                    compositionManager: compositionManager,
+                                    hasCameraPermission: hasCameraPermission,
+                                    cameraLoading: cameraLoading
+                                )
+                                .padding(.top, 20)
+                            })
+                            .overlay(alignment: .center, content: {
+                                // Composition overlays
+                                CompositionOverlaysView(
+                                    compositionManager: compositionManager,
+                                    hasCameraPermission: hasCameraPermission,
+                                    cameraLoading: cameraLoading,
+                                    isCompositionAnalysisEnabled: isCompositionAnalysisEnabled,
+                                    areOverlaysHidden: areOverlaysHidden
+                                )
+                                
+                                // Face highlight overlay - only show when camera is ready and facial recognition is enabled
+                                if hasCameraPermission && !cameraLoading && isFacialRecognitionEnabled {
+                                    FaceHighlightOverlayView(faceBoundingBox: detectedFaceBoundingBox)
+                                        .ignoresSafeArea()
+                                        .transition(.opacity)
+                                }
+                            })
+                            .overlay(alignment: .center) {
+                                if cameraLoading || !hasCameraPermission {
+                                    // Loading overlay
+                                    LoadingOverlayView(permissionStatus: permissionStatus)
+                                }
+                            }
+                            
+                            // Ultra thin material overlay when camera is paused
+                            if !isCameraSessionActive {
+                                Rectangle()
+                                    .fill(.ultraThinMaterial)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .frame(height: height)
+                        .cornerRadius(30)
+                        .overlay(alignment: .bottom) {
+                            VStack {
+                                Spacer()
+                                // Feedback overlay
+                                FeedbackOverlayView(
+                                    showFeedback: showFeedback,
+                                    feedbackMessage: feedbackMessage,
+                                    feedbackIcon: feedbackIcon,
+                                    hasCameraPermission: hasCameraPermission,
+                                    cameraLoading: cameraLoading,
+                                    isCompositionAnalysisEnabled: isCompositionAnalysisEnabled
+                                )
+                                
+                                // Bottom controls
+                                BottomControlsView(
+                                    compositionManager: compositionManager,
+                                    hasCameraPermission: hasCameraPermission,
+                                    cameraLoading: cameraLoading,
+                                    onCapturePhoto: {
+                                        // Trigger photo capture
+                                        capturePhoto()
+                                        
+                                        if !photoAlbumSnapshot {
+                                            withAnimation(.linear) {
+                                                photoAlbumSnapshot = true
+                                            }
+                                        }
+                                        
+                                        // Show glimpse of photo album when capturing
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            showPhotoAlbumGlimpse = true
+                                        }
+                                        
+                                        // Hide glimpse after 1.5 seconds
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                            withAnimation(.easeInOut(duration: 0.3)) {
+                                                showPhotoAlbumGlimpse = false
+                                            }
+                                        }
+                                    },
+                                    onShowCompositionPicker: {
+                                        // Do nothing
+                                    }
+                                )
+                            }
+                            .padding(.bottom, 20)
+                        }
+                        
+                        Spacer()
                     }
                 }
             }
-            
-            // Composition overlays
-            CompositionOverlaysView(
-                compositionManager: compositionManager,
-                hasCameraPermission: hasCameraPermission,
-                cameraLoading: cameraLoading,
-                isCompositionAnalysisEnabled: isCompositionAnalysisEnabled,
-                areOverlaysHidden: areOverlaysHidden
-            )
-            
-            // Face highlight overlay - only show when camera is ready and facial recognition is enabled
-            if hasCameraPermission && !cameraLoading && isFacialRecognitionEnabled {
-                FaceHighlightOverlayView(faceBoundingBox: detectedFaceBoundingBox)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-            }
-            
-            // Top controls
-            TopControlsView(
-                selectedCameraQuality: $selectedCameraQuality,
-                selectedFlashMode: $selectedFlashMode,
-                selectedZoomLevel: $selectedZoomLevel,
-                showFrameSettings: $showFrameSettings,
-                compositionManager: compositionManager,
-                hasCameraPermission: hasCameraPermission,
-                cameraLoading: cameraLoading
-            )
-            .padding(.top, 20)
-            
-            // Loading overlay
-            LoadingOverlayView(
-                permissionStatus: permissionStatus,
-                cameraLoading: cameraLoading,
-                hasCameraPermission: hasCameraPermission
-            )
-            
-            // Feedback overlay
-            FeedbackOverlayView(
-                showFeedback: showFeedback,
-                feedbackMessage: feedbackMessage,
-                feedbackIcon: feedbackIcon,
-                hasCameraPermission: hasCameraPermission,
-                cameraLoading: cameraLoading,
-                isCompositionAnalysisEnabled: isCompositionAnalysisEnabled
-            )
-            
-            // Bottom controls
-            BottomControlsView(
-                compositionManager: compositionManager,
-                hasCameraPermission: hasCameraPermission,
-                cameraLoading: cameraLoading,
-                onCapturePhoto: {
-                    // Trigger photo capture
-                    capturePhoto()
-                    
-                    if !photoAlbumSnapshot {
-                        withAnimation(.linear) {
-                            photoAlbumSnapshot = true
-                        }
-                    }
-                    
-                    // Show glimpse of photo album when capturing
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showPhotoAlbumGlimpse = true
-                    }
-                    
-                    // Hide glimpse after 1.5 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showPhotoAlbumGlimpse = false
-                        }
-                    }
-                },
-                onShowCompositionPicker: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showCompositionPicker = true
-                    }
-                }
-            )
-            .padding(.bottom, 50)
             
             // Photo Album View - positioned at the bottom and can be dragged up
             if hasCameraPermission && !cameraLoading && photoAlbumSnapshot {
@@ -184,7 +199,7 @@ struct ContentView: View {
                     let screenHeight = geometry.size.height
                     let glimpseHeight: CGFloat = 70
                     let fullScreenOffset: CGFloat = 0
-                    let hiddenOffset: CGFloat = screenHeight - 50
+                    let hiddenOffset: CGFloat = screenHeight - 60
                     let glimpseOffset: CGFloat = showPhotoAlbumGlimpse ? screenHeight - glimpseHeight : 0
                     
                     PhotoAlbumView(
@@ -215,7 +230,7 @@ struct ContentView: View {
                         hiddenOffset: hiddenOffset,
                         glimpseOffset: glimpseOffset
                     ))
-                    .animation(.easeInOut(duration: 0.3), value: showPhotoAlbumGlimpse)
+                    .animation(.easeInOut, value: showPhotoAlbumGlimpse)
                 }
                 .ignoresSafeArea()
             }
@@ -223,11 +238,7 @@ struct ContentView: View {
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(isPresented: $showOnboarding)
         }
-        .sheet(isPresented: $showCompositionPicker) {
-//            CompositionPickerView(
-//                compositionManager: compositionManager,
-//                isPresented: $showCompositionPicker
-//            )
+        .sheet(isPresented: $showCompositionPractice) {
             CompositionStyleEdView()
                 .presentationDetents([.fraction(1.0)])
                 .presentationDragIndicator(.hidden)

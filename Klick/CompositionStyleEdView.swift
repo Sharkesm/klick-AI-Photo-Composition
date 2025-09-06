@@ -372,6 +372,24 @@ struct CompositionSection {
     let imageItems: [String]
 }
 
+struct CompositionStylePracticeControl: View {
+    @Binding var showCompositionPractice: Bool
+    
+    var body: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showCompositionPractice = true
+            }
+        }) {
+            Image(systemName: "graduationcap")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+        }
+        .frame(width: 42, height: 42)
+        .background(Color.black.opacity(0.5))
+        .clipShape(Capsule())
+    }
+}
 
 #Preview(body: {
     CompositionStyleEdView()
