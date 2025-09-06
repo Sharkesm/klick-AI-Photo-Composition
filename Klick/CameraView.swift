@@ -7,6 +7,7 @@ struct CameraView: View {
     @Binding var feedbackIcon: String?
     @Binding var showFeedback: Bool
     @Binding var detectedFaceBoundingBox: CGRect?
+    @Binding var faceDetectionConfidence: CGFloat
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
@@ -30,6 +31,7 @@ struct CameraView: View {
                 feedbackIcon: $feedbackIcon,
                 showFeedback: $showFeedback,
                 detectedFaceBoundingBox: $detectedFaceBoundingBox,
+                faceDetectionConfidence: $faceDetectionConfidence,
                 isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                 compositionManager: compositionManager,
                 cameraQuality: $cameraQuality,
@@ -64,6 +66,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     @Binding var feedbackIcon: String?
     @Binding var showFeedback: Bool
     @Binding var detectedFaceBoundingBox: CGRect?
+    @Binding var faceDetectionConfidence: CGFloat
     @Binding var isFacialRecognitionEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @Binding var cameraQuality: CameraQuality
@@ -484,10 +487,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             }
             
             // Get actual metadata from captured photo
-            guard let actualMetadata = capturePhoto.metadata as? [String: Any] else {
-                print("⚠️ No metadata available from capture, using default JPEG")
-                return image.jpegData(compressionQuality: 0.9)
-            }
+            let photoMetadata = capturePhoto.metadata
             
             // Create mutable data for the image
             let mutableData = NSMutableData()
@@ -498,7 +498,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             }
             
             // Use actual captured metadata instead of hardcoded values
-            CGImageDestinationAddImage(destination, cgImage, actualMetadata as CFDictionary)
+            CGImageDestinationAddImage(destination, cgImage, photoMetadata as CFDictionary)
             
             // Finalize the image creation
             if CGImageDestinationFinalize(destination) {
@@ -515,33 +515,32 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         
         private func logCaptureMetadata(photo: AVCapturePhoto) {
             // Log available metadata from the capture
-            if let metadata = photo.metadata as? [String: Any] {
-                print("📊 Capture Metadata Available:")
+            let metadata = photo.metadata
+            print("📊 Capture Metadata Available:")
                 
-                // Log EXIF data
-                if let exifDict = metadata[kCGImagePropertyExifDictionary as String] as? [String: Any] {
-                    if let iso = exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? [Int] {
-                        print("   📷 ISO: \(iso)")
-                    }
-                    if let exposureTime = exifDict[kCGImagePropertyExifExposureTime as String] as? Double {
-                        print("   ⏱️ Exposure Time: \(exposureTime) sec")
-                    }
-                    if let focalLength = exifDict[kCGImagePropertyExifFocalLength as String] as? Double {
-                        print("   🔍 Focal Length: \(focalLength)mm")
-                    }
-                    if let flash = exifDict[kCGImagePropertyExifFlash as String] as? Int {
-                        print("   ⚡ Flash: \(flash)")
-                    }
+            // Log EXIF data
+            if let exifDict = metadata[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+                if let iso = exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? [Int] {
+                    print("   📷 ISO: \(iso)")
                 }
-                
-                // Log TIFF data
-                if let tiffDict = metadata[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
-                    if let make = tiffDict[kCGImagePropertyTIFFMake as String] as? String {
-                        print("   📱 Camera Make: \(make)")
-                    }
-                    if let model = tiffDict[kCGImagePropertyTIFFModel as String] as? String {
-                        print("   📱 Camera Model: \(model)")
-                    }
+                if let exposureTime = exifDict[kCGImagePropertyExifExposureTime as String] as? Double {
+                    print("   ⏱️ Exposure Time: \(exposureTime) sec")
+                }
+                if let focalLength = exifDict[kCGImagePropertyExifFocalLength as String] as? Double {
+                    print("   🔍 Focal Length: \(focalLength)mm")
+                }
+                if let flash = exifDict[kCGImagePropertyExifFlash as String] as? Int {
+                    print("   ⚡ Flash: \(flash)")
+                }
+            }
+            
+            // Log TIFF data
+            if let tiffDict = metadata[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
+                if let make = tiffDict[kCGImagePropertyTIFFMake as String] as? String {
+                    print("   📱 Camera Make: \(make)")
+                }
+                if let model = tiffDict[kCGImagePropertyTIFFModel as String] as? String {
+                    print("   📱 Camera Model: \(model)")
                 }
             }
         }
@@ -653,6 +652,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 // Clear face bounding box when facial recognition is disabled
                 DispatchQueue.main.async {
                     self.parent.detectedFaceBoundingBox = nil
+                    self.parent.faceDetectionConfidence = 0.0
                     self.parent.feedbackMessage = nil
                     self.parent.feedbackIcon = nil
                     self.parent.showFeedback = false
@@ -696,10 +696,12 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                             )
                             
                             self.parent.detectedFaceBoundingBox = convertedRect
+                            self.parent.faceDetectionConfidence = CGFloat(selectedFace.confidence)
                             self.evaluateComposition(observation: selectedFace, pixelBuffer: pixelBuffer)
                         } else {
                             // Try human detection if no face found
                             self.parent.detectedFaceBoundingBox = nil
+                            self.parent.faceDetectionConfidence = 0.0
                             self.performHumanDetection(pixelBuffer: pixelBuffer)
                         }
                     }
@@ -736,6 +738,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                             self.parent.feedbackIcon = nil
                             self.parent.showFeedback = false
                             self.parent.detectedFaceBoundingBox = nil
+                            self.parent.faceDetectionConfidence = 0.0
                         }
                     }
                 }

@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var cameraLoading = true
     @State private var permissionStatus: AVAuthorizationStatus = .notDetermined
     @State private var detectedFaceBoundingBox: CGRect?
+    @State private var faceDetectionConfidence: CGFloat = 0.0
     @StateObject private var compositionManager = CompositionManager()
     @State private var showCompositionPractice = false
     
@@ -69,6 +70,7 @@ struct ContentView: View {
                                 feedbackIcon: $feedbackIcon,
                                 showFeedback: $showFeedback,
                                 detectedFaceBoundingBox: $detectedFaceBoundingBox,
+                                faceDetectionConfidence: $faceDetectionConfidence,
                                 isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                                 compositionManager: compositionManager,
                                 cameraQuality: $selectedCameraQuality,
@@ -118,9 +120,13 @@ struct ContentView: View {
                                 
                                 // Face highlight overlay - only show when camera is ready and facial recognition is enabled
                                 if hasCameraPermission && !cameraLoading && isFacialRecognitionEnabled {
-                                    FaceHighlightOverlayView(faceBoundingBox: detectedFaceBoundingBox)
-                                        .ignoresSafeArea()
-                                        .transition(.opacity)
+                                    FaceHighlightOverlayView(
+                                        faceBoundingBox: detectedFaceBoundingBox,
+                                        isFaceDetected: detectedFaceBoundingBox != nil,
+                                        recognitionConfidence: faceDetectionConfidence
+                                    )
+                                    .ignoresSafeArea()
+                                    .transition(.opacity)
                                 }
                             })
                             .overlay(alignment: .center) {
