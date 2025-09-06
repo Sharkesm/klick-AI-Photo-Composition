@@ -62,7 +62,7 @@ struct FaceHighlightOverlayView: View {
             if let boundingBox = faceBoundingBox {
                 // Apply Y-axis correction for coordinate system alignment
                 // Move the overlay DOWN to properly align with the face
-                let layoutOffset: CGFloat = 60 // Move down by 60 points
+                let layoutOffset: CGFloat = 40 // Move down by 40 points
                 
                 let correctedBoundingBox = CGRect(
                     x: boundingBox.origin.x,
