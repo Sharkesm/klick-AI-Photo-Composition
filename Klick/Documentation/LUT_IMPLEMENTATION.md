@@ -18,36 +18,41 @@ The Klick app now uses professional-grade .cube LUT (Look-Up Table) files for ph
 
 ## Filter Collection
 
-### 🌞 The Glow Pack (7 filters)
-- **Golden Hour Glow** - Bourbon 64.CUBE - Warm, golden tones
-- **Sunset Vibe** - Teigen 28.CUBE - Romantic sunset colors
-- **Peach Skin** - Pitaya 15.CUBE - Flattering skin tones
-- **Warm Summer** - Pasadena 21.CUBE - Bright summer vibes
-- **Lucky Charm** - Lucky 64.CUBE - Cheerful and bright
-- **Golden Light** - Golden Light.cube - Warm tones and rich colors inspired by Kodak Gold 200
-- **Gold 200** - Gold 200.cube - Warmth and nostalgia of Kodak's rich hues and subtle contrasts
+### 🌞 The Glow Pack - "Main Character Energy" (7 filters)
+- **Golden Hour Goddess** ✨ - Bourbon 64.CUBE - Main character energy, activated
+- **Sunset Slay** 🌅 - Teigen 28.CUBE - Serving golden hour perfection
+- **Peach Perfect** 🍑 - Pitaya 15.CUBE - Your selfie's glow-up bestie
+- **California Dreaming** 🌴 - Pasadena 21.CUBE - West coast golden vibes
+- **Lucky Charm** 🍀 - Lucky 64.CUBE - Good vibes only energy
+- **Midas Touch** ✋ - Golden Light.cube - Everything you touch turns gold
+- **Vintage Vibes** 📸 - Gold 200.cube - Nostalgic film aesthetic
 
-### 🎬 The Cine Pack (10 filters)
-- **Cinematic Teal** - Neon 770.CUBE - Hollywood teal/orange look
-- **Matte Noir** - Azrael 93.CUBE - Dark, moody aesthetic
-- **Retro 90s** - Reeve 38.CUBE - Vintage film look
-- **Korben Classic** - Korben 214.CUBE - Timeless cinematic
-- **Chemical Wash** - Chemical 168.CUBE - Industrial, edgy
-- **Faded Film** - Faded 47.CUBE - Nostalgic film aesthetic
-- **Portra 800** - Portra 800.cube - Classic film emulation with neutral skin tones and vibrant colors
-- **Coastal Film** - Coastal Film.cube - Mimics Gold 200 film characteristics with warm natural tones
-- **Elite Chrome** - Elite Chrome.cube - Iconic vibrancy of Kodak Elite Chrome 100 with stunning saturation
-- **Color 400** - Color 400.cube - Inspired by Fuji Superia 400 film with rich, bright colors and natural skin tones
+### 🎬 The Cine Pack - "Movie Star Moments" (13 filters)
+- **Neon Nights** 🌃 - Neon 770.CUBE - Hollywood blockbuster energy
+- **Dark Academia** 🖤 - Azrael 93.CUBE - Mysterious intellectual vibes
+- **Retro Rewind** ⏪ - Reeve 38.CUBE - Y2K throwback aesthetic
+- **Film Noir** 🎭 - Korben 214.CUBE - Classic cinema magic
+- **Urban Edge** 🏙️ - Chemical 168.CUBE - Street style with attitude
+- **Vintage Film** 🎞️ - Faded 47.CUBE - Old school cool vibes
+- **Portrait Pro** 📷 - Portra 800.cube - Professional photographer approved
+- **Beach Babe** 🏖️ - Coastal Film.cube - Coastal goddess mode
+- **Chrome Dreams** 💎 - Elite Chrome.cube - Futuristic vibes activated
+- **Film Fresh** 🎨 - Color 400.cube - That authentic film look
+- **Midnight Mood** 🌙 - Django 25.CUBE - After dark energy
+- **Film Burn** 🔥 - Sprocket 231.CUBE - Authentic film texture
 
-### 💫 The Aesthetic Pack (8 filters)
-- **Clean White** - Clouseau 54.CUBE - Minimalist, clean
-- **Dreamy Pastel** - Hyla 68.CUBE - Soft, dreamy tones
-- **Mocha Mood** - Arabica 12.CUBE - Warm, cozy feeling
-- **Vireo Soft** - Vireo 37.CUBE - Gentle, ethereal
-- **Cobi Fresh** - Cobi 3.CUBE - Modern, contemporary
-- **Milo Vintage** - Milo 5.CUBE - Retro with modern appeal
-- **Creatives 100** - Creatives 100.cube - Beautiful cinematic look with beach vibes
-- **Portrait 100** - Portrait 100.cube - Soft and beautiful film look perfect for portraits
+### 💫 The Aesthetic Pack - "Soft Girl/Boy Energy" (9 filters)
+- **Clean Girl** 🤍 - Clouseau 54.CUBE - Effortless minimalist vibes
+- **Dreamy Soft** ☁️ - Hyla 68.CUBE - Living in a cloud aesthetic
+- **Coffee Shop** ☕ - Arabica 12.CUBE - Cozy café main character
+- **Angel Glow** 👼 - Vireo 37.CUBE - Heavenly soft energy
+- **Fresh Face** 😊 - Cobi 3.CUBE - Natural beauty enhanced
+- **Vintage Charm** 💕 - Milo 5.CUBE - Retro cuteness overload
+- **Beach Vibes** 🌊 - Creatives 100.cube - Endless summer energy
+- **Soft Focus** 🌸 - Portrait 100.cube - Dreamy portrait perfection
+- **Color Pop** 🎨 - Fusion 88.CUBE - Vibrant energy unleashed
+
+**Total: 29 professional-grade filters** with catchy, Gen-Z friendly names!
 
 ## Technical Details
 

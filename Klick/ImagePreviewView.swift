@@ -2,537 +2,6 @@ import SwiftUI
 import UIKit
 import Social
 import CoreImage
-import CoreImage.CIFilterBuiltins
-
-// MARK: - Filter System
-
-enum FilterPack: String, CaseIterable {
-    case glow = "🌞 The Glow Pack"
-    case cine = "🎬 The Cine Pack"
-    case aesthetic = "💫 The Aesthetic Pack"
-}
-
-struct PhotoFilter: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let tagline: String
-    let pack: FilterPack
-    let scenario: String
-    let previewImageName: String?
-    let filterType: CIFilterType
-    let parameters: [String: Any]
-
-    var displayName: String {
-        "\(id) - \(name)"
-    }
-
-    static func == (lhs: PhotoFilter, rhs: PhotoFilter) -> Bool {
-        lhs.id == rhs.id
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
-
-enum CIFilterType {
-    case builtIn(String) // CIFilter name
-    case customLUT(String) // LUT file name
-    case none // Original image
-}
-
-struct FilterAdjustment {
-    var intensity: Double = 0.6 // 0-1
-    var brightness: Double = 0.0 // -0.2 to 0.2
-    var warmth: Double = 0.0 // -0.2 to 0.2
-
-    static let subtle = FilterAdjustment(intensity: 0.3, brightness: 0.0, warmth: 0.0)
-    static let balanced = FilterAdjustment(intensity: 0.6, brightness: 0.0, warmth: 0.0)
-    static let strong = FilterAdjustment(intensity: 0.9, brightness: 0.0, warmth: 0.0)
-}
-
-// MARK: - Filter Definitions
-
-class FilterManager {
-    static let shared = FilterManager()
-
-    // Performance optimizations
-    private let context = CIContext(options: [
-        .useSoftwareRenderer: false,
-        .cacheIntermediates: true,
-        .workingColorSpace: CGColorSpaceCreateDeviceRGB()
-    ])
-    private var filterCache = NSCache<NSString, UIImage>()
-    private let lutApplier = LUTApplier()
-    
-    private init() {
-        // Configure cache limits
-        filterCache.countLimit = 50 // Limit to 50 cached filter results
-        filterCache.totalCostLimit = 100 * 1024 * 1024 // 100MB limit
-        
-        // Preload common LUTs for better performance
-        lutApplier.preloadCommonLUTs()
-    }
-
-    let allFilters: [PhotoFilter] = [
-        // 🌞 The Glow Pack
-        PhotoFilter(
-            id: "GH1",
-            name: "Golden Hour Glow",
-            tagline: "Mimic golden-hour magic",
-            pack: .glow,
-            scenario: "Beach walks, rooftop evenings",
-            previewImageName: nil,
-            filterType: .customLUT("Bourbon 64"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "SV1",
-            name: "Sunset Vibe",
-            tagline: "Paint your portraits with sunset skies",
-            pack: .glow,
-            scenario: "Travel, couples at dusk",
-            previewImageName: nil,
-            filterType: .customLUT("Teigen 28"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "PS1",
-            name: "Peach Skin",
-            tagline: "Your selfie's best friend",
-            pack: .glow,
-            scenario: "Selfies, beauty/lifestyle posts",
-            previewImageName: nil,
-            filterType: .customLUT("Pitaya 15"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "WS1",
-            name: "Warm Summer",
-            tagline: "Endless summer vibes",
-            pack: .glow,
-            scenario: "Outdoor portraits, vacation shots",
-            previewImageName: nil,
-            filterType: .customLUT("Pasadena 21"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "LK1",
-            name: "Lucky Charm",
-            tagline: "Bright and cheerful",
-            pack: .glow,
-            scenario: "Happy moments, celebrations",
-            previewImageName: nil,
-            filterType: .customLUT("Lucky 64"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "GL1",
-            name: "Golden Light",
-            tagline: "Warm tones and rich colors",
-            pack: .glow,
-            scenario: "Portraits, landscapes, everyday moments",
-            previewImageName: nil,
-            filterType: .customLUT("Golden Light"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "G200",
-            name: "Gold 200",
-            tagline: "Warmth and nostalgia of Kodak's rich hues",
-            pack: .glow,
-            scenario: "Vintage-inspired photography, warm lighting",
-            previewImageName: nil,
-            filterType: .customLUT("Gold 200"),
-            parameters: [:]
-        ),
-
-        // 🎬 The Cine Pack
-        PhotoFilter(
-            id: "CT1",
-            name: "Cinematic Teal",
-            tagline: "Bring Hollywood to your portraits",
-            pack: .cine,
-            scenario: "Urban, night portraits",
-            previewImageName: nil,
-            filterType: .customLUT("Neon 770"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "MN1",
-            name: "Matte Noir",
-            tagline: "Moody. Timeless. Powerful",
-            pack: .cine,
-            scenario: "Studio, dramatic headshots",
-            previewImageName: nil,
-            filterType: .customLUT("Azrael 93"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "R9",
-            name: "Retro 90s",
-            tagline: "Throwback to vintage vibes",
-            pack: .cine,
-            scenario: "Lifestyle, retro outfits",
-            previewImageName: nil,
-            filterType: .customLUT("Reeve 38"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "KB1",
-            name: "Korben Classic",
-            tagline: "Timeless cinematic look",
-            pack: .cine,
-            scenario: "Portrait photography, artistic shots",
-            previewImageName: nil,
-            filterType: .customLUT("Korben 214"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "CH1",
-            name: "Chemical Wash",
-            tagline: "Edgy industrial vibes",
-            pack: .cine,
-            scenario: "Urban exploration, street photography",
-            previewImageName: nil,
-            filterType: .customLUT("Chemical 168"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "FD1",
-            name: "Faded Film",
-            tagline: "Vintage film aesthetic",
-            pack: .cine,
-            scenario: "Nostalgic moments, artistic portraits",
-            previewImageName: nil,
-            filterType: .customLUT("Faded 47"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "P800",
-            name: "Portra 800",
-            tagline: "Classic film with neutral skin tones",
-            pack: .cine,
-            scenario: "Portrait photography, natural lighting",
-            previewImageName: nil,
-            filterType: .customLUT("Portra 800"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "CF1",
-            name: "Coastal Film",
-            tagline: "Gold 200 film characteristics",
-            pack: .cine,
-            scenario: "Color grading, film emulation",
-            previewImageName: nil,
-            filterType: .customLUT("Coastal Film"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "EC1",
-            name: "Elite Chrome",
-            tagline: "Iconic vibrancy of Kodak Elite Chrome",
-            pack: .cine,
-            scenario: "Professional photography, vibrant colors",
-            previewImageName: nil,
-            filterType: .customLUT("Elite Chrome"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "C400",
-            name: "Color 400",
-            tagline: "Rich, bright colors with natural skin tones",
-            pack: .cine,
-            scenario: "Film emulation, sharp details, natural portraits",
-            previewImageName: nil,
-            filterType: .customLUT("Color 400"),
-            parameters: [:]
-        ),
-
-        // 💫 The Aesthetic Pack
-        PhotoFilter(
-            id: "CW1",
-            name: "Clean White",
-            tagline: "Sharp, stylish, and Instagram-ready",
-            pack: .aesthetic,
-            scenario: "Fashion, minimalist portraits",
-            previewImageName: nil,
-            filterType: .customLUT("Clouseau 54"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "DP1",
-            name: "Dreamy Pastel",
-            tagline: "Soft tones for dreamy feeds",
-            pack: .aesthetic,
-            scenario: "Fun lifestyle, creative reels",
-            previewImageName: nil,
-            filterType: .customLUT("Hyla 68"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "MM1",
-            name: "Mocha Mood",
-            tagline: "Warmth that feels like home",
-            pack: .aesthetic,
-            scenario: "Cafés, reading, cozy indoors",
-            previewImageName: nil,
-            filterType: .customLUT("Arabica 12"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "VR1",
-            name: "Vireo Soft",
-            tagline: "Gentle and ethereal",
-            pack: .aesthetic,
-            scenario: "Romantic portraits, soft lighting",
-            previewImageName: nil,
-            filterType: .customLUT("Vireo 37"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "CB1",
-            name: "Cobi Fresh",
-            tagline: "Clean and modern",
-            pack: .aesthetic,
-            scenario: "Contemporary lifestyle, social media",
-            previewImageName: nil,
-            filterType: .customLUT("Cobi 3"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "ML1",
-            name: "Milo Vintage",
-            tagline: "Retro charm with modern appeal",
-            pack: .aesthetic,
-            scenario: "Vintage-inspired shoots, creative content",
-            previewImageName: nil,
-            filterType: .customLUT("Milo 5"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "CR100",
-            name: "Creatives 100",
-            tagline: "Beautiful cinematic beach vibes",
-            pack: .aesthetic,
-            scenario: "Beach photography, creative projects",
-            previewImageName: nil,
-            filterType: .customLUT("Creatives 100"),
-            parameters: [:]
-        ),
-        PhotoFilter(
-            id: "P100",
-            name: "Portrait 100",
-            tagline: "Soft and beautiful film look",
-            pack: .aesthetic,
-            scenario: "Portrait photography, soft lighting",
-            previewImageName: nil,
-            filterType: .customLUT("Portrait 100"),
-            parameters: [:]
-        )
-    ]
-
-    func filters(for pack: FilterPack) -> [PhotoFilter] {
-        allFilters.filter { $0.pack == pack }
-    }
-
-    func applyFilter(_ filter: PhotoFilter, to image: UIImage, adjustments: FilterAdjustment = .balanced, useCache: Bool = true) -> UIImage? {
-        // Create cache key
-        let cacheKey = "\(filter.id)_\(adjustments.intensity)_\(adjustments.brightness)_\(adjustments.warmth)_\(image.hash)" as NSString
-
-        // Check cache first
-        if useCache, let cachedImage = filterCache.object(forKey: cacheKey) {
-            return cachedImage
-        }
-
-        var resultImage: UIImage?
-
-        // Apply base filter
-        switch filter.filterType {
-        case .builtIn(let filterName):
-            // Legacy support for built-in filters (if needed)
-            guard let ciImage = CIImage(image: image) else { return image }
-            var processedImage = ciImage
-            
-            if let ciFilter = CIFilter(name: filterName) {
-                ciFilter.setValue(processedImage, forKey: kCIInputImageKey)
-                if let output = ciFilter.outputImage {
-                    processedImage = output
-                }
-            }
-            
-            // Apply adjustments
-            processedImage = applyAdjustments(adjustments, to: processedImage)
-            
-            guard let cgImage = context.createCGImage(processedImage, from: processedImage.extent) else {
-                return image
-            }
-            
-            resultImage = UIImage(cgImage: cgImage)
-            
-        case .customLUT(let lutName):
-            // Apply LUT with intensity from adjustments
-            resultImage = lutApplier.applyLUT(
-                lutFileName: lutName,
-                to: image,
-                intensity: Float(adjustments.intensity)
-            )
-            
-            // Apply additional adjustments (brightness and warmth) if needed
-            if let lutResult = resultImage,
-               (adjustments.brightness != 0 || adjustments.warmth != 0) {
-                guard let ciImage = CIImage(image: lutResult) else { return lutResult }
-                let adjustedImage = applyBrightnessAndWarmth(adjustments, to: ciImage)
-                
-                guard let cgImage = context.createCGImage(adjustedImage, from: adjustedImage.extent) else {
-                    return lutResult
-                }
-                
-                resultImage = UIImage(cgImage: cgImage)
-            }
-            
-        case .none:
-            return image
-        }
-
-        // Use the original image as fallback
-        let finalResult = resultImage ?? image
-
-        // Cache the result
-        if useCache {
-            filterCache.setObject(finalResult, forKey: cacheKey)
-        }
-
-        return finalResult
-    }
-
-    func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 60, height: 60)) -> UIImage? {
-        // Create a smaller version for preview
-        let previewImage = image.resized(to: size) ?? image
-        return applyFilter(filter, to: previewImage, adjustments: .balanced, useCache: true)
-    }
-
-    func addWatermark(to image: UIImage, text: String = "KlickPhoto") -> UIImage? {
-        let renderer = UIGraphicsImageRenderer(size: image.size)
-
-        return renderer.image { context in
-            // Draw original image
-            image.draw(in: CGRect(origin: .zero, size: image.size))
-
-            // Configure watermark text
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: UIColor.white.withAlphaComponent(0.7)
-            ]
-
-            let attributedString = NSAttributedString(string: text, attributes: attributes)
-            let textSize = attributedString.size()
-
-            // Position watermark in bottom right corner with padding
-            let padding: CGFloat = 20
-            let textRect = CGRect(
-                x: image.size.width - textSize.width - padding,
-                y: image.size.height - textSize.height - padding,
-                width: textSize.width,
-                height: textSize.height
-            )
-
-            // Draw semi-transparent background for better readability
-            let backgroundRect = textRect.insetBy(dx: -8, dy: -4)
-            let backgroundPath = UIBezierPath(roundedRect: backgroundRect, cornerRadius: 4)
-            UIColor.black.withAlphaComponent(0.3).setFill()
-            backgroundPath.fill()
-
-            // Draw watermark text
-            attributedString.draw(in: textRect)
-        }
-    }
-
-    func exportImage(_ image: UIImage, withWatermark: Bool = true, quality: CGFloat = 0.9) -> Data? {
-        let exportImage = withWatermark ? (addWatermark(to: image) ?? image) : image
-        return exportImage.jpegData(compressionQuality: quality)
-    }
-
-    private func applyAdjustments(_ adjustments: FilterAdjustment, to ciImage: CIImage) -> CIImage {
-        var processedImage = ciImage
-
-        // Brightness adjustment
-        if adjustments.brightness != 0 {
-            let brightnessFilter = CIFilter.colorControls()
-            brightnessFilter.inputImage = processedImage
-            brightnessFilter.brightness = Float(adjustments.brightness)
-            if let output = brightnessFilter.outputImage {
-                processedImage = output
-            }
-        }
-
-        // Temperature adjustment (warmth)
-        if adjustments.warmth != 0 {
-            let temperatureFilter = CIFilter.temperatureAndTint()
-            temperatureFilter.inputImage = processedImage
-            temperatureFilter.neutral = CIVector(x: 6500, y: 0)
-            temperatureFilter.targetNeutral = CIVector(x: 6500 * (1 + adjustments.warmth), y: 0)
-            if let output = temperatureFilter.outputImage {
-                processedImage = output
-            }
-        }
-
-        // Intensity adjustment (opacity blend with original)
-        if adjustments.intensity < 1.0 {
-            let blendFilter = CIFilter.dissolveTransition()
-            blendFilter.inputImage = ciImage
-            blendFilter.targetImage = processedImage
-            blendFilter.time = Float(adjustments.intensity)
-            if let output = blendFilter.outputImage {
-                processedImage = output
-            }
-        }
-
-        return processedImage
-    }
-    
-    /// Apply only brightness and warmth adjustments (used for LUT post-processing)
-    private func applyBrightnessAndWarmth(_ adjustments: FilterAdjustment, to ciImage: CIImage) -> CIImage {
-        var processedImage = ciImage
-
-        // Brightness adjustment
-        if adjustments.brightness != 0 {
-            let brightnessFilter = CIFilter.colorControls()
-            brightnessFilter.inputImage = processedImage
-            brightnessFilter.brightness = Float(adjustments.brightness)
-            if let output = brightnessFilter.outputImage {
-                processedImage = output
-            }
-        }
-
-        // Temperature adjustment (warmth)
-        if adjustments.warmth != 0 {
-            let temperatureFilter = CIFilter.temperatureAndTint()
-            temperatureFilter.inputImage = processedImage
-            temperatureFilter.neutral = CIVector(x: 6500, y: 0)
-            temperatureFilter.targetNeutral = CIVector(x: 6500 * (1 + adjustments.warmth), y: 0)
-            if let output = temperatureFilter.outputImage {
-                processedImage = output
-            }
-        }
-
-        return processedImage
-    }
-    
-    /// Clear all caches to free memory (call when receiving memory warnings)
-    func clearAllCaches() {
-        filterCache.removeAllObjects()
-        lutApplier.clearCache()
-        print("🗑️ All filter caches cleared")
-    }
-    
-    /// Get memory usage information
-    func getMemoryInfo() -> String {
-        let filterCacheCount = filterCache.countLimit
-        let lutInfo = lutApplier.getCacheInfo()
-        return "Filter Cache: \(filterCacheCount) items, LUT Cache: \(lutInfo.count) items (~\(String(format: "%.1f", lutInfo.estimatedMemoryMB))MB)"
-    }
-}
 
 struct ImagePreviewView: View {
     @Binding var image: UIImage?
@@ -785,24 +254,24 @@ struct ImagePreviewView: View {
         var body: some View {
             VStack(spacing: 20) {
                 HStack(spacing: 20) {
-                    Button(action: onReset) {
-                        VStack(spacing: 8) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.white.opacity(0.1))
-                                    .frame(width: 60, height: 60)
-
-                                Image(systemName: "arrow.counterclockwise")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                            }
-
-                            Text("Reset")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .disabled(isProcessing)
+//                    Button(action: onReset) {
+//                        VStack(spacing: 8) {
+//                            ZStack {
+//                                Circle()
+//                                    .fill(Color.white.opacity(0.1))
+//                                    .frame(width: 60, height: 60)
+//
+//                                Image(systemName: "arrow.counterclockwise")
+//                                    .font(.title2)
+//                                    .foregroundColor(.white)
+//                            }
+//
+//                            Text("Reset")
+//                                .font(.caption)
+//                                .foregroundColor(.white)
+//                        }
+//                    }
+//                    .disabled(isProcessing)
 
                     PresetButtonsView(
                         isProcessing: isProcessing,
@@ -810,49 +279,49 @@ struct ImagePreviewView: View {
                         onApplyPreset: onApplyPreset
                     )
 
-                    Button(action: onInstagramShare) {
-                        VStack(spacing: 8) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.white.opacity(0.1))
-                                    .frame(width: 60, height: 60)
-
-                                Image(systemName: "camera.circle")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                            }
-
-                            Text("Stories")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .disabled(isProcessing)
+//                    Button(action: onInstagramShare) {
+//                        VStack(spacing: 8) {
+//                            ZStack {
+//                                Circle()
+//                                    .fill(Color.white.opacity(0.1))
+//                                    .frame(width: 60, height: 60)
+//
+//                                Image(systemName: "camera.circle")
+//                                    .font(.title2)
+//                                    .foregroundColor(.white)
+//                            }
+//
+//                            Text("Stories")
+//                                .font(.caption)
+//                                .foregroundColor(.white)
+//                        }
+//                    }
+//                    .disabled(isProcessing)
                 }
 
-                HStack(spacing: 15) {
-                    Button(action: onDiscard) {
-                        Text("Discard")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Color.red.opacity(0.8))
-                            .cornerRadius(25)
-                    }
-                    .disabled(isProcessing)
-
-                    Button(action: onSave) {
-                        Text("Save Photo")
-                            .font(.headline)
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(Color.white)
-                            .cornerRadius(25)
-                    }
-                    .disabled(isProcessing)
-                }
+//                HStack(spacing: 15) {
+//                    Button(action: onDiscard) {
+//                        Text("Discard")
+//                            .font(.headline)
+//                            .foregroundColor(.white)
+//                            .frame(maxWidth: .infinity)
+//                            .frame(height: 50)
+//                            .background(Color.red.opacity(0.8))
+//                            .cornerRadius(25)
+//                    }
+//                    .disabled(isProcessing)
+//
+//                    Button(action: onSave) {
+//                        Text("Save Photo")
+//                            .font(.headline)
+//                            .foregroundColor(.black)
+//                            .frame(maxWidth: .infinity)
+//                            .frame(height: 50)
+//                            .background(Color.white)
+//                            .cornerRadius(25)
+//                    }
+//                    .disabled(isProcessing)
+//                }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 40)
