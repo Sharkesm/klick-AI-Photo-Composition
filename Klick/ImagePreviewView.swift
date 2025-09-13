@@ -48,38 +48,44 @@ struct ImagePreviewView: View {
                     onToggleOriginalFiltered: toggleOriginalFiltered
                 )
                 
-                FilterPackSelectorView(
-                    selectedPack: $selectedPack,
-                    onPackSelected: { pack in selectedPack = pack }
-                )
-                
-                FilterSelectionStripView(
-                    selectedPack: selectedPack,
-                    selectedFilter: selectedFilter,
-                    filterPreviews: filterPreviews,
-                    originalImage: originalImage,
-                    onFilterSelected: selectFilter
-                )
-                
-                if showingAdjustments && selectedFilter != nil {
-                    AdjustmentControlsView(
-                        adjustments: $currentAdjustments,
-                        onAdjustmentChanged: { applyCurrentFilter() },
-                        onDebouncedAdjustmentChanged: { applyCurrentFilter(debounce: true) }
-                    )
-                    .transition(.move(edge: .bottom))
-                    .background(Color.black.opacity(0.95))
+                VStack(spacing: 5) {
+                    VStack(spacing: 10) {
+                        FilterPackSelectorView(
+                            selectedPack: $selectedPack,
+                            onPackSelected: { pack in selectedPack = pack }
+                        )
+                        
+                        FilterSelectionStripView(
+                            selectedPack: selectedPack,
+                            selectedFilter: selectedFilter,
+                            filterPreviews: filterPreviews,
+                            originalImage: originalImage,
+                            onFilterSelected: selectFilter
+                        )
+                    }
+                    
+                    VStack(spacing: 16) {
+                        if showingAdjustments && selectedFilter != nil {
+                            AdjustmentControlsView(
+                                adjustments: $currentAdjustments,
+                                onAdjustmentChanged: { applyCurrentFilter() },
+                                onDebouncedAdjustmentChanged: { applyCurrentFilter(debounce: true) }
+                            )
+                            .transition(.move(edge: .bottom))
+                            .background(Color.black.opacity(0.95))
+                        }
+                        
+                        ActionButtonsView(
+                            isProcessing: isProcessing,
+                            selectedFilter: selectedFilter,
+                            onReset: resetToOriginal,
+                            onApplyPreset: applyPreset,
+                            onInstagramShare: shareToInstagramStories,
+                            onDiscard: onDiscard,
+                            onSave: { showingSaveOptions = true }
+                        )
+                    }
                 }
-                
-                ActionButtonsView(
-                    isProcessing: isProcessing,
-                    selectedFilter: selectedFilter,
-                    onReset: resetToOriginal,
-                    onApplyPreset: applyPreset,
-                    onInstagramShare: shareToInstagramStories,
-                    onDiscard: onDiscard,
-                    onSave: { showingSaveOptions = true }
-                )
             }
         }
         .onAppear(perform: generateFilterPreviews)
@@ -153,6 +159,7 @@ struct ImagePreviewView: View {
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .cornerRadius(8)
                             .clipped()
                             .overlay(
                                 Group {
@@ -324,7 +331,7 @@ struct ImagePreviewView: View {
 //                }
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 40)
+            .padding(.bottom, 20)
         }
     }
 
