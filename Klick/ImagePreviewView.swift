@@ -48,11 +48,14 @@ struct ImagePreviewView: View {
                     onToggleOriginalFiltered: toggleOriginalFiltered
                 )
                 
-                VStack(spacing: 5) {
+                VStack(spacing: 10) {
                     VStack(spacing: 10) {
                         FilterPackSelectorView(
                             selectedPack: $selectedPack,
-                            onPackSelected: { pack in selectedPack = pack }
+                            onPackSelected: { pack in
+                                selectedPack = pack
+                                selectedFilter = nil
+                            }
                         )
                         
                         FilterSelectionStripView(
@@ -63,6 +66,7 @@ struct ImagePreviewView: View {
                             onFilterSelected: selectFilter
                         )
                     }
+                    .padding(.top, 16)
                     
                     VStack(spacing: 16) {
                         if showingAdjustments && selectedFilter != nil {
@@ -74,14 +78,11 @@ struct ImagePreviewView: View {
                             .background(Color.black.opacity(0.95))
                         }
                         
-                        ActionButtonsView(
+                        PresetButtonsView(
                             isProcessing: isProcessing,
                             selectedFilter: selectedFilter,
-                            onReset: resetToOriginal,
-                            onApplyPreset: applyPreset,
-                            onInstagramShare: shareToInstagramStories,
-                            onDiscard: onDiscard,
-                            onSave: { showingSaveOptions = true }
+                            filterAdjustment: currentAdjustments,
+                            onApplyPreset: applyPreset
                         )
                     }
                 }
@@ -128,6 +129,16 @@ struct ImagePreviewView: View {
                 Text("Preview")
                     .font(.headline)
                     .foregroundColor(.white)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(.ultraThinMaterial)
+                    .mask(RoundedRectangle(cornerRadius: 16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                    .padding()
 
                 Spacer()
 
@@ -144,7 +155,6 @@ struct ImagePreviewView: View {
                 .disabled(selectedFilter == nil)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 10)
         }
     }
 
@@ -171,7 +181,7 @@ struct ImagePreviewView: View {
                                             Color.black.opacity(0.3)
                                             ProgressView()
                                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                                .scaleEffect(1.5)
+                                                .scaleEffect(0.8)
                                         }
                                     }
                                 }
@@ -213,7 +223,6 @@ struct ImagePreviewView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 10)
             }
             .background(Color.black.opacity(0.8))
         }
@@ -228,7 +237,7 @@ struct ImagePreviewView: View {
 
         var body: some View {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
+                HStack(spacing: 20) {
                     FilterButton(
                         filter: nil,
                         previewImage: originalImage,
@@ -252,131 +261,32 @@ struct ImagePreviewView: View {
         }
     }
 
-    struct ActionButtonsView: View {
-        let isProcessing: Bool
-        let selectedFilter: PhotoFilter?
-        let onReset: () -> Void
-        let onApplyPreset: (FilterAdjustment) -> Void
-        let onInstagramShare: () -> Void
-        let onDiscard: () -> Void
-        let onSave: () -> Void
-
-        var body: some View {
-            VStack(spacing: 20) {
-                HStack(spacing: 20) {
-//                    Button(action: onReset) {
-//                        VStack(spacing: 8) {
-//                            ZStack {
-//                                Circle()
-//                                    .fill(Color.white.opacity(0.1))
-//                                    .frame(width: 60, height: 60)
-//
-//                                Image(systemName: "arrow.counterclockwise")
-//                                    .font(.title2)
-//                                    .foregroundColor(.white)
-//                            }
-//
-//                            Text("Reset")
-//                                .font(.caption)
-//                                .foregroundColor(.white)
-//                        }
-//                    }
-//                    .disabled(isProcessing)
-
-                    PresetButtonsView(
-                        isProcessing: isProcessing,
-                        selectedFilter: selectedFilter,
-                        onApplyPreset: onApplyPreset
-                    )
-
-//                    Button(action: onInstagramShare) {
-//                        VStack(spacing: 8) {
-//                            ZStack {
-//                                Circle()
-//                                    .fill(Color.white.opacity(0.1))
-//                                    .frame(width: 60, height: 60)
-//
-//                                Image(systemName: "camera.circle")
-//                                    .font(.title2)
-//                                    .foregroundColor(.white)
-//                            }
-//
-//                            Text("Stories")
-//                                .font(.caption)
-//                                .foregroundColor(.white)
-//                        }
-//                    }
-//                    .disabled(isProcessing)
-                }
-
-//                HStack(spacing: 15) {
-//                    Button(action: onDiscard) {
-//                        Text("Discard")
-//                            .font(.headline)
-//                            .foregroundColor(.white)
-//                            .frame(maxWidth: .infinity)
-//                            .frame(height: 50)
-//                            .background(Color.red.opacity(0.8))
-//                            .cornerRadius(25)
-//                    }
-//                    .disabled(isProcessing)
-//
-//                    Button(action: onSave) {
-//                        Text("Save Photo")
-//                            .font(.headline)
-//                            .foregroundColor(.black)
-//                            .frame(maxWidth: .infinity)
-//                            .frame(height: 50)
-//                            .background(Color.white)
-//                            .cornerRadius(25)
-//                    }
-//                    .disabled(isProcessing)
-//                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
-        }
-    }
-
     struct PresetButtonsView: View {
         let isProcessing: Bool
         let selectedFilter: PhotoFilter?
+        let filterAdjustment: FilterAdjustment
         let onApplyPreset: (FilterAdjustment) -> Void
-
+        
+        var filterAdjustments: [FilterAdjustment] = [.subtle, .balanced, .strong]
+        
         var body: some View {
             HStack(spacing: 10) {
-                Button(action: { onApplyPreset(.subtle) }) {
-                    Text("Subtle")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(12)
+                ForEach(filterAdjustments, id: \.id) { element in
+                    Button(action: {
+                        onApplyPreset(element)
+                    }) {
+                        Text(element.title)
+                            .font(.footnote)
+                            .foregroundColor((selectedFilter == nil) ? Color.white.opacity(0.35) : element.title == filterAdjustment.title ? .black : .white.opacity(0.8))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                (selectedFilter == nil) ? Color.white.opacity(0.1) : Color.white.opacity((element.title == filterAdjustment.title) ? 1 : 0.1)
+                            )
+                            .cornerRadius(12)
+                    }
+                    .disabled(isProcessing || selectedFilter == nil)
                 }
-                .disabled(isProcessing || selectedFilter == nil)
-
-                Button(action: { onApplyPreset(.balanced) }) {
-                    Text("Balanced")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(12)
-                }
-                .disabled(isProcessing || selectedFilter == nil)
-
-                Button(action: { onApplyPreset(.strong) }) {
-                    Text("Strong")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(12)
-                }
-                .disabled(isProcessing || selectedFilter == nil)
             }
         }
     }
@@ -389,15 +299,19 @@ struct ImagePreviewView: View {
         let action: () -> Void
 
         var body: some View {
-            Button(action: action) {
+            Button(action: {
+                withAnimation(.spring) {
+                    action()
+                }
+            }) {
                 Text(pack.rawValue)
                     .font(.subheadline)
-                    .foregroundColor(isSelected ? .white : .gray)
+                    .foregroundColor(isSelected ? .black : .gray)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 20)
-                            .fill(isSelected ? Color.white.opacity(0.2) : Color.clear)
+                            .fill(isSelected ? Color.yellow : Color.clear)
                     )
             }
         }
@@ -416,13 +330,12 @@ struct ImagePreviewView: View {
                         if let preview = previewImage {
                             Image(uiImage: preview)
                                 .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 60, height: 60)
+                                .frame(width: 50, height: 70)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                         } else {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.gray.opacity(0.3))
-                                .frame(width: 60, height: 60)
+                                .frame(width: 50, height: 70)
                                 .overlay(
                                     Image(systemName: "photo")
                                         .foregroundColor(.gray)
@@ -432,13 +345,14 @@ struct ImagePreviewView: View {
                         if isSelected {
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(Color.white, lineWidth: 3)
-                                .frame(width: 60, height: 60)
+                                .frame(width: 50, height: 70)
                         }
                     }
 
                     Text(filter?.name ?? "Original")
                         .font(.caption)
-                        .foregroundColor(.white)
+                        .fontWeight(filter == nil ? .medium : .regular)
+                        .foregroundColor(filter == nil ? .yellow : .white)
                         .lineLimit(1)
                         .frame(width: 70)
                 }
@@ -729,8 +643,8 @@ extension UIImage {
 
 #Preview {
     ImagePreviewView(
-        image: .constant(UIImage(systemName: "photo")),
-        originalImage: UIImage(systemName: "photo"),
+        image: .constant(UIImage(resource: .perspective1)),
+        originalImage: UIImage(resource: .perspective1),
         isProcessing: .constant(false),
         onSave: {},
         onDiscard: {}

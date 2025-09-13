@@ -46,13 +46,15 @@ enum CIFilterType {
 }
 
 struct FilterAdjustment {
+    var id: String = UUID().uuidString
+    var title: String
     var intensity: Double = 0.6 // 0-1
     var brightness: Double = 0.0 // -0.2 to 0.2
     var warmth: Double = 0.0 // -0.2 to 0.2
-
-    static let subtle = FilterAdjustment(intensity: 0.3, brightness: 0.0, warmth: 0.0)
-    static let balanced = FilterAdjustment(intensity: 0.6, brightness: 0.0, warmth: 0.0)
-    static let strong = FilterAdjustment(intensity: 0.9, brightness: 0.0, warmth: 0.0)
+    
+    static let subtle = FilterAdjustment(title: "Subtle", intensity: 0.3, brightness: 0.0, warmth: 0.0)
+    static let balanced = FilterAdjustment(title: "Balanced", intensity: 0.6, brightness: 0.0, warmth: 0.0)
+    static let strong = FilterAdjustment(title: "Strong", intensity: 0.9, brightness: 0.0, warmth: 0.0)
 }
 
 // MARK: - Filter Definitions
