@@ -71,7 +71,6 @@ struct ImagePreviewView: View {
                                 onAdjustmentChanged: { applyCurrentFilter() },
                                 onDebouncedAdjustmentChanged: { applyCurrentFilter(debounce: true) }
                             )
-                            .transition(.move(edge: .bottom))
                             .background(Color.black.opacity(0.95))
                         }
                         
@@ -132,7 +131,11 @@ struct ImagePreviewView: View {
 
                 Spacer()
 
-                Button(action: { showingAdjustments.toggle() }) {
+                Button(action: {
+                    withAnimation(.spring) {
+                        showingAdjustments.toggle()
+                    }
+                }) {
                     Image(systemName: "slider.horizontal.3")
                         .font(.title2)
                         .foregroundColor(selectedFilter != nil ? .white : .gray)
