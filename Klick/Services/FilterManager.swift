@@ -11,9 +11,9 @@ import CoreImage.CIFilterBuiltins
 // MARK: - Filter System
 
 enum FilterPack: String, CaseIterable {
-    case glow = "🌞 The Glow Pack"
-    case cine = "🎬 The Cine Pack"
-    case aesthetic = "💫 The Aesthetic Pack"
+    case glow = "😍 Glow Pack"
+    case cine = "🍿 Cine Pack"
+    case aesthetic = "✨ Aesthetic Pack"
 }
 
 struct PhotoFilter: Identifiable, Hashable {
@@ -84,8 +84,8 @@ class FilterManager {
         // 🌞 The Glow Pack - "Main Character Energy"
         PhotoFilter(
             id: "GH1",
-            name: "Golden Hour Goddess",
-            tagline: "Main character energy, activated ✨",
+            name: "Goddess",
+            tagline: "Golden Hour Goddess - Main character energy, activated ✨",
             pack: .glow,
             scenario: "Beach walks, rooftop evenings",
             previewImageName: nil,
@@ -94,8 +94,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "SV1",
-            name: "Sunset Slay",
-            tagline: "Serving golden hour perfection 🌅",
+            name: "Slay",
+            tagline: "Sunset Slay - Serving golden hour perfection 🌅",
             pack: .glow,
             scenario: "Travel, couples at dusk",
             previewImageName: nil,
@@ -104,8 +104,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "PS1",
-            name: "Peach Perfect",
-            tagline: "Your selfie's glow-up bestie 🍑",
+            name: "Peachy",
+            tagline: "Peach Perfect - Your selfie's glow-up bestie 🍑",
             pack: .glow,
             scenario: "Selfies, beauty/lifestyle posts",
             previewImageName: nil,
@@ -114,8 +114,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "WS1",
-            name: "California Dreaming",
-            tagline: "West coast golden vibes 🌴",
+            name: "Cali",
+            tagline: "California Dreaming - West coast golden vibes 🌴",
             pack: .glow,
             scenario: "Outdoor portraits, vacation shots",
             previewImageName: nil,
@@ -124,8 +124,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "LK1",
-            name: "Lucky Charm",
-            tagline: "Good vibes only energy 🍀",
+            name: "Lucky",
+            tagline: "Lucky Charm - Good vibes only energy 🍀",
             pack: .glow,
             scenario: "Happy moments, celebrations",
             previewImageName: nil,
@@ -134,8 +134,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "GL1",
-            name: "Midas Touch",
-            tagline: "Everything you touch turns gold ✋",
+            name: "Midas",
+            tagline: "Midas Touch - Everything you touch turns gold ✋",
             pack: .glow,
             scenario: "Portraits, landscapes, everyday moments",
             previewImageName: nil,
@@ -144,8 +144,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "G200",
-            name: "Vintage Vibes",
-            tagline: "Nostalgic film aesthetic 📸",
+            name: "Vintage",
+            tagline: "Vintage Vibes - Nostalgic film aesthetic 📸",
             pack: .glow,
             scenario: "Vintage-inspired photography, warm lighting",
             previewImageName: nil,
@@ -156,8 +156,8 @@ class FilterManager {
         // 🎬 The Cine Pack - "Movie Star Moments"
         PhotoFilter(
             id: "CT1",
-            name: "Neon Nights",
-            tagline: "Hollywood blockbuster energy 🌃",
+            name: "Neon",
+            tagline: "Neon Nights - Hollywood blockbuster energy 🌃",
             pack: .cine,
             scenario: "Urban, night portraits",
             previewImageName: nil,
@@ -166,8 +166,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "MN1",
-            name: "Dark Academia",
-            tagline: "Mysterious intellectual vibes 🖤",
+            name: "Academia",
+            tagline: "Dark Academia - Mysterious intellectual vibes 🖤",
             pack: .cine,
             scenario: "Studio, dramatic headshots",
             previewImageName: nil,
@@ -176,8 +176,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "R9",
-            name: "Retro Rewind",
-            tagline: "Y2K throwback aesthetic ⏪",
+            name: "Rewind",
+            tagline: "Retro Rewind - Y2K throwback aesthetic ⏪",
             pack: .cine,
             scenario: "Lifestyle, retro outfits",
             previewImageName: nil,
@@ -186,8 +186,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "KB1",
-            name: "Film Noir",
-            tagline: "Classic cinema magic 🎭",
+            name: "Noir",
+            tagline: "Film Noir - Classic cinema magic 🎭",
             pack: .cine,
             scenario: "Portrait photography, artistic shots",
             previewImageName: nil,
@@ -196,8 +196,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "CH1",
-            name: "Urban Edge",
-            tagline: "Street style with attitude 🏙️",
+            name: "Edge",
+            tagline: "Urban Edge - Street style with attitude 🏙️",
             pack: .cine,
             scenario: "Urban exploration, street photography",
             previewImageName: nil,
@@ -206,8 +206,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "FD1",
-            name: "Vintage Film",
-            tagline: "Old school cool vibes 🎞️",
+            name: "Fade",
+            tagline: "Vintage Film - Old school cool vibes 🎞️",
             pack: .cine,
             scenario: "Nostalgic moments, artistic portraits",
             previewImageName: nil,
@@ -216,8 +216,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "P800",
-            name: "Portrait Pro",
-            tagline: "Professional photographer approved 📷",
+            name: "Portra",
+            tagline: "Portrait Pro - Professional photographer approved 📷",
             pack: .cine,
             scenario: "Portrait photography, natural lighting",
             previewImageName: nil,
@@ -226,8 +226,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "CF1",
-            name: "Beach Babe",
-            tagline: "Coastal goddess mode 🏖️",
+            name: "Coastal",
+            tagline: "Beach Babe - Coastal goddess mode 🏖️",
             pack: .cine,
             scenario: "Color grading, film emulation",
             previewImageName: nil,
@@ -236,8 +236,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "EC1",
-            name: "Chrome Dreams",
-            tagline: "Futuristic vibes activated 💎",
+            name: "Chrome",
+            tagline: "Chrome Dreams - Futuristic vibes activated 💎",
             pack: .cine,
             scenario: "Professional photography, vibrant colors",
             previewImageName: nil,
@@ -246,8 +246,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "C400",
-            name: "Film Fresh",
-            tagline: "That authentic film look 🎨",
+            name: "Color",
+            tagline: "Film Fresh - That authentic film look 🎨",
             pack: .cine,
             scenario: "Film emulation, sharp details, natural portraits",
             previewImageName: nil,
@@ -258,8 +258,8 @@ class FilterManager {
         // 💫 The Aesthetic Pack - "Soft Girl/Boy Energy"
         PhotoFilter(
             id: "CW1",
-            name: "Clean Girl",
-            tagline: "Effortless minimalist vibes 🤍",
+            name: "Clean",
+            tagline: "Clean Girl - Effortless minimalist vibes 🤍",
             pack: .aesthetic,
             scenario: "Fashion, minimalist portraits",
             previewImageName: nil,
@@ -268,8 +268,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "DP1",
-            name: "Dreamy Soft",
-            tagline: "Living in a cloud aesthetic ☁️",
+            name: "Dreamy",
+            tagline: "Dreamy Soft - Living in a cloud aesthetic ☁️",
             pack: .aesthetic,
             scenario: "Fun lifestyle, creative reels",
             previewImageName: nil,
@@ -278,8 +278,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "MM1",
-            name: "Coffee Shop",
-            tagline: "Cozy café main character ☕",
+            name: "Mocha",
+            tagline: "Coffee Shop - Cozy café main character ☕",
             pack: .aesthetic,
             scenario: "Cafés, reading, cozy indoors",
             previewImageName: nil,
@@ -288,8 +288,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "VR1",
-            name: "Angel Glow",
-            tagline: "Heavenly soft energy 👼",
+            name: "Angel",
+            tagline: "Angel Glow - Heavenly soft energy 👼",
             pack: .aesthetic,
             scenario: "Romantic portraits, soft lighting",
             previewImageName: nil,
@@ -298,8 +298,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "CB1",
-            name: "Fresh Face",
-            tagline: "Natural beauty enhanced 😊",
+            name: "Fresh",
+            tagline: "Fresh Face - Natural beauty enhanced 😊",
             pack: .aesthetic,
             scenario: "Contemporary lifestyle, social media",
             previewImageName: nil,
@@ -308,8 +308,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "ML1",
-            name: "Vintage Charm",
-            tagline: "Retro cuteness overload 💕",
+            name: "Charm",
+            tagline: "Vintage Charm - Retro cuteness overload 💕",
             pack: .aesthetic,
             scenario: "Vintage-inspired shoots, creative content",
             previewImageName: nil,
@@ -318,8 +318,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "CR100",
-            name: "Beach Vibes",
-            tagline: "Endless summer energy 🌊",
+            name: "Beachy",
+            tagline: "Beach Vibes - Endless summer energy 🌊",
             pack: .aesthetic,
             scenario: "Beach photography, creative projects",
             previewImageName: nil,
@@ -328,8 +328,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "P100",
-            name: "Soft Focus",
-            tagline: "Dreamy portrait perfection 🌸",
+            name: "Softie",
+            tagline: "Soft Focus - Dreamy portrait perfection 🌸",
             pack: .aesthetic,
             scenario: "Portrait photography, soft lighting",
             previewImageName: nil,
@@ -340,8 +340,8 @@ class FilterManager {
         // Bonus Filters - Popular LUTs
         PhotoFilter(
             id: "DJ1",
-            name: "Midnight Mood",
-            tagline: "After dark energy 🌙",
+            name: "Midnight",
+            tagline: "Midnight Mood - After dark energy 🌙",
             pack: .cine,
             scenario: "Night photography, moody portraits",
             previewImageName: nil,
@@ -350,8 +350,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "FS1",
-            name: "Color Pop",
-            tagline: "Vibrant energy unleashed 🎨",
+            name: "Fusion",
+            tagline: "Color Pop - Vibrant energy unleashed 🎨",
             pack: .aesthetic,
             scenario: "Creative content, bold looks",
             previewImageName: nil,
@@ -360,8 +360,8 @@ class FilterManager {
         ),
         PhotoFilter(
             id: "SP1",
-            name: "Film Burn",
-            tagline: "Authentic film texture 🔥",
+            name: "Sprocket",
+            tagline: "Film Burn - Authentic film texture 🔥",
             pack: .cine,
             scenario: "Artistic photography, texture lovers",
             previewImageName: nil,

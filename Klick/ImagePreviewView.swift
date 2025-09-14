@@ -29,24 +29,30 @@ struct ImagePreviewView: View {
     @State private var isProUser = false // TODO: Connect to subscription system
     
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             Color.black.ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                TopBarView(
-                    showingAdjustments: $showingAdjustments,
-                    selectedFilter: selectedFilter,
-                    onDiscard: onDiscard
-                )
-                
-                Spacer()
-                
-                ImageDisplayView(
-                    image: image,
-                    isProcessing: isProcessing,
-                    selectedFilter: selectedFilter,
-                    onToggleOriginalFiltered: toggleOriginalFiltered
-                )
+            GeometryReader { geo in
+                VStack {
+                    TopBarView(
+                        showingAdjustments: $showingAdjustments,
+                        selectedFilter: selectedFilter,
+                        onDiscard: onDiscard
+                    )
+                    
+                    ImageDisplayView(
+                        image: image,
+                        isProcessing: isProcessing,
+                        selectedFilter: selectedFilter,
+                        onToggleOriginalFiltered: toggleOriginalFiltered
+                    )
+                    .frame(height: geo.size.height * 0.64)
+                    .cornerRadius(12)
+                    .padding(.horizontal, 12)
+                    
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottom) {
                     VStack(spacing: 10) {
                         VStack(spacing: 10) {
@@ -69,6 +75,7 @@ struct ImagePreviewView: View {
                             )
                         }
                         .padding(.top, 16)
+                        .padding(.horizontal, 12)
                         
                         VStack(spacing: 16) {
                             if showingAdjustments && selectedFilter != nil {
@@ -90,7 +97,6 @@ struct ImagePreviewView: View {
                     .background(.ultraThinMaterial)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear(perform: generateFilterPreviews)
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
@@ -158,7 +164,6 @@ struct ImagePreviewView: View {
                 }
                 .disabled(selectedFilter == nil)
             }
-            .padding(.horizontal, 20)
         }
     }
 
@@ -167,35 +172,33 @@ struct ImagePreviewView: View {
         let isProcessing: Bool
         let selectedFilter: PhotoFilter?
         let onToggleOriginalFiltered: () -> Void
-
+        
         var body: some View {
             if let previewImage = image {
-                RoundedRectangle(cornerRadius: 12)
-                    .overlay {
-                        Image(uiImage: previewImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .overlay(
-                                Group {
-                                    if isProcessing {
-                                        ZStack {
-                                            Color.black.opacity(0.3)
-                                            ProgressView()
-                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                                .scaleEffect(0.8)
-                                        }
-                                    }
+                Image(uiImage: previewImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(
+                        Group {
+                            if isProcessing {
+                                ZStack {
+                                    Color.black.opacity(0.3)
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(0.8)
                                 }
-                            )
-                            .overlay(content: {
-                                if selectedFilter != nil {
-                                    Color.clear
-                                        .contentShape(Rectangle())
-                                        .onTapGesture(perform: onToggleOriginalFiltered)
-                                }
-                            })
-                            .animation(.easeInOut(duration: 0.3), value: isProcessing)
-                    }
+                            }
+                        }
+                    )
+                    .overlay(content: {
+                        if selectedFilter != nil {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture(perform: onToggleOriginalFiltered)
+                        }
+                    })
+                    .animation(.easeInOut(duration: 0.3), value: isProcessing)
             } else {
                 Rectangle()
                     .fill(Color.gray.opacity(0.3))
@@ -223,7 +226,6 @@ struct ImagePreviewView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 20)
             }
         }
     }
@@ -237,7 +239,7 @@ struct ImagePreviewView: View {
 
         var body: some View {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: 12) {
                     FilterButton(
                         filter: nil,
                         previewImage: originalImage,
@@ -254,7 +256,6 @@ struct ImagePreviewView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 20)
                 .padding(.vertical, 10)
             }
         }
@@ -324,36 +325,52 @@ struct ImagePreviewView: View {
 
         var body: some View {
             Button(action: action) {
-                VStack(spacing: 8) {
-                    ZStack(alignment: .top) {
-                        if let preview = previewImage {
-                            Image(uiImage: preview)
-                                .resizable()
-                                .frame(width: 45, height: 55)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 40, height: 55)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .foregroundColor(.gray)
-                                )
-                        }
-                    }
-                    .overlay {
-                        if isSelected {
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.white, lineWidth: 3)
-                                .frame(width: 45, height: 55)
-                        }
+                ZStack(alignment: .bottom) {
+                    if let preview = previewImage {
+                        Image(uiImage: preview)
+                            .resizable()
+                            .frame(width: 60, height: 80)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 60, height: 80)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(.gray)
+                            )
                     }
                     
-                    Text(filter?.id ?? "Original")
-                        .font(.caption.weight(.medium))
-                        .fontWeight(filter == nil ? .medium : .regular)
-                        .foregroundColor(filter == nil ? .yellow : .white)
-                        .lineLimit(2)
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color.clear, location: 0),
+                            .init(color: Color.black.opacity(0.3), location: 0.3),
+                            .init(color: Color.black.opacity(0.7), location: 0.6),
+                            .init(color: Color.black, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 30)
+                    .overlay(alignment: .bottom) {
+                        Text(filter?.name ?? "Normal")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .scaleEffect(0.92)
+                            .foregroundColor(Color.white.opacity(0.85))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity)
+                            .multilineTextAlignment(.center)
+                            .padding(.bottom, 5)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.yellow, lineWidth: 3)
+                            .frame(width: 60, height: 80)
+                    }
                 }
             }
         }
