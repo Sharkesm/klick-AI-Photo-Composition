@@ -12,7 +12,6 @@ struct ImagePreviewView: View {
     let onDiscard: () -> Void
 
     @State private var showingShareSheet = false
-    @State private var showingInstagramAlert = false
 
     // Filter system state
     @State private var selectedPack: FilterPack = .glow
@@ -48,10 +47,10 @@ struct ImagePreviewView: View {
                     )
                     .frame(height: geo.size.height * 0.64)
                     .cornerRadius(12)
-                    .padding(.horizontal, 12)
                     
                     Spacer()
                 }
+                .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(alignment: .bottom) {
                     VStack(spacing: 10) {
@@ -94,17 +93,12 @@ struct ImagePreviewView: View {
                             )
                         }
                     }
-                    .background(.ultraThinMaterial)
+                    .background(.black.opacity(0.85))
                 }
             }
         }
         .onAppear(perform: generateFilterPreviews)
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
-        .alert("Instagram Not Available", isPresented: $showingInstagramAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Instagram is not installed on this device or Instagram Stories sharing is not available.")
-        }
         .alert("Save Options", isPresented: $showingSaveOptions) {
             Button("Save as Copy", role: .none, action: saveAsCopy)
             Button("Overwrite Original", role: .destructive, action: overwriteOriginal)
@@ -129,18 +123,22 @@ struct ImagePreviewView: View {
             HStack {
                 Button(action: onDiscard) {
                     Image(systemName: "xmark")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.1))
+                        )
                 }
 
                 Spacer()
 
                 Text("Preview")
-                    .font(.headline)
+                    .font(.caption)
                     .foregroundColor(.white)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
                     .background(.ultraThinMaterial)
                     .mask(RoundedRectangle(cornerRadius: 16))
                     .overlay(
@@ -158,9 +156,13 @@ struct ImagePreviewView: View {
                     }
                 }) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.title2)
                         .foregroundColor(selectedFilter != nil ? .white : .gray)
-                        .frame(width: 44, height: 44)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.1))
+                        )
                 }
                 .disabled(selectedFilter == nil)
             }
@@ -580,44 +582,6 @@ struct ImagePreviewView: View {
         
         withAnimation(.easeInOut(duration: 0.3)) {
             image = originalImage
-        }
-    }
-    
-    private func shareToInstagramStories() {
-        guard let imageToShare = image else { return }
-        
-        // Check if Instagram is installed
-        guard let instagramURL = URL(string: "instagram-stories://share"), UIApplication.shared.canOpenURL(instagramURL) else {
-            showingInstagramAlert = true
-            return
-        }
-        
-        // Convert image to data
-        guard let imageData = imageToShare.jpegData(compressionQuality: 0.9) else {
-            print("Failed to convert image to data")
-            return
-        }
-        
-        // Create pasteboard items for Instagram Stories
-        let pasteboardItems: [String: Any] = [
-            "com.instagram.sharedSticker.stickerImage": imageData,
-            "com.instagram.sharedSticker.backgroundTopColor": "#000000",
-            "com.instagram.sharedSticker.backgroundBottomColor": "#000000"
-        ]
-        
-        // Set pasteboard data
-        UIPasteboard.general.setItems([pasteboardItems], options: [.expirationDate: Date().addingTimeInterval(60 * 5)])
-        
-        // Open Instagram Stories
-        UIApplication.shared.open(instagramURL, options: [:]) { success in
-            if success {
-                print("✅ Successfully opened Instagram Stories")
-            } else {
-                print("❌ Failed to open Instagram Stories")
-                DispatchQueue.main.async {
-                    showingInstagramAlert = true
-                }
-            }
         }
     }
 }
