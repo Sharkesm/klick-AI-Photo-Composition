@@ -13,7 +13,7 @@ import CoreImage.CIFilterBuiltins
 enum FilterPack: String, CaseIterable {
     case glow = "😍 Glow Pack"
     case cine = "🍿 Cine Pack"
-    case aesthetic = "✨ Aesthetic Pack"
+    case aesthetic = "🌹 Aesthetic Pack"
 }
 
 struct PhotoFilter: Identifiable, Hashable {

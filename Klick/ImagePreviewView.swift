@@ -28,63 +28,74 @@ struct ImagePreviewView: View {
     @State private var isProUser = false // TODO: Connect to subscription system
     
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.black.ignoresSafeArea()
-            
-            GeometryReader { geo in
-                VStack {
+        GeometryReader { geo in
+            VStack {
+                ImageDisplayView(
+                    image: image,
+                    isProcessing: isProcessing,
+                    selectedFilter: selectedFilter
+                )
+                .frame(maxWidth: abs(geo.size.width - 24))
+                .frame(height: geo.size.height * 0.75)
+                .cornerRadius(22)
+                .contentShape(RoundedRectangle(cornerRadius: 22))
+                .onTapGesture {
+                    if showingAdjustments {
+                        withAnimation(.spring) {
+                            showingAdjustments = false
+                        }
+                    } else {
+                        guard selectedFilter != nil else { return }
+                        toggleOriginalFiltered()
+                    }
+                }
+                .overlay(alignment: .top) {
                     TopBarView(
                         showingAdjustments: $showingAdjustments,
                         selectedFilter: selectedFilter,
                         onDiscard: onDiscard
                     )
-                    
-                    ImageDisplayView(
-                        image: image,
-                        isProcessing: isProcessing,
-                        selectedFilter: selectedFilter,
-                        onToggleOriginalFiltered: toggleOriginalFiltered
-                    )
-                    .frame(height: geo.size.height * 0.64)
-                    .cornerRadius(12)
-                    
-                    Spacer()
+                    .padding(.horizontal, 12)
                 }
-                .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay(alignment: .bottom) {
+                
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .bottom) {
+                VStack(spacing: 10) {
                     VStack(spacing: 10) {
-                        VStack(spacing: 10) {
-                            if !showingAdjustments {
-                                FilterPackSelectorView(
-                                    selectedPack: $selectedPack,
-                                    onPackSelected: { pack in
-                                        selectedPack = pack
-                                        selectedFilter = nil
-                                    }
-                                )
-                            }
-                            
-                            FilterSelectionStripView(
-                                selectedPack: selectedPack,
-                                selectedFilter: selectedFilter,
-                                filterPreviews: filterPreviews,
-                                originalImage: originalImage,
-                                onFilterSelected: selectFilter
+                        if !showingAdjustments {
+                            FilterPackSelectorView(
+                                selectedPack: $selectedPack,
+                                onPackSelected: { pack in
+                                    selectedPack = pack
+                                    selectedFilter = nil
+                                }
                             )
                         }
-                        .padding(.top, 16)
-                        .padding(.horizontal, 12)
                         
-                        VStack(spacing: 16) {
-                            if showingAdjustments && selectedFilter != nil {
-                                AdjustmentControlsView(
-                                    adjustments: $currentAdjustments,
-                                    onAdjustmentChanged: { applyCurrentFilter() },
-                                    onDebouncedAdjustmentChanged: { applyCurrentFilter(debounce: true) }
-                                )
-                            }
-                            
+                        FilterSelectionStripView(
+                            selectedPack: selectedPack,
+                            selectedFilter: selectedFilter,
+                            filterPreviews: filterPreviews,
+                            originalImage: originalImage,
+                            onFilterSelected: selectFilter
+                        )
+                    }
+                    .padding(.top, 16)
+                    .padding(.horizontal, 12)
+                    
+                    VStack(spacing: 16) {
+                        if showingAdjustments && selectedFilter != nil {
+                            AdjustmentControlsView(
+                                adjustments: $currentAdjustments,
+                                onAdjustmentChanged: { applyCurrentFilter() },
+                                onDebouncedAdjustmentChanged: { applyCurrentFilter(debounce: true) }
+                            )
+                        }
+                        
+                        if selectedFilter != nil {
                             PresetButtonsView(
                                 isProcessing: isProcessing,
                                 selectedFilter: selectedFilter,
@@ -93,10 +104,11 @@ struct ImagePreviewView: View {
                             )
                         }
                     }
-                    .background(.black.opacity(0.85))
                 }
+                .background(.black.opacity(0.85))
             }
         }
+        .background(Color.black)
         .onAppear(perform: generateFilterPreviews)
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
         .alert("Save Options", isPresented: $showingSaveOptions) {
@@ -124,48 +136,48 @@ struct ImagePreviewView: View {
                 Button(action: onDiscard) {
                     Image(systemName: "xmark")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.white)
                         .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.1))
-                        )
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                 }
 
                 Spacer()
 
                 Text("Preview")
-                    .font(.caption)
-                    .foregroundColor(.white)
+                    .font(.footnote)
+                    .foregroundColor(.black)
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
-                    .background(.ultraThinMaterial)
+                    .font(.footnote)
+                    .background(.white)
                     .mask(RoundedRectangle(cornerRadius: 16))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(.white.opacity(0.12), lineWidth: 1)
                     )
                     .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-                    .padding()
-
+      
                 Spacer()
 
                 Button(action: {
+                    guard !showingAdjustments else { return }
                     withAnimation(.spring) {
                         showingAdjustments.toggle()
                     }
                 }) {
                     Image(systemName: "slider.horizontal.3")
-                        .foregroundColor(selectedFilter != nil ? .white : .gray)
+                        .foregroundColor(selectedFilter != nil ? .white : .white.opacity(0.35))
                         .font(.system(size: 16, weight: .medium))
                         .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.1))
-                        )
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                 }
                 .disabled(selectedFilter == nil)
             }
+            .padding(.vertical)
         }
     }
 
@@ -173,7 +185,6 @@ struct ImagePreviewView: View {
         let image: UIImage?
         let isProcessing: Bool
         let selectedFilter: PhotoFilter?
-        let onToggleOriginalFiltered: () -> Void
         
         var body: some View {
             if let previewImage = image {
@@ -193,13 +204,6 @@ struct ImagePreviewView: View {
                             }
                         }
                     )
-                    .overlay(content: {
-                        if selectedFilter != nil {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture(perform: onToggleOriginalFiltered)
-                        }
-                    })
                     .animation(.easeInOut(duration: 0.3), value: isProcessing)
             } else {
                 Rectangle()
@@ -259,6 +263,7 @@ struct ImagePreviewView: View {
                     }
                 }
                 .padding(.vertical, 10)
+                .padding(.horizontal, 10)
             }
         }
     }
@@ -279,7 +284,7 @@ struct ImagePreviewView: View {
                     }) {
                         Text(element.title)
                             .font(.footnote)
-                            .foregroundColor((selectedFilter == nil) ? Color.white.opacity(0.35) : element.title == filterAdjustment.title ? .black : .white.opacity(0.8))
+                            .foregroundColor((selectedFilter == nil) ? Color.white.opacity(0.8) : element.title == filterAdjustment.title ? .black : .white.opacity(0.8))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(
@@ -331,12 +336,13 @@ struct ImagePreviewView: View {
                     if let preview = previewImage {
                         Image(uiImage: preview)
                             .resizable()
-                            .frame(width: 60, height: 80)
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 70, height: 80)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     } else {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.gray.opacity(0.3))
-                            .frame(width: 60, height: 80)
+                            .frame(width: 70, height: 80)
                             .overlay(
                                 Image(systemName: "photo")
                                     .foregroundColor(.gray)
@@ -371,7 +377,7 @@ struct ImagePreviewView: View {
                     if isSelected {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.yellow, lineWidth: 3)
-                            .frame(width: 60, height: 80)
+                            .frame(width: 70, height: 80)
                     }
                 }
             }
@@ -456,9 +462,10 @@ struct ImagePreviewView: View {
     // MARK: - Filter Functions
 
     private func selectFilter(_ filter: PhotoFilter?) {
-        selectedFilter = filter
-        showingAdjustments = false
-
+        withAnimation(.spring) {
+            selectedFilter = filter
+        }
+        
         if filter != nil {
             currentAdjustments = .balanced
             applyCurrentFilter()
@@ -623,8 +630,8 @@ extension UIImage {
 
 #Preview {
     ImagePreviewView(
-        image: .constant(UIImage(resource: .perspective1)),
-        originalImage: UIImage(resource: .perspective1),
+        image: .constant(UIImage(resource: .rectangle10)),
+        originalImage: UIImage(resource: .rectangle10),
         isProcessing: .constant(false),
         onSave: {},
         onDiscard: {}
