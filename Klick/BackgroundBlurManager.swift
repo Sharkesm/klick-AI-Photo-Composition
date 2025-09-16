@@ -36,6 +36,7 @@ class BackgroundBlurManager {
     
     // Cache for segmentation masks to avoid reprocessing
     private let maskCache = NSCache<NSString, CIImage>()
+    private let blurCache = NSCache<NSString, UIImage>()
     
     // Queue for image processing to avoid blocking main thread
     private let processingQueue = DispatchQueue(label: "com.klick.subjectmasking", qos: .userInitiated)
@@ -57,12 +58,17 @@ class BackgroundBlurManager {
     }
     
     private func setupCaches() {
-        // Configure cache limits for masks only
+        // Configure cache limits for masks
         maskCache.countLimit = 5 // Keep it small - masks are large
         maskCache.totalCostLimit = 20 * 1024 * 1024 // 20MB for masks
         
+        // Configure cache limits for blurred images
+        blurCache.countLimit = 8 // Reasonable number of cached blur results
+        blurCache.totalCostLimit = 30 * 1024 * 1024 // 30MB for blurred images
+        
         // Set eviction delegate to track cache behavior
         maskCache.evictsObjectsWithDiscardedContent = true
+        blurCache.evictsObjectsWithDiscardedContent = true
     }
     
     @objc private func handleMemoryWarning() {
@@ -116,11 +122,94 @@ class BackgroundBlurManager {
                 return image
             }
             
-            return UIImage(cgImage: cgImage, scale: image.scale, orientation: image.imageOrientation)
+        return UIImage(cgImage: cgImage, scale: image.scale, orientation: image.imageOrientation)
         }
     }
     
+    /// Apply background blur to an image with person segmentation
+    /// - Parameters:
+    ///   - image: Original image
+    ///   - blurIntensity: Blur intensity (0.0 = no blur, 20.0 = maximum blur)
+    ///   - useCache: Whether to use cached results for performance
+    /// - Returns: Image with blurred background and sharp subject, or original image if segmentation fails
+    func applyBackgroundBlur(to image: UIImage, blurIntensity: Float, useCache: Bool = true) -> UIImage? {
+        // Early return for zero blur
+        guard blurIntensity > 0 else { return image }
+        
+        // Create cache key using image size, content hash, and blur intensity
+        let imageIdentifier = "\(image.size.width)x\(image.size.height)_\(image.contentHash)"
+        let cacheKey = "\(imageIdentifier)_blur_\(blurIntensity)" as NSString
+        
+        // Check cache first
+        if useCache, let cachedImage = blurCache.object(forKey: cacheKey) {
+            return cachedImage
+        }
+        
+        // Use autoreleasepool to manage memory better
+        return autoreleasepool { () -> UIImage? in
+            guard let ciImage = CIImage(image: image) else {
+                return image
+            }
+            
+            // Get or generate segmentation mask
+            let maskCacheKey = imageIdentifier as NSString
+            var maskImage: CIImage?
+            
+            if useCache, let cachedMask = maskCache.object(forKey: maskCacheKey) {
+                maskImage = cachedMask
+            } else {
+                maskImage = generatePersonSegmentationMask(for: ciImage)
+                if let mask = maskImage, useCache {
+                    // Calculate approximate memory cost for the mask
+                    let maskCost = Int(ciImage.extent.width * ciImage.extent.height * 4) // Approximate bytes
+                    maskCache.setObject(mask, forKey: maskCacheKey, cost: maskCost)
+                }
+            }
+            
+            // If no mask was generated, return original image
+            guard let mask = maskImage else {
+                return image
+            }
+            
+            // Apply blur effect to background only
+            let blurredImage = applyBackgroundBlurEffect(to: ciImage, mask: mask, blurIntensity: blurIntensity)
+            
+            // Convert back to UIImage with proper memory management
+            guard let cgImage = context.createCGImage(blurredImage, from: blurredImage.extent) else {
+                return image
+            }
+            
+            let resultImage = UIImage(cgImage: cgImage, scale: image.scale, orientation: image.imageOrientation)
+            
+            // Cache the result with proper memory cost
+            if useCache {
+                let imageCost = Int(resultImage.size.width * resultImage.size.height * 4 * resultImage.scale * resultImage.scale)
+                blurCache.setObject(resultImage, forKey: cacheKey, cost: imageCost)
+            }
+            
+            return resultImage
+        }
+    }
     
+    /// Generate a preview-sized blurred image for real-time slider updates
+    /// - Parameters:
+    ///   - image: Original image
+    ///   - blurIntensity: Blur intensity
+    ///   - previewSize: Size for preview (smaller for better performance)
+    ///   - enhancedEdges: Whether to use enhanced edge smoothing for better quality
+    /// - Returns: Preview image with background blur
+    func generateBlurPreview(for image: UIImage, blurIntensity: Float, previewSize: CGSize = CGSize(width: 400, height: 600), enhancedEdges: Bool = false) -> UIImage? {
+        // Use autoreleasepool for preview generation
+        return autoreleasepool { () -> UIImage? in
+            // Calculate optimal preview size maintaining aspect ratio
+            let scale = min(previewSize.width / image.size.width, previewSize.height / image.size.height)
+            let scaledSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            
+            guard let resizedImage = image.resized(to: scaledSize, quality: enhancedEdges ? .high : .medium) else { return nil }
+            return applyBackgroundBlur(to: resizedImage, blurIntensity: blurIntensity, useCache: !enhancedEdges)
+        }
+    }
+
     /// Check if person segmentation is available on this device
     /// - Returns: True if segmentation is supported
     func isPersonSegmentationSupported() -> Bool {
@@ -188,8 +277,8 @@ class BackgroundBlurManager {
         return maskedImage.cropped(to: originalExtent)
     }
     
-    /// Apply blur effect using the segmentation mask
-    private func applyBlurEffect(to image: CIImage, mask: CIImage, blurIntensity: Float) -> CIImage {
+    /// Apply blur effect to background only, keeping subject sharp
+    private func applyBackgroundBlurEffect(to image: CIImage, mask: CIImage, blurIntensity: Float) -> CIImage {
         // If blur intensity is 0, return original image
         guard blurIntensity > 0 else { return image }
         
@@ -205,7 +294,7 @@ class BackgroundBlurManager {
             return image
         }
         
-        // Apply Gaussian blur to the clamped image
+        // Apply Gaussian blur to the entire image
         let blurFilter = CIFilter.gaussianBlur()
         blurFilter.inputImage = clampedImage
         blurFilter.radius = blurIntensity
@@ -220,13 +309,21 @@ class BackgroundBlurManager {
         // Ensure mask dimensions match the original image
         let adjustedMask = mask.cropped(to: originalExtent)
         
-        // Apply streamlined mask refinement for optimal background blur
-        let refinedMask = refineMaskForBackgroundBlur(adjustedMask, originalExtent: originalExtent, blurIntensity: blurIntensity)
+        // Apply advanced mask refinement for ultra-smooth transitions
+        // Use premium soft edge technique for blur intensities above 8 for best quality
+        let refinedMask: CIImage
+        if blurIntensity > 8.0 {
+            // Use premium soft edge mask for high blur intensities
+            refinedMask = createSoftEdgeMask(adjustedMask, originalExtent: originalExtent, blurIntensity: blurIntensity)
+        } else {
+            // Use standard refinement for lower blur intensities
+            refinedMask = refineMaskForBackgroundBlur(adjustedMask, originalExtent: originalExtent, blurIntensity: blurIntensity)
+        }
         
-        // Apply optimized mask blending for perfect subject protection
+        // Apply mask blending - sharp subject (white mask areas), blurred background (black mask areas)
         let blendFilter = CIFilter.blendWithMask()
-        blendFilter.inputImage = image // Sharp subject (white mask areas)
-        blendFilter.backgroundImage = blurredImage // Blurred background (black mask areas)
+        blendFilter.inputImage = image // Sharp subject (where mask is white)
+        blendFilter.backgroundImage = blurredImage // Blurred background (where mask is black)
         blendFilter.maskImage = refinedMask // Refined mask with soft edges
         
         guard let finalImage = blendFilter.outputImage else {
@@ -236,9 +333,8 @@ class BackgroundBlurManager {
         return finalImage.cropped(to: originalExtent)
     }
     
-    /// Streamlined 3-step mask refinement for optimal subject protection and background blur
-    /// Adaptive mask refinement for background blur
-    /// Expands + softens subject edges proportionally to image size and blur intensity
+    /// Advanced mask refinement for ultra-smooth background blur transitions
+    /// Creates natural, soft edges that blend seamlessly with the background blur
     private func refineMaskForBackgroundBlur(
         _ mask: CIImage,
         originalExtent: CGRect,
@@ -249,11 +345,30 @@ class BackgroundBlurManager {
         // Normalize intensity into 0–1 range for adaptive scaling
         let normalizedIntensity = min(max(blurIntensity / 20.0, 0), 1)
         
-        // Scale factors based on image resolution
+        // Scale factors based on image resolution for consistent results across different image sizes
         let baseScale = Float(max(originalExtent.width, originalExtent.height) / 1000.0)
+        let minScale = max(baseScale, 0.5) // Ensure minimum scale for small images
         
-        // Step 1: Expand subject edges
-        let expansionRadius = 2.0 * baseScale + (3.0 * normalizedIntensity * baseScale)
+        // Step 1: Initial edge cleanup with morphological opening
+        // This removes small noise and smooths rough edges
+        let cleanupRadius = 0.5 * minScale
+        let openingFilter = CIFilter.morphologyMinimum()
+        openingFilter.inputImage = refinedMask
+        openingFilter.radius = Float(cleanupRadius)
+        
+        if let cleanedMask = openingFilter.outputImage {
+            let closingFilter = CIFilter.morphologyMaximum()
+            closingFilter.inputImage = cleanedMask.cropped(to: originalExtent)
+            closingFilter.radius = Float(cleanupRadius)
+            
+            if let smoothedMask = closingFilter.outputImage {
+                refinedMask = smoothedMask.cropped(to: originalExtent)
+            }
+        }
+        
+        // Step 2: Strategic edge expansion to prevent harsh cutoffs
+        // Expand more for higher blur intensities to create natural falloff
+        let expansionRadius = 1.5 * minScale + (3.5 * normalizedIntensity * minScale)
         let expandFilter = CIFilter.morphologyMaximum()
         expandFilter.inputImage = refinedMask
         expandFilter.radius = Float(expansionRadius)
@@ -262,88 +377,139 @@ class BackgroundBlurManager {
             refinedMask = expandedMask.cropped(to: originalExtent)
         }
         
-        // Step 2: Feather edges (soft transition between subject and background)
-        let featherRadius = 2.0 * baseScale + (6.0 * normalizedIntensity * baseScale)
-        let softenFilter = CIFilter.gaussianBlur()
-        softenFilter.inputImage = refinedMask
-        softenFilter.radius = Float(featherRadius)
+        // Step 3: Multi-stage feathering for ultra-soft edges
+        // First pass: Moderate blur for initial softening
+        let initialFeatherRadius = 2.5 * minScale + (4.0 * normalizedIntensity * minScale)
+        let initialBlurFilter = CIFilter.gaussianBlur()
+        initialBlurFilter.inputImage = refinedMask
+        initialBlurFilter.radius = Float(initialFeatherRadius)
         
-        if let softenedMask = softenFilter.outputImage {
-            refinedMask = softenedMask.cropped(to: originalExtent)
+        if let initiallyBlurred = initialBlurFilter.outputImage {
+            refinedMask = initiallyBlurred.cropped(to: originalExtent)
         }
         
-        // Step 3: Adjust mask contrast for clean separation
-        let contrastBoost = 1.2 + (0.3 * normalizedIntensity) // stronger separation at high blur
-        let brightnessBoost = 0.05 + (0.1 * normalizedIntensity)
+        // Second pass: Additional feathering for higher blur intensities
+        if normalizedIntensity > 0.3 {
+            let secondaryFeatherRadius = 1.5 * minScale + (6.0 * (normalizedIntensity - 0.3) * minScale)
+            let secondaryBlurFilter = CIFilter.gaussianBlur()
+            secondaryBlurFilter.inputImage = refinedMask
+            secondaryBlurFilter.radius = Float(secondaryFeatherRadius)
+            
+            if let secondaryBlurred = secondaryBlurFilter.outputImage {
+                refinedMask = secondaryBlurred.cropped(to: originalExtent)
+            }
+        }
         
-        let contrastFilter = CIFilter.colorControls()
-        contrastFilter.inputImage = refinedMask
-        contrastFilter.contrast = Float(contrastBoost)
-        contrastFilter.brightness = Float(brightnessBoost)
+        // Step 4: Intelligent contrast adjustment for natural transitions
+        // Use sigmoid curve for smooth falloff instead of linear contrast
+        let midpoint = 0.5 + (0.1 * normalizedIntensity) // Shift midpoint slightly for higher blur
+        let sharpness = 1.8 + (0.7 * normalizedIntensity) // Increase sharpness for cleaner separation
         
-        if let optimizedMask = contrastFilter.outputImage {
-            refinedMask = optimizedMask.cropped(to: originalExtent)
+        // Apply sigmoid-like curve using color controls
+        let sigmoidFilter = CIFilter.colorControls()
+        sigmoidFilter.inputImage = refinedMask
+        sigmoidFilter.contrast = Float(sharpness)
+        sigmoidFilter.brightness = Float(midpoint - 0.5)
+        sigmoidFilter.saturation = 1.0
+        
+        if let sigmoidMask = sigmoidFilter.outputImage {
+            refinedMask = sigmoidMask.cropped(to: originalExtent)
+        }
+        
+        // Step 5: Final edge polishing with subtle gamma correction
+        // This creates a more natural falloff curve
+        let gammaCorrection = 0.9 - (0.1 * normalizedIntensity) // Slightly lower gamma for softer edges
+        let gammaFilter = CIFilter.gammaAdjust()
+        gammaFilter.inputImage = refinedMask
+        gammaFilter.power = Float(gammaCorrection)
+        
+        if let gammaCorrected = gammaFilter.outputImage {
+            refinedMask = gammaCorrected.cropped(to: originalExtent)
         }
         
         return refinedMask
     }
-
     
-    /// Create subtle edge glow effect around the subject
-    private func createSubjectEdgeGlow(mask: CIImage, originalImage: CIImage) -> CIImage {
-        let originalExtent = originalImage.extent
-        let adjustedMask = mask.cropped(to: originalExtent)
+    /// Create an ultra-soft edge mask using distance field techniques for premium edge quality
+    /// This is used for high-quality blur effects where edge smoothness is critical
+    private func createSoftEdgeMask(_ mask: CIImage, originalExtent: CGRect, blurIntensity: Float) -> CIImage {
+        var softMask = mask.cropped(to: originalExtent)
         
-        // Step 1: Create edge detection from mask
-        let edgeFilter = CIFilter.morphologyGradient()
-        edgeFilter.inputImage = adjustedMask
-        edgeFilter.radius = 3.0 // Width of edge detection
+        let normalizedIntensity = min(max(blurIntensity / 20.0, 0), 1)
+        let baseScale = Float(max(originalExtent.width, originalExtent.height) / 1000.0)
+        let minScale = max(baseScale, 0.5)
         
-        guard let edgeMask = edgeFilter.outputImage?.cropped(to: originalExtent) else {
-            return originalImage
+        // Step 1: Create a distance field effect using multiple blur passes
+        // This creates a natural gradient falloff from the subject edges
+        let distances = [
+            (radius: 1.0 * minScale, weight: 0.4),
+            (radius: 2.5 * minScale, weight: 0.3),
+            (radius: 5.0 * minScale, weight: 0.2),
+            (radius: 8.0 * minScale, weight: 0.1)
+        ]
+        
+        var blendedMask: CIImage?
+        
+        for (index, distance) in distances.enumerated() {
+            let blurFilter = CIFilter.gaussianBlur()
+            blurFilter.inputImage = softMask
+            blurFilter.radius = Float(distance.radius * (1.0 + normalizedIntensity))
+            
+            guard let blurredMask = blurFilter.outputImage?.cropped(to: originalExtent) else { continue }
+            
+            if index == 0 {
+                blendedMask = blurredMask
+            } else if let currentMask = blendedMask {
+                // Blend with weighted average
+                let blendFilter = CIFilter.additionCompositing()
+                
+                // Apply weight to the new layer
+                let multiplyFilter = CIFilter.colorMatrix()
+                multiplyFilter.inputImage = blurredMask
+                multiplyFilter.rVector = CIVector(x: CGFloat(distance.weight), y: 0, z: 0, w: 0)
+                multiplyFilter.gVector = CIVector(x: 0, y: CGFloat(distance.weight), z: 0, w: 0)
+                multiplyFilter.bVector = CIVector(x: 0, y: 0, z: CGFloat(distance.weight), w: 0)
+                multiplyFilter.aVector = CIVector(x: 0, y: 0, z: 0, w: CGFloat(distance.weight))
+                
+                if let weightedMask = multiplyFilter.outputImage {
+                    blendFilter.inputImage = weightedMask
+                    blendFilter.backgroundImage = currentMask
+                    
+                    if let blended = blendFilter.outputImage {
+                        blendedMask = blended.cropped(to: originalExtent)
+                    }
+                }
+            }
         }
         
-        // Step 2: Create soft glow effect
-        let glowFilter = CIFilter.gaussianBlur()
-        glowFilter.inputImage = edgeMask
-        glowFilter.radius = 8.0 // Soft glow spread
-        
-        guard let glowMask = glowFilter.outputImage?.cropped(to: originalExtent) else {
-            return originalImage
+        // Step 2: Apply smooth curve mapping for natural transitions
+        if let finalMask = blendedMask {
+            // Use tone curve for smooth S-curve mapping
+            let curveFilter = CIFilter.toneCurve()
+            curveFilter.inputImage = finalMask
+            
+            // Create smooth S-curve points for natural falloff
+            curveFilter.point0 = .init(x: 0.0, y: 0.0)
+            curveFilter.point1 = .init(x: 0.25, y: 0.15)
+            curveFilter.point2 = .init(x: 0.5, y: 0.5)
+            curveFilter.point3 = .init(x: 0.75, y: 0.85)
+            curveFilter.point4 = .init(x: 1.0, y: 1.0)
+            
+            if let curvedMask = curveFilter.outputImage {
+                softMask = curvedMask.cropped(to: originalExtent)
+            }
         }
         
-        // Step 3: Create golden glow color
-        let glowColor = CIImage(color: CIColor(red: 1.0, green: 0.9, blue: 0.6, alpha: 0.4))
-            .cropped(to: originalExtent)
-        
-        // Step 4: Apply glow color using the glow mask
-        let coloredGlow = CIFilter.multiplyCompositing()
-        coloredGlow.inputImage = glowColor
-        coloredGlow.backgroundImage = glowMask
-        
-        guard let finalGlow = coloredGlow.outputImage else {
-            return originalImage
-        }
-        
-        // Step 5: Blend glow with original image
-        let blendFilter = CIFilter.screenBlendMode()
-        blendFilter.inputImage = originalImage
-        blendFilter.backgroundImage = finalGlow
-        
-        guard let glowedImage = blendFilter.outputImage else {
-            return originalImage
-        }
-        
-        return glowedImage.cropped(to: originalExtent)
+        return softMask
     }
-    
     
     // MARK: - Cache Management
     
     /// Clear all caches to free memory
     func clearAllCaches() {
         maskCache.removeAllObjects()
-        print("🗑️ Subject masking caches cleared")
+        blurCache.removeAllObjects()
+        print("🗑️ Subject masking and blur caches cleared")
     }
     
     /// Clear cache for a specific image to force regeneration
@@ -351,15 +517,19 @@ class BackgroundBlurManager {
         let imageIdentifier = "\(image.size.width)x\(image.size.height)_\(image.contentHash)"
         let maskCacheKey = imageIdentifier as NSString
         maskCache.removeObject(forKey: maskCacheKey)
+        
+        // Clear all blur cache entries for this image (different blur intensities)
+        // NSCache doesn't provide key enumeration, so we clear all for safety
+        blurCache.removeAllObjects()
         print("🗑️ Cleared cache for specific image")
     }
     
     /// Get cache information for debugging
-    func getCacheInfo() -> (maskCount: Int, estimatedMemoryMB: Double) {
+    func getCacheInfo() -> (maskCount: Int, blurCount: Int, estimatedMemoryMB: Double) {
         // NSCache doesn't provide direct count access, so we track approximately
-        let estimatedMemoryMB = Double(maskCache.totalCostLimit) / (1024 * 1024)
+        let estimatedMemoryMB = Double(maskCache.totalCostLimit + blurCache.totalCostLimit) / (1024 * 1024)
         
-        return (maskCount: maskCache.countLimit, estimatedMemoryMB: estimatedMemoryMB)
+        return (maskCount: maskCache.countLimit, blurCount: blurCache.countLimit, estimatedMemoryMB: estimatedMemoryMB)
     }
     
     /// Preload segmentation for an image (useful for preparing next image)

@@ -26,20 +26,37 @@ struct ImagePreviewView: View {
     @State private var isMaskingProcessing = false
     @State private var hasPersonSegmentation = false
     @State private var maskedImage: UIImage?
+    
+    // Background blur state
+    @State private var showingBlurAdjustment = false
+    @State private var blurIntensity: Float = 10.0 // Default medium blur (0-20 range)
+    @State private var isBlurProcessing = false
+    @State private var blurredImage: UIImage?
 
     // Performance optimization
     @State private var adjustmentWorkItem: DispatchWorkItem?
-    // @State private var blurWorkItem: DispatchWorkItem? // DISABLED: Background blur work item
+    @State private var blurWorkItem: DispatchWorkItem?
 
     // Save options
     @State private var showingSaveOptions = false
+    
+    // Computed property for determining which image to display
+    private var displayImage: UIImage? {
+        if showingBlurAdjustment && blurredImage != nil {
+            return blurredImage
+        } else if showingSubjectMasking && maskedImage != nil {
+            return maskedImage
+        } else {
+            return image
+        }
+    }
     
     var body: some View {
         GeometryReader { geo in
             VStack {
                 ImageDisplayView(
-                    image: showingSubjectMasking ? maskedImage ?? image : image,
-                    isProcessing: isProcessing || isMaskingProcessing,
+                    image: displayImage,
+                    isProcessing: isProcessing || isMaskingProcessing || isBlurProcessing,
                     selectedFilter: selectedFilter
                 )
                 .frame(maxWidth: abs(geo.size.width - 24))
@@ -51,6 +68,9 @@ struct ImagePreviewView: View {
                         withAnimation(.spring) {
                             showingAdjustments = false
                         }
+                    } else if showingBlurAdjustment {
+                        // Toggle between blurred and original view
+                        toggleBlurredView()
                     } else if showingSubjectMasking {
                         // Toggle between masked and original view
                         toggleMaskedView()
@@ -63,12 +83,16 @@ struct ImagePreviewView: View {
                     TopBarView(
                         showingAdjustments: $showingAdjustments,
                         showingSubjectMasking: $showingSubjectMasking,
+                        showingBlurAdjustment: $showingBlurAdjustment,
                         selectedFilter: selectedFilter,
                         hasPersonSegmentation: hasPersonSegmentation,
                         onSave: overwriteOriginal,
                         onDiscard: onDiscard,
                         onToggleSubjectMasking: {
                             applySubjectMasking()
+                        },
+                        onToggleBlurAdjustment: {
+                            applyBackgroundBlur()
                         }
                     )
                     .padding(.horizontal, 12)
@@ -105,15 +129,14 @@ struct ImagePreviewView: View {
                     .padding(.horizontal, 12)
                     
                     VStack(spacing: 16) {
-                        // DISABLED: Background blur adjustment controls
-                        // if showingBlurAdjustment {
-                        //     BlurAdjustmentControlsView(
-                        //         blurIntensity: $blurIntensity,
-                        //         isProcessing: isBlurProcessing,
-                        //         onBlurChanged: { applyBackgroundBlur() },
-                        //         onDebouncedBlurChanged: { applyBackgroundBlur(debounce: true) }
-                        //     )
-                        // }
+                        if showingBlurAdjustment {
+                            BlurAdjustmentControlsView(
+                                blurIntensity: $blurIntensity,
+                                isProcessing: isBlurProcessing,
+                                onBlurChanged: { applyBackgroundBlur() },
+                                onDebouncedBlurChanged: { applyBackgroundBlur(debounce: true) }
+                            )
+                        }
                         
                         if selectedFilter != nil && showingAdjustments {
                             AdjustmentControlsView(
@@ -123,8 +146,8 @@ struct ImagePreviewView: View {
                             )
                         }
                         
-                        // Show preset buttons when filter is selected (removed blur condition)
-                        if selectedFilter != nil {
+                        // Show preset buttons when filter is selected and not showing blur adjustment
+                        if selectedFilter != nil && !showingBlurAdjustment {
                             PresetButtonsView(
                                 isProcessing: isProcessing,
                                 selectedFilter: selectedFilter,
@@ -152,9 +175,9 @@ struct ImagePreviewView: View {
         .onDisappear {
             // Clean up work items to prevent memory leaks
             adjustmentWorkItem?.cancel()
-            // blurWorkItem?.cancel() // DISABLED: Background blur work item
+            blurWorkItem?.cancel()
             adjustmentWorkItem = nil
-            // blurWorkItem = nil // DISABLED: Background blur work item
+            blurWorkItem = nil
         }
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
     }
@@ -164,11 +187,13 @@ struct ImagePreviewView: View {
     struct TopBarView: View {
         @Binding var showingAdjustments: Bool
         @Binding var showingSubjectMasking: Bool
+        @Binding var showingBlurAdjustment: Bool
         let selectedFilter: PhotoFilter?
         let hasPersonSegmentation: Bool
         let onSave: () -> Void
         let onDiscard: () -> Void
         let onToggleSubjectMasking: () -> Void
+        let onToggleBlurAdjustment: () -> Void
 
         var body: some View {
             HStack {
@@ -185,13 +210,36 @@ struct ImagePreviewView: View {
 
                 Spacer()
 
+                // Background Blur Button
+                Button(action: {
+                    guard !showingAdjustments && !showingSubjectMasking else { return }
+                    withAnimation(.spring) {
+                        showingBlurAdjustment.toggle()
+                        if showingBlurAdjustment {
+                            showingAdjustments = false
+                            showingSubjectMasking = false
+                        }
+                        onToggleBlurAdjustment()
+                    }
+                }) {
+                    Image(systemName: "camera.aperture")
+                        .foregroundColor(hasPersonSegmentation ? .white : .white.opacity(0.35))
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                }
+                .disabled(!hasPersonSegmentation)
+
                 // Subject Masking Button
                 Button(action: {
-                    guard !showingAdjustments else { return }
+                    guard !showingAdjustments && !showingBlurAdjustment else { return }
                     withAnimation(.spring) {
                         showingSubjectMasking.toggle()
                         if showingSubjectMasking {
                             showingAdjustments = false
+                            showingBlurAdjustment = false
                         }
                         onToggleSubjectMasking()
                     }
@@ -208,11 +256,12 @@ struct ImagePreviewView: View {
 
                 // Filter Adjustments Button
                 Button(action: {
-                    guard !showingSubjectMasking else { return }
+                    guard !showingSubjectMasking && !showingBlurAdjustment else { return }
                     withAnimation(.spring) {
                         showingAdjustments.toggle()
                         if showingAdjustments {
                             showingSubjectMasking = false
+                            showingBlurAdjustment = false
                         }
                     }
                 }) {
@@ -458,8 +507,6 @@ struct ImagePreviewView: View {
         }
     }
 
-    // DISABLED: BlurAdjustmentControlsView - Background blur functionality removed
-    /*
     struct BlurAdjustmentControlsView: View {
         @Binding var blurIntensity: Float
         let isProcessing: Bool
@@ -518,7 +565,6 @@ struct ImagePreviewView: View {
             .padding(.vertical, 20)
         }
     }
-    */
 
     struct AdjustmentControlsView: View {
         @Binding var adjustments: FilterAdjustment
@@ -692,18 +738,28 @@ struct ImagePreviewView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             var finalImage = originalImage
             
-            // DISABLED: Apply blur processing
-            // if self.blurIntensity > 0 && self.hasPersonSegmentation {
-            //     if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
-            //         to: originalImage, 
-            //         blurIntensity: self.blurIntensity,
-            //         useCache: false // Don't use cache for final export
-            //     ) {
-            //         finalImage = blurredImage
-            //     }
-            // }
+            // First apply blur if it's active (blur intensity > 0)
+            if self.blurIntensity > 0 && self.hasPersonSegmentation && self.showingBlurAdjustment {
+                if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
+                    to: originalImage, 
+                    blurIntensity: self.blurIntensity,
+                    useCache: false // Don't use cache for final export
+                ) {
+                    finalImage = blurredImage
+                }
+            }
             
-            // Apply filter if one is selected
+            // Then apply subject masking if it's active
+            if self.showingSubjectMasking {
+                if let maskedImage = BackgroundBlurManager.shared.applySubjectMasking(
+                    to: finalImage,
+                    useCache: false // Don't use cache for final export
+                ) {
+                    finalImage = maskedImage
+                }
+            }
+            
+            // Finally apply filter if one is selected
             if let filter = self.selectedFilter {
                 if let filteredImage = FilterManager.shared.applyFilter(
                     filter, 
@@ -735,6 +791,12 @@ struct ImagePreviewView: View {
         isMaskingProcessing = false
         maskedImage = nil
         hasPersonSegmentation = false
+        
+        // Reset blur state
+        showingBlurAdjustment = false
+        isBlurProcessing = false
+        blurredImage = nil
+        blurIntensity = 10.0
         
         // Clear any cached masks for the previous image to prevent wrong masks
         if let originalImage = originalImage {
@@ -818,6 +880,84 @@ struct ImagePreviewView: View {
                     } else {
                         self.hasPersonSegmentation = false
                     }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Background Blur Functions
+    
+    private func applyBackgroundBlur(debounce: Bool = false) {
+        guard let originalImage = originalImage else { return }
+        
+        // Reset filter and masking when applying blur
+        if showingBlurAdjustment && (selectedFilter != nil || showingSubjectMasking) {
+            selectedFilter = nil
+            showingSubjectMasking = false
+            maskedImage = nil
+        }
+        
+        // Cancel previous work item for debouncing
+        blurWorkItem?.cancel()
+        
+        let workItem = DispatchWorkItem {
+            guard let workItem = self.blurWorkItem, !workItem.isCancelled else { return }
+            
+            DispatchQueue.main.async {
+                self.isBlurProcessing = true
+            }
+            
+            // Use preview size for real-time updates or full resolution for preset buttons
+            let processedImage: UIImage?
+            if debounce {
+                // Use smaller preview for slider updates with enhanced edges for higher blur
+                let useEnhancedEdges = self.blurIntensity > 12.0
+                processedImage = BackgroundBlurManager.shared.generateBlurPreview(
+                    for: originalImage,
+                    blurIntensity: self.blurIntensity,
+                    previewSize: CGSize(width: 600, height: 800),
+                    enhancedEdges: useEnhancedEdges
+                )
+            } else {
+                // Use full resolution for preset buttons
+                processedImage = BackgroundBlurManager.shared.applyBackgroundBlur(
+                    to: originalImage,
+                    blurIntensity: self.blurIntensity,
+                    useCache: true
+                )
+            }
+            
+            DispatchQueue.main.async {
+                guard let workItem = self.blurWorkItem, !workItem.isCancelled else { return }
+                
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.blurredImage = processedImage ?? originalImage
+                    self.isBlurProcessing = false
+                }
+            }
+        }
+        
+        if debounce {
+            // Debounce for 0.15 seconds for more responsive feel
+            blurWorkItem = workItem
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.15, execute: workItem)
+        } else {
+            // Apply immediately for preset selection
+            blurWorkItem = workItem
+            DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
+        }
+    }
+    
+    private func toggleBlurredView() {
+        guard let originalImage = originalImage else { return }
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if showingBlurAdjustment {
+                // Toggle between blurred and original view
+                if blurredImage != nil {
+                    blurredImage = nil // Show original
+                } else {
+                    blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(to: originalImage, blurIntensity: blurIntensity, useCache: true)
                 }
             }
         }
