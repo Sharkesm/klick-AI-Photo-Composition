@@ -450,45 +450,8 @@ class FilterManager {
         return applyFilter(filter, to: previewImage, adjustments: .balanced, useCache: true)
     }
 
-    func addWatermark(to image: UIImage, text: String = "KlickPhoto") -> UIImage? {
-        let renderer = UIGraphicsImageRenderer(size: image.size)
-
-        return renderer.image { context in
-            // Draw original image
-            image.draw(in: CGRect(origin: .zero, size: image.size))
-
-            // Configure watermark text
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: UIColor.white.withAlphaComponent(0.7)
-            ]
-
-            let attributedString = NSAttributedString(string: text, attributes: attributes)
-            let textSize = attributedString.size()
-
-            // Position watermark in bottom right corner with padding
-            let padding: CGFloat = 20
-            let textRect = CGRect(
-                x: image.size.width - textSize.width - padding,
-                y: image.size.height - textSize.height - padding,
-                width: textSize.width,
-                height: textSize.height
-            )
-
-            // Draw semi-transparent background for better readability
-            let backgroundRect = textRect.insetBy(dx: -8, dy: -4)
-            let backgroundPath = UIBezierPath(roundedRect: backgroundRect, cornerRadius: 4)
-            UIColor.black.withAlphaComponent(0.3).setFill()
-            backgroundPath.fill()
-
-            // Draw watermark text
-            attributedString.draw(in: textRect)
-        }
-    }
-
     func exportImage(_ image: UIImage, withWatermark: Bool = true, quality: CGFloat = 0.9) -> Data? {
-        let exportImage = withWatermark ? (addWatermark(to: image) ?? image) : image
-        return exportImage.jpegData(compressionQuality: quality)
+        return image.jpegData(compressionQuality: quality)
     }
 
     private func applyAdjustments(_ adjustments: FilterAdjustment, to ciImage: CIImage) -> CIImage {
