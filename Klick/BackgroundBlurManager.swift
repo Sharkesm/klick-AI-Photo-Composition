@@ -671,7 +671,7 @@ class BackgroundBlurManager {
     func endEditingSession(clearAll: Bool = true) {
         if clearAll {
             clearAllCaches()
-        } else if let sessionId = currentEditingSessionId {
+        } else if let _ = currentEditingSessionId {
             clearSessionCaches(keepCurrentImage: false)
         }
         
@@ -695,7 +695,6 @@ class BackgroundBlurManager {
             if keepCurrentImage, let currentId = self.currentEditingSessionId {
                 // Keep only current image caches
                 let keysToKeep = self.imageKeyTracker[currentId] ?? Set<NSString>()
-                let currentMaskKey = currentId as NSString
                 
                 // Clear all blur caches except current image
                 let allKeys = Set(self.imageKeyTracker.values.flatMap { $0 })

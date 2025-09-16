@@ -29,7 +29,7 @@ struct ImagePreviewView: View {
     
     // Background blur state
     @State private var showingBlurAdjustment = false
-    @State private var blurIntensity: Float = 10.0 // Default medium blur (0-20 range)
+    @State private var blurIntensity: Float = 5.0 // Default light blur (0-20 range)
     @State private var isBlurProcessing = false
     @State private var blurredImage: UIImage?
 
@@ -303,8 +303,6 @@ struct ImagePreviewView: View {
         let image: UIImage?
         let isProcessing: Bool
         let selectedFilter: PhotoFilter?
-        // let showingMaskPreview: Bool // DISABLED: Mask preview
-        // let maskPreviewImage: UIImage? // DISABLED: Mask preview image
         
         var body: some View {
             if let previewImage = image {
@@ -314,16 +312,6 @@ struct ImagePreviewView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay(
                         Group {
-                            // DISABLED: Subject glow effect overlay
-                            // if showingMaskPreview, let glowImage = maskPreviewImage {
-                            //     Image(uiImage: glowImage)
-                            //         .resizable()
-                            //         .aspectRatio(contentMode: .fill)
-                            //         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            //         .opacity(showingMaskPreview ? 1.0 : 0.0)
-                            //         .animation(.easeInOut(duration: 0.8), value: showingMaskPreview)
-                            // }
-                            
                             // Processing indicator
                             if isProcessing {
                                 ZStack {
@@ -806,7 +794,7 @@ struct ImagePreviewView: View {
         showingBlurAdjustment = false
         isBlurProcessing = false
         blurredImage = nil
-        blurIntensity = 10.0
+        blurIntensity = 5.0
         
         // MEMORY OPTIMIZATION: End editing session to clear all caches
         BackgroundBlurManager.shared.endEditingSession(clearAll: true)
