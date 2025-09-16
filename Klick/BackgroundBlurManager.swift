@@ -38,6 +38,10 @@ class BackgroundBlurManager {
     private let maskCache = NSCache<NSString, CIImage>()
     private let blurCache = NSCache<NSString, UIImage>()
     
+    // Track cache keys per image for granular clearing
+    private var imageKeyTracker: [String: Set<NSString>] = [:]
+    private let keyTrackerQueue = DispatchQueue(label: "com.klick.keytracker", attributes: .concurrent)
+    
     // Queue for image processing to avoid blocking main thread
     private let processingQueue = DispatchQueue(label: "com.klick.subjectmasking", qos: .userInitiated)
     
@@ -185,6 +189,9 @@ class BackgroundBlurManager {
             if useCache {
                 let imageCost = Int(resultImage.size.width * resultImage.size.height * 4 * resultImage.scale * resultImage.scale)
                 blurCache.setObject(resultImage, forKey: cacheKey, cost: imageCost)
+                
+                // Track this cache key for the image
+                trackCacheKey(cacheKey, forImageIdentifier: imageIdentifier)
             }
             
             return resultImage
@@ -509,10 +516,37 @@ class BackgroundBlurManager {
     
     // MARK: - Cache Management
     
+    /// Track a cache key for a specific image
+    private func trackCacheKey(_ cacheKey: NSString, forImageIdentifier imageIdentifier: String) {
+        keyTrackerQueue.async(flags: .barrier) {
+            if self.imageKeyTracker[imageIdentifier] == nil {
+                self.imageKeyTracker[imageIdentifier] = Set<NSString>()
+            }
+            self.imageKeyTracker[imageIdentifier]?.insert(cacheKey)
+        }
+    }
+    
+    /// Get all cache keys for a specific image
+    private func getCacheKeys(forImageIdentifier imageIdentifier: String) -> Set<NSString> {
+        return keyTrackerQueue.sync {
+            return self.imageKeyTracker[imageIdentifier] ?? Set<NSString>()
+        }
+    }
+    
+    /// Remove tracking for a specific image
+    private func removeKeyTracking(forImageIdentifier imageIdentifier: String) {
+        keyTrackerQueue.async(flags: .barrier) {
+            self.imageKeyTracker.removeValue(forKey: imageIdentifier)
+        }
+    }
+    
     /// Clear all caches to free memory
     func clearAllCaches() {
         maskCache.removeAllObjects()
         blurCache.removeAllObjects()
+        keyTrackerQueue.async(flags: .barrier) {
+            self.imageKeyTracker.removeAll()
+        }
         print("🗑️ Subject masking and blur caches cleared")
     }
     
@@ -520,20 +554,34 @@ class BackgroundBlurManager {
     func clearCacheForImage(_ image: UIImage) {
         let imageIdentifier = "\(image.size.width)x\(image.size.height)_\(image.contentHash)"
         let maskCacheKey = imageIdentifier as NSString
+        
+        // Clear the mask cache for this image
         maskCache.removeObject(forKey: maskCacheKey)
         
-        // Clear all blur cache entries for this image (different blur intensities)
-        // NSCache doesn't provide key enumeration, so we clear all for safety
-        blurCache.removeAllObjects()
-        print("🗑️ Cleared cache for specific image")
+        // Get all blur cache keys for this specific image
+        let blurKeysToRemove = getCacheKeys(forImageIdentifier: imageIdentifier)
+        
+        // Remove only the blur cache entries for this specific image
+        for cacheKey in blurKeysToRemove {
+            blurCache.removeObject(forKey: cacheKey)
+        }
+        
+        // Clean up the key tracking for this image
+        removeKeyTracking(forImageIdentifier: imageIdentifier)
+        
+        print("🗑️ Cleared cache for specific image (removed \(blurKeysToRemove.count) blur entries)")
     }
     
     /// Get cache information for debugging
-    func getCacheInfo() -> (maskCount: Int, blurCount: Int, estimatedMemoryMB: Double) {
+    func getCacheInfo() -> (maskCount: Int, blurCount: Int, trackedImages: Int, estimatedMemoryMB: Double) {
         // NSCache doesn't provide direct count access, so we track approximately
         let estimatedMemoryMB = Double(maskCache.totalCostLimit + blurCache.totalCostLimit) / (1024 * 1024)
         
-        return (maskCount: maskCache.countLimit, blurCount: blurCache.countLimit, estimatedMemoryMB: estimatedMemoryMB)
+        let trackedImageCount = keyTrackerQueue.sync {
+            return self.imageKeyTracker.count
+        }
+        
+        return (maskCount: maskCache.countLimit, blurCount: blurCache.countLimit, trackedImages: trackedImageCount, estimatedMemoryMB: estimatedMemoryMB)
     }
     
     /// Preload segmentation for an image (useful for preparing next image)
