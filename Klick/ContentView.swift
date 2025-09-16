@@ -308,6 +308,9 @@ struct ContentView: View {
                     }
                 },
                 onDiscard: {
+                    // MEMORY OPTIMIZATION: Clear all caches when discarding
+                    BackgroundBlurManager.shared.endEditingSession(clearAll: true)
+                    
                     // Close preview without saving
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showImagePreview = false

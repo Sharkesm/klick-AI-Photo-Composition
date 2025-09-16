@@ -162,6 +162,11 @@ struct ImagePreviewView: View {
         }
         .background(Color.black)
         .onAppear {
+            // MEMORY OPTIMIZATION: Start editing session for this image
+            if let originalImage = originalImage {
+                BackgroundBlurManager.shared.startEditingSession(for: originalImage)
+            }
+            
             generateFilterPreviews()
             checkPersonSegmentationSupport()
             resetMaskingState()
@@ -173,6 +178,9 @@ struct ImagePreviewView: View {
             checkPersonSegmentationSupport()
         }
         .onDisappear {
+            // MEMORY OPTIMIZATION: End editing session when leaving the view
+            BackgroundBlurManager.shared.endEditingSession(clearAll: true)
+            
             // Clean up work items to prevent memory leaks
             adjustmentWorkItem?.cancel()
             blurWorkItem?.cancel()
@@ -777,6 +785,8 @@ struct ImagePreviewView: View {
             DispatchQueue.main.async {
                 self.isProcessing = false
                 if exportData != nil {
+                    // MEMORY OPTIMIZATION: Clear all caches after successful save
+                    BackgroundBlurManager.shared.endEditingSession(clearAll: true)
                     self.onSave()
                 }
             }
@@ -798,10 +808,8 @@ struct ImagePreviewView: View {
         blurredImage = nil
         blurIntensity = 10.0
         
-        // Clear any cached masks for the previous image to prevent wrong masks
-        if let originalImage = originalImage {
-            BackgroundBlurManager.shared.clearCacheForImage(originalImage)
-        }
+        // MEMORY OPTIMIZATION: End editing session to clear all caches
+        BackgroundBlurManager.shared.endEditingSession(clearAll: true)
     }
     
     private func applySubjectMasking() {
