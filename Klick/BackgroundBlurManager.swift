@@ -223,8 +223,12 @@ class BackgroundBlurManager {
     private func generatePersonSegmentationMask(for ciImage: CIImage) -> CIImage? {
         // Create a fresh request to ensure clean state
         let request = VNGeneratePersonSegmentationRequest()
-        request.qualityLevel = .balanced
+        request.qualityLevel = .accurate
         request.outputPixelFormat = kCVPixelFormatType_OneComponent8
+        
+        if VNGeneratePersonSegmentationRequest.supportedRevisions.contains(2) {
+            request.revision = 2 // Better hair, semi-transparent details
+        }
         
         let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
         
