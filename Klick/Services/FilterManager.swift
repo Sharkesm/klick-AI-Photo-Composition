@@ -27,7 +27,7 @@ struct PhotoFilter: Identifiable, Hashable {
     let parameters: [String: Any]
 
     var displayName: String {
-        "\(id) - \(name)"
+        "\(id) • \(name)"
     }
 
     static func == (lhs: PhotoFilter, rhs: PhotoFilter) -> Bool {

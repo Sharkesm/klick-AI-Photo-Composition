@@ -4,6 +4,64 @@ import Social
 import CoreImage
 import Vision
 
+// MARK: - Image Effect State
+struct ImageEffectState {
+    var backgroundBlur: BackgroundBlurEffect
+    var filter: FilterEffect?
+    
+    struct BackgroundBlurEffect {
+        var isEnabled: Bool = false
+        var intensity: Float = 5.0 // 0-20 range
+    }
+    
+    struct FilterEffect {
+        var filter: PhotoFilter
+        var adjustments: FilterAdjustment = .balanced
+    }
+    
+    static let `default` = ImageEffectState(
+        backgroundBlur: BackgroundBlurEffect(),
+        filter: nil
+    )
+}
+
+// MARK: - Image State History
+struct ImageStateHistory {
+    var currentState: ImageEffectState
+    var previousState: ImageEffectState?
+    var currentImage: UIImage?
+    var previousImage: UIImage?
+    
+    var previousStateInfo: String {
+        guard let filter = previousState?.filter else {
+            return "Background Blur"
+        }
+        
+        return filter.filter.displayName.uppercased()
+    }
+    
+    mutating func saveCurrentState(effectState: ImageEffectState, processedImage: UIImage?) {
+        // Save current as previous
+        previousState = currentState
+        previousImage = currentImage
+        
+        // Update current
+        currentState = effectState
+        currentImage = processedImage
+    }
+    
+    var hasPreviousState: Bool {
+        return previousState != nil && previousImage != nil
+    }
+    
+    static let empty = ImageStateHistory(
+        currentState: ImageEffectState.default,
+        previousState: nil,
+        currentImage: nil,
+        previousImage: nil
+    )
+}
+
 struct ImagePreviewView: View {
     @Binding var image: UIImage?
     let originalImage: UIImage?
@@ -14,35 +72,33 @@ struct ImagePreviewView: View {
 
     @State private var showingShareSheet = false
 
-    // Filter system state
+    // Unified effect state
+    @State private var effectState = ImageEffectState.default
+    @State private var processedImage: UIImage?
+    @State private var stateHistory = ImageStateHistory.empty
+    @State private var isShowingPreviousState = false
+    
+    // UI state
     @State private var selectedPack: FilterPack = .glow
-    @State private var selectedFilter: PhotoFilter?
-    @State private var currentAdjustments = FilterAdjustment.balanced
     @State private var showingAdjustments = false
+    @State private var showingBlurAdjustment = false
     @State private var filterPreviews: [String: UIImage] = [:]
 
     // Subject masking state
     @State private var hasPersonSegmentation = false
-    
-    // Background blur state
-    @State private var showingBlurAdjustment = false
-    @State private var blurIntensity: Float = 5.0 // Default light blur (0-20 range)
-    @State private var isBlurProcessing = false
-    @State private var blurredImage: UIImage?
 
     // Performance optimization
-    @State private var adjustmentWorkItem: DispatchWorkItem?
-    @State private var blurWorkItem: DispatchWorkItem?
+    @State private var effectWorkItem: DispatchWorkItem?
 
     // Save options
     @State private var showingSaveOptions = false
     
     // Computed property for determining which image to display
     private var displayImage: UIImage? {
-        if showingBlurAdjustment && blurredImage != nil {
-            return blurredImage
+        if isShowingPreviousState {
+            return stateHistory.previousImage ?? originalImage
         } else {
-            return image
+            return processedImage ?? originalImage
         }
     }
     
@@ -51,36 +107,48 @@ struct ImagePreviewView: View {
             VStack {
                 ImageDisplayView(
                     image: displayImage,
-                    isProcessing: isProcessing || isBlurProcessing,
-                    selectedFilter: selectedFilter
+                    isProcessing: isProcessing,
+                    selectedFilter: effectState.filter?.filter
                 )
                 .frame(maxWidth: abs(geo.size.width - 24))
                 .frame(height: geo.size.height * 0.75)
                 .cornerRadius(22)
                 .contentShape(RoundedRectangle(cornerRadius: 22))
-                .onTapGesture {
-                    if showingAdjustments {
-                        withAnimation(.spring) {
-                            showingAdjustments = false
+                .overlay(alignment: .bottom, content: {
+                    // Previous state indicator
+                    Group {
+                        if isShowingPreviousState && stateHistory.hasPreviousState {
+                            VStack(alignment: .center, spacing: 12) {
+                                Text("BEFORE")
+                                    .font(.footnote)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(RoundedRectangle(cornerRadius: 30))
+                                
+                                Text(stateHistory.previousStateInfo)
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color.white)
+                            }
+                            .padding(16)
                         }
-                    } else if showingBlurAdjustment {
-                        // Toggle between blurred and original view
-                        toggleBlurredView()
-                    } else {
-                        guard selectedFilter != nil else { return }
-                        toggleOriginalFiltered()
                     }
+                })
+                .onTapGesture {
+                    handleImageTap()
                 }
                 .overlay(alignment: .top) {
                     TopBarView(
                         showingAdjustments: $showingAdjustments,
                         showingBlurAdjustment: $showingBlurAdjustment,
-                        selectedFilter: selectedFilter,
+                        selectedFilter: effectState.filter?.filter,
                         hasPersonSegmentation: hasPersonSegmentation,
                         onSave: overwriteOriginal,
                         onDiscard: onDiscard,
                         onToggleBlurAdjustment: {
-                            applyBackgroundBlur()
+                            toggleBlurAdjustment()
                         }
                     )
                     .padding(.horizontal, 12)
@@ -99,7 +167,8 @@ struct ImagePreviewView: View {
                                 selectedPack: $selectedPack,
                                 onPackSelected: { pack in
                                     selectedPack = pack
-                                    selectedFilter = nil
+                                    effectState.filter = nil
+                                    applyEffects()
                                 }
                             )
                         }
@@ -107,7 +176,7 @@ struct ImagePreviewView: View {
                         // Always show filter selection strip (blur adjustment removed)
                         FilterSelectionStripView(
                             selectedPack: selectedPack,
-                            selectedFilter: selectedFilter,
+                            selectedFilter: effectState.filter?.filter,
                             filterPreviews: filterPreviews,
                             originalImage: originalImage,
                             onFilterSelected: selectFilter
@@ -119,27 +188,37 @@ struct ImagePreviewView: View {
                     VStack(spacing: 16) {
                         if showingBlurAdjustment {
                             BlurAdjustmentControlsView(
-                                blurIntensity: $blurIntensity,
-                                isProcessing: isBlurProcessing,
-                                onBlurChanged: { applyBackgroundBlur() },
-                                onDebouncedBlurChanged: { applyBackgroundBlur(debounce: true) }
+                                blurIntensity: Binding(
+                                    get: { effectState.backgroundBlur.intensity },
+                                    set: { effectState.backgroundBlur.intensity = $0 }
+                                ),
+                                isProcessing: isProcessing,
+                                onBlurChanged: { applyBlurPreset() },
+                                onDebouncedBlurChanged: { applyEffects(debounce: true) }
                             )
                         }
                         
-                        if selectedFilter != nil && showingAdjustments {
+                        if effectState.filter != nil && showingAdjustments {
                             AdjustmentControlsView(
-                                adjustments: $currentAdjustments,
-                                onAdjustmentChanged: { applyCurrentFilter() },
-                                onDebouncedAdjustmentChanged: { applyCurrentFilter(debounce: true) }
+                                adjustments: Binding(
+                                    get: { effectState.filter?.adjustments ?? .balanced },
+                                    set: { 
+                                        if effectState.filter != nil {
+                                            effectState.filter!.adjustments = $0
+                                        }
+                                    }
+                                ),
+                                onAdjustmentChanged: { applyEffects() },
+                                onDebouncedAdjustmentChanged: { applyEffects(debounce: true) }
                             )
                         }
                         
                         // Show preset buttons when filter is selected and not showing blur adjustment
-                        if selectedFilter != nil && !showingBlurAdjustment {
+                        if effectState.filter != nil && !showingBlurAdjustment {
                             PresetButtonsView(
                                 isProcessing: isProcessing,
-                                selectedFilter: selectedFilter,
-                                filterAdjustment: currentAdjustments,
+                                selectedFilter: effectState.filter?.filter,
+                                filterAdjustment: effectState.filter?.adjustments ?? .balanced,
                                 onApplyPreset: applyPreset
                             )
                         }
@@ -157,11 +236,11 @@ struct ImagePreviewView: View {
             
             generateFilterPreviews()
             checkPersonSegmentationSupport()
-            resetMaskingState()
+            resetEffectState()
         }
         .onChange(of: originalImage) { _ in
-            // Clear masking state and cache when image changes
-            resetMaskingState()
+            // Clear effect state and cache when image changes
+            resetEffectState()
             generateFilterPreviews()
             checkPersonSegmentationSupport()
         }
@@ -170,10 +249,8 @@ struct ImagePreviewView: View {
             BackgroundBlurManager.shared.endEditingSession(clearAll: true)
             
             // Clean up work items to prevent memory leaks
-            adjustmentWorkItem?.cancel()
-            blurWorkItem?.cancel()
-            adjustmentWorkItem = nil
-            blurWorkItem = nil
+            effectWorkItem?.cancel()
+            effectWorkItem = nil
         }
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
     }
@@ -215,7 +292,7 @@ struct ImagePreviewView: View {
                     }
                 }) {
                     Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                        .foregroundColor(hasPersonSegmentation ? .white : .white.opacity(0.35))
+                        .foregroundColor(hasPersonSegmentation ? showingBlurAdjustment ? .yellow : .white : .white.opacity(0.35))
                         .font(.system(size: 16, weight: .medium))
                         .frame(width: 32, height: 32)
                         .background(.ultraThinMaterial)
@@ -226,11 +303,14 @@ struct ImagePreviewView: View {
 
                 // Filter Adjustments Button
                 Button(action: {
-                    withAnimation(.spring) {
-                        showingAdjustments.toggle()
-                        if showingAdjustments {
+                    if showingAdjustments {
+                        withAnimation(.easeIn(duration: 0.35)) {
                             showingBlurAdjustment = false
                         }
+                    }
+                    
+                    withAnimation(.spring) {
+                        showingAdjustments.toggle()
                     }
                 }) {
                     Image(systemName: "slider.horizontal.3")
@@ -597,75 +677,154 @@ struct ImagePreviewView: View {
         }
     }
 
-    // MARK: - Filter Functions
+    // MARK: - Effect Functions
 
     private func selectFilter(_ filter: PhotoFilter?) {
+        // Save current state before making changes
+        saveCurrentStateToHistory()
+        
         withAnimation(.spring) {
-            selectedFilter = filter
+            if let filter = filter {
+                effectState.filter = ImageEffectState.FilterEffect(filter: filter, adjustments: .balanced)
+            } else {
+                effectState.filter = nil
+            }
         }
         
-        if filter != nil {
-            // DISABLED: Reset blur when applying a filter
-            // blurIntensity = 0.0
-            currentAdjustments = .balanced
-            applyCurrentFilter()
-        } else {
-            resetToOriginal()
-        }
+        applyEffects()
     }
 
-    private func applyCurrentFilter(debounce: Bool = false) {
-        guard let filter = selectedFilter, let originalImage = originalImage else { return }
+    private func applyEffects(debounce: Bool = false) {
+        guard let originalImage = originalImage else { return }
 
         // Cancel previous work item for debouncing
-        adjustmentWorkItem?.cancel()
+        effectWorkItem?.cancel()
 
         let workItem = DispatchWorkItem {
-            guard !self.adjustmentWorkItem!.isCancelled else { return }
+            guard let workItem = self.effectWorkItem, !workItem.isCancelled else { return }
 
             DispatchQueue.main.async {
                 self.isProcessing = true
             }
 
-            let filteredImage = FilterManager.shared.applyFilter(filter, to: originalImage, adjustments: self.currentAdjustments)
+            var resultImage = originalImage
+            
+            // Apply background blur first if enabled
+            if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
+                if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
+                    to: resultImage,
+                    blurIntensity: self.effectState.backgroundBlur.intensity,
+                    useCache: !debounce // Use cache for non-debounced calls
+                ) {
+                    resultImage = blurredImage
+                }
+            }
+            
+            // Apply filter second if selected
+            if let filterEffect = self.effectState.filter {
+                if let filteredImage = FilterManager.shared.applyFilter(
+                    filterEffect.filter,
+                    to: resultImage,
+                    adjustments: filterEffect.adjustments,
+                    useCache: !debounce // Use cache for non-debounced calls
+                ) {
+                    resultImage = filteredImage
+                }
+            }
 
             DispatchQueue.main.async {
-                guard let workItem = self.adjustmentWorkItem, !workItem.isCancelled else { return }
+                guard let workItem = self.effectWorkItem, !workItem.isCancelled else { return }
 
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    self.image = filteredImage
+                    self.processedImage = resultImage
+                    self.image = resultImage // Keep for compatibility
                     self.isProcessing = false
                 }
             }
         }
 
         if debounce {
-            // Debounce for 0.1 seconds to prevent too many filter applications
-            adjustmentWorkItem = workItem
-            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.1, execute: workItem)
+            // Debounce for 0.15 seconds for slider adjustments
+            effectWorkItem = workItem
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.15, execute: workItem)
         } else {
-            // Apply immediately for filter selection
-            adjustmentWorkItem = workItem
+            // Apply immediately for selections
+            effectWorkItem = workItem
             DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
         }
     }
 
     private func applyPreset(_ preset: FilterAdjustment) {
-        currentAdjustments = preset
-        applyCurrentFilter()
+        if effectState.filter != nil {
+            // Save current state before applying preset
+            saveCurrentStateToHistory()
+            effectState.filter!.adjustments = preset
+            applyEffects()
+        }
+    }
+    
+    private func applyBlurPreset() {
+        // Save current state before applying blur preset
+        saveCurrentStateToHistory()
+        applyEffects()
     }
 
-    private func toggleOriginalFiltered() {
-        if let filteredImage = image, let originalImage = originalImage {
-            // Simple toggle between original and filtered
-            if filteredImage.pngData() == originalImage.pngData() {
-                applyCurrentFilter()
-            } else {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    image = originalImage
+    
+    private func toggleBlurAdjustment() {
+        // Save current state before making changes
+        if !effectState.backgroundBlur.isEnabled && showingBlurAdjustment {
+            saveCurrentStateToHistory()
+        }
+        
+        effectState.backgroundBlur.isEnabled = showingBlurAdjustment
+        if showingBlurAdjustment {
+            showingAdjustments = false
+        }
+        applyEffects()
+    }
+    
+    // MARK: - Smart Tap Gesture Handling
+    
+    private func handleImageTap() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            // Scenario 3: If any adjustment controls are active, close them first
+            if showingAdjustments || showingBlurAdjustment {
+                showingAdjustments = false
+                showingBlurAdjustment = false
+                return
+            }
+            
+            // Scenario 1 & 2: Smart previous state preview
+            if stateHistory.hasPreviousState {
+                togglePreviousStatePreview()
+            }
+        }
+    }
+    
+    private func togglePreviousStatePreview() {
+        if isShowingPreviousState {
+            // Return to current state
+            isShowingPreviousState = false
+        } else {
+            // Show previous state
+            isShowingPreviousState = true
+            
+            // Auto-return to current state after 1.5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    self.isShowingPreviousState = false
                 }
             }
         }
+    }
+    
+    // MARK: - State History Management
+    
+    private func saveCurrentStateToHistory() {
+        // Only save if there's actually a change to track
+        guard processedImage != nil else { return }
+        
+        stateHistory.saveCurrentState(effectState: effectState, processedImage: processedImage)
     }
 
     private func generateFilterPreviews() {
@@ -694,23 +853,23 @@ struct ImagePreviewView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             var finalImage = originalImage
             
-            // First apply blur if it's active (blur intensity > 0)
-            if self.blurIntensity > 0 && self.hasPersonSegmentation && self.showingBlurAdjustment {
+            // Apply background blur first if enabled
+            if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
                 if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
-                    to: originalImage, 
-                    blurIntensity: self.blurIntensity,
+                    to: finalImage, 
+                    blurIntensity: self.effectState.backgroundBlur.intensity,
                     useCache: false // Don't use cache for final export
                 ) {
                     finalImage = blurredImage
                 }
             }
             
-            // Finally apply filter if one is selected
-            if let filter = self.selectedFilter {
+            // Apply filter second if selected
+            if let filterEffect = self.effectState.filter {
                 if let filteredImage = FilterManager.shared.applyFilter(
-                    filter, 
+                    filterEffect.filter, 
                     to: finalImage, 
-                    adjustments: self.currentAdjustments, 
+                    adjustments: filterEffect.adjustments, 
                     useCache: false // Don't use cache for final export
                 ) {
                     finalImage = filteredImage
@@ -731,17 +890,19 @@ struct ImagePreviewView: View {
         }
     }
 
-    // MARK: - Subject Masking Functions
+    // MARK: - Effect State Functions
     
-    private func resetMaskingState() {
-        // Reset all masking-related state
+    private func resetEffectState() {
+        // Reset all effect-related state
+        effectState = ImageEffectState.default
+        processedImage = nil
+        stateHistory = ImageStateHistory.empty
+        isShowingPreviousState = false
         hasPersonSegmentation = false
         
-        // Reset blur state
+        // Reset UI state
         showingBlurAdjustment = false
-        isBlurProcessing = false
-        blurredImage = nil
-        blurIntensity = 5.0
+        showingAdjustments = false
         
         // MEMORY OPTIMIZATION: End editing session to clear all caches
         BackgroundBlurManager.shared.endEditingSession(clearAll: true)
@@ -778,88 +939,13 @@ struct ImagePreviewView: View {
         }
     }
     
-    // MARK: - Background Blur Functions
-    
-    private func applyBackgroundBlur(debounce: Bool = false) {
-        guard let originalImage = originalImage else { return }
-        
-        // Reset filter and masking when applying blur
-        if showingBlurAdjustment && (selectedFilter != nil) {
-            selectedFilter = nil
-        }
-        
-        // Cancel previous work item for debouncing
-        blurWorkItem?.cancel()
-        
-        let workItem = DispatchWorkItem {
-            guard let workItem = self.blurWorkItem, !workItem.isCancelled else { return }
-            
-            DispatchQueue.main.async {
-                self.isBlurProcessing = true
-            }
-            
-            // Use preview size for real-time updates or full resolution for preset buttons
-            let processedImage: UIImage?
-            if debounce {
-                // Use smaller preview for slider updates with enhanced edges for higher blur
-                let useEnhancedEdges = self.blurIntensity > 12.0
-                processedImage = BackgroundBlurManager.shared.generateBlurPreview(
-                    for: originalImage,
-                    blurIntensity: self.blurIntensity,
-                    previewSize: CGSize(width: 600, height: 800),
-                    enhancedEdges: useEnhancedEdges
-                )
-            } else {
-                // Use full resolution for preset buttons
-                processedImage = BackgroundBlurManager.shared.applyBackgroundBlur(
-                    to: originalImage,
-                    blurIntensity: self.blurIntensity,
-                    useCache: true
-                )
-            }
-            
-            DispatchQueue.main.async {
-                guard let workItem = self.blurWorkItem, !workItem.isCancelled else { return }
-                
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    self.blurredImage = processedImage ?? originalImage
-                    self.isBlurProcessing = false
-                }
-            }
-        }
-        
-        if debounce {
-            // Debounce for 0.15 seconds for more responsive feel
-            blurWorkItem = workItem
-            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.15, execute: workItem)
-        } else {
-            // Apply immediately for preset selection
-            blurWorkItem = workItem
-            DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
-        }
-    }
-    
-    private func toggleBlurredView() {
-        guard let originalImage = originalImage else { return }
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-            if showingBlurAdjustment {
-                // Toggle between blurred and original view
-                if blurredImage != nil {
-                    blurredImage = nil // Show original
-                } else {
-                    blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(to: originalImage, blurIntensity: blurIntensity, useCache: true)
-                }
-            }
-        }
-    }
-
     // MARK: - Legacy Image Processing Functions (kept for compatibility)
     
     private func resetToOriginal() {
         guard let originalImage = originalImage else { return }
         
         withAnimation(.easeInOut(duration: 0.3)) {
+            processedImage = originalImage
             image = originalImage
         }
     }
@@ -910,3 +996,4 @@ extension UIImage {
     )
     .preferredColorScheme(.dark)
 }
+
