@@ -22,10 +22,7 @@ struct ImagePreviewView: View {
     @State private var filterPreviews: [String: UIImage] = [:]
 
     // Subject masking state
-    @State private var showingSubjectMasking = false
-    @State private var isMaskingProcessing = false
     @State private var hasPersonSegmentation = false
-    @State private var maskedImage: UIImage?
     
     // Background blur state
     @State private var showingBlurAdjustment = false
@@ -44,8 +41,6 @@ struct ImagePreviewView: View {
     private var displayImage: UIImage? {
         if showingBlurAdjustment && blurredImage != nil {
             return blurredImage
-        } else if showingSubjectMasking && maskedImage != nil {
-            return maskedImage
         } else {
             return image
         }
@@ -56,7 +51,7 @@ struct ImagePreviewView: View {
             VStack {
                 ImageDisplayView(
                     image: displayImage,
-                    isProcessing: isProcessing || isMaskingProcessing || isBlurProcessing,
+                    isProcessing: isProcessing || isBlurProcessing,
                     selectedFilter: selectedFilter
                 )
                 .frame(maxWidth: abs(geo.size.width - 24))
@@ -71,9 +66,6 @@ struct ImagePreviewView: View {
                     } else if showingBlurAdjustment {
                         // Toggle between blurred and original view
                         toggleBlurredView()
-                    } else if showingSubjectMasking {
-                        // Toggle between masked and original view
-                        toggleMaskedView()
                     } else {
                         guard selectedFilter != nil else { return }
                         toggleOriginalFiltered()
@@ -82,15 +74,11 @@ struct ImagePreviewView: View {
                 .overlay(alignment: .top) {
                     TopBarView(
                         showingAdjustments: $showingAdjustments,
-                        showingSubjectMasking: $showingSubjectMasking,
                         showingBlurAdjustment: $showingBlurAdjustment,
                         selectedFilter: selectedFilter,
                         hasPersonSegmentation: hasPersonSegmentation,
                         onSave: overwriteOriginal,
                         onDiscard: onDiscard,
-                        onToggleSubjectMasking: {
-                            applySubjectMasking()
-                        },
                         onToggleBlurAdjustment: {
                             applyBackgroundBlur()
                         }
@@ -194,13 +182,11 @@ struct ImagePreviewView: View {
 
     struct TopBarView: View {
         @Binding var showingAdjustments: Bool
-        @Binding var showingSubjectMasking: Bool
         @Binding var showingBlurAdjustment: Bool
         let selectedFilter: PhotoFilter?
         let hasPersonSegmentation: Bool
         let onSave: () -> Void
         let onDiscard: () -> Void
-        let onToggleSubjectMasking: () -> Void
         let onToggleBlurAdjustment: () -> Void
 
         var body: some View {
@@ -220,36 +206,12 @@ struct ImagePreviewView: View {
 
                 // Background Blur Button
                 Button(action: {
-                    guard !showingAdjustments && !showingSubjectMasking else { return }
                     withAnimation(.spring) {
                         showingBlurAdjustment.toggle()
                         if showingBlurAdjustment {
                             showingAdjustments = false
-                            showingSubjectMasking = false
                         }
                         onToggleBlurAdjustment()
-                    }
-                }) {
-                    Image(systemName: "camera.aperture")
-                        .foregroundColor(hasPersonSegmentation ? .white : .white.opacity(0.35))
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(width: 32, height: 32)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-                }
-                .disabled(!hasPersonSegmentation)
-
-                // Subject Masking Button
-                Button(action: {
-                    guard !showingAdjustments && !showingBlurAdjustment else { return }
-                    withAnimation(.spring) {
-                        showingSubjectMasking.toggle()
-                        if showingSubjectMasking {
-                            showingAdjustments = false
-                            showingBlurAdjustment = false
-                        }
-                        onToggleSubjectMasking()
                     }
                 }) {
                     Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
@@ -264,11 +226,9 @@ struct ImagePreviewView: View {
 
                 // Filter Adjustments Button
                 Button(action: {
-                    guard !showingSubjectMasking && !showingBlurAdjustment else { return }
                     withAnimation(.spring) {
                         showingAdjustments.toggle()
                         if showingAdjustments {
-                            showingSubjectMasking = false
                             showingBlurAdjustment = false
                         }
                     }
@@ -745,16 +705,6 @@ struct ImagePreviewView: View {
                 }
             }
             
-            // Then apply subject masking if it's active
-            if self.showingSubjectMasking {
-                if let maskedImage = BackgroundBlurManager.shared.applySubjectMasking(
-                    to: finalImage,
-                    useCache: false // Don't use cache for final export
-                ) {
-                    finalImage = maskedImage
-                }
-            }
-            
             // Finally apply filter if one is selected
             if let filter = self.selectedFilter {
                 if let filteredImage = FilterManager.shared.applyFilter(
@@ -785,9 +735,6 @@ struct ImagePreviewView: View {
     
     private func resetMaskingState() {
         // Reset all masking-related state
-        showingSubjectMasking = false
-        isMaskingProcessing = false
-        maskedImage = nil
         hasPersonSegmentation = false
         
         // Reset blur state
@@ -798,56 +745,6 @@ struct ImagePreviewView: View {
         
         // MEMORY OPTIMIZATION: End editing session to clear all caches
         BackgroundBlurManager.shared.endEditingSession(clearAll: true)
-    }
-    
-    private func applySubjectMasking() {
-        guard let originalImage = originalImage else { return }
-        
-        // Reset filter when applying masking
-        if showingSubjectMasking && selectedFilter != nil {
-            selectedFilter = nil
-        }
-        
-        isMaskingProcessing = true
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            let processedImage: UIImage?
-            
-            if self.showingSubjectMasking {
-                // Apply subject masking - use cache but with improved hash
-                processedImage = BackgroundBlurManager.shared.applySubjectMasking(
-                    to: originalImage,
-                    useCache: true
-                )
-            } else {
-                // Return to original
-                processedImage = originalImage
-                // Clear the cached result when turning off masking
-                BackgroundBlurManager.shared.clearCacheForImage(originalImage)
-            }
-            
-            DispatchQueue.main.async {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    self.maskedImage = processedImage
-                    self.isMaskingProcessing = false
-                }
-            }
-        }
-    }
-    
-    private func toggleMaskedView() {
-        guard let originalImage = originalImage else { return }
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-            if showingSubjectMasking {
-                // Toggle between masked and original view
-                if maskedImage != nil {
-                    maskedImage = nil // Show original
-                } else {
-                    maskedImage = BackgroundBlurManager.shared.applySubjectMasking(to: originalImage, useCache: true)
-                }
-            }
-        }
     }
     
     private func checkPersonSegmentationSupport() {
@@ -887,10 +784,8 @@ struct ImagePreviewView: View {
         guard let originalImage = originalImage else { return }
         
         // Reset filter and masking when applying blur
-        if showingBlurAdjustment && (selectedFilter != nil || showingSubjectMasking) {
+        if showingBlurAdjustment && (selectedFilter != nil) {
             selectedFilter = nil
-            showingSubjectMasking = false
-            maskedImage = nil
         }
         
         // Cancel previous work item for debouncing
