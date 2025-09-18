@@ -30,12 +30,13 @@ struct BlurAdjustmentControlsView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Slider(value: Binding(get: { Double(blurIntensity) }, set: { blurIntensity = Float($0) }), in: 0...20, step: 0.05)
-                        .accentColor(.white)
-                        .disabled(isProcessing)
-                        .onChange(of: blurIntensity) { _ in
-                            onDebouncedBlurChanged()
-                        }
+                    Slider(value: $blurIntensity, in: 0...20, step: 0.5) {
+                        
+                    } onEditingChanged: { value in
+                        onDebouncedBlurChanged()
+                    }
+                    .accentColor(.white)
+                    .disabled(isProcessing)
                 }
                 
                 // Preset buttons for quick blur levels

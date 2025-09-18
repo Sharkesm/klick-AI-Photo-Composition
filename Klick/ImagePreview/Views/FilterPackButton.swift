@@ -24,7 +24,7 @@ struct FilterPackButton: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(isSelected ? Color.yellow : Color.white.opacity(0.1))
+                        .fill(isSelected ? Color.yellow : Color(red: 43/255, green: 48/255, blue: 54/255))
                 )
         }
     }

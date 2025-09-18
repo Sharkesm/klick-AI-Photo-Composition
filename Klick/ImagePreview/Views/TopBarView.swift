@@ -9,7 +9,7 @@ import SwiftUI
 struct TopBarView: View {
     @Binding var showingAdjustments: Bool
     @Binding var showingBlurAdjustment: Bool
-    let selectedFilter: PhotoFilter?
+    let effectState: ImageEffectState
     let hasPersonSegmentation: Bool
     let onSave: () -> Void
     let onDiscard: () -> Void
@@ -32,13 +32,19 @@ struct TopBarView: View {
 
             // Background Blur Button
             Button(action: {
+                if showingAdjustments {
+                    withAnimation(.easeIn(duration: 0.35)) {
+                        showingAdjustments = false
+                    }
+                }
+                
                 withAnimation(.spring) {
                     showingBlurAdjustment.toggle()
                     onToggleBlurAdjustment()
                 }
             }) {
                 Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                    .foregroundColor(hasPersonSegmentation ? showingBlurAdjustment ? .yellow : .white : .white.opacity(0.35))
+                    .foregroundColor(hasPersonSegmentation ? effectState.backgroundBlur.isEnabled ? .yellow : .white : .white.opacity(0.35))
                     .font(.system(size: 16, weight: .medium))
                     .frame(width: 32, height: 32)
                     .background(.ultraThinMaterial)
@@ -49,7 +55,7 @@ struct TopBarView: View {
 
             // Filter Adjustments Button
             Button(action: {
-                if showingAdjustments {
+                if showingBlurAdjustment {
                     withAnimation(.easeIn(duration: 0.35)) {
                         showingBlurAdjustment = false
                     }
@@ -60,14 +66,14 @@ struct TopBarView: View {
                 }
             }) {
                 Image(systemName: "slider.horizontal.3")
-                    .foregroundColor(selectedFilter != nil ? .white : .white.opacity(0.35))
+                    .foregroundColor(effectState.filter?.filter != nil ? .white : .white.opacity(0.35))
                     .font(.system(size: 16, weight: .medium))
                     .frame(width: 32, height: 32)
                     .background(.ultraThinMaterial)
                     .clipShape(Circle())
                     .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
             }
-            .disabled(selectedFilter == nil)
+            .disabled(effectState.filter?.filter == nil)
             
             // Save button
             Button(action: onSave) {
@@ -83,4 +89,18 @@ struct TopBarView: View {
         }
         .padding(.vertical)
     }
+}
+
+#Preview {
+    VStack {
+        Spacer()
+        TopBarView(
+            showingAdjustments: .constant(false),
+            showingBlurAdjustment: .constant(false),
+            effectState: .init(backgroundBlur: .init(isEnabled: true, intensity: 0.5), filter: nil),
+            hasPersonSegmentation: true
+        ) {} onDiscard: {} onToggleBlurAdjustment: {}
+        Spacer()
+    }
+    .background(Color.black)
 }

@@ -38,7 +38,7 @@ struct ImagePreviewView: View {
     // Computed property for determining which image to display
     private var displayImage: UIImage? {
         if isShowingPreviousState {
-            return stateHistory.previousImage ?? originalImage
+            return originalImage
         } else {
             return processedImage ?? originalImage
         }
@@ -67,12 +67,8 @@ struct ImagePreviewView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(.ultraThinMaterial)
+                                    .background(.ultraThickMaterial)
                                     .clipShape(RoundedRectangle(cornerRadius: 30))
-                                
-                                Text(stateHistory.previousStateInfo)
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(Color.white)
                             }
                             .padding(16)
                         }
@@ -85,7 +81,7 @@ struct ImagePreviewView: View {
                     TopBarView(
                         showingAdjustments: $showingAdjustments,
                         showingBlurAdjustment: $showingBlurAdjustment,
-                        selectedFilter: effectState.filter?.filter,
+                        effectState: effectState,
                         hasPersonSegmentation: hasPersonSegmentation,
                         onSave: overwriteOriginal,
                         onDiscard: onDiscard,
@@ -236,7 +232,8 @@ struct ImagePreviewView: View {
                 effectState.filter = ImageEffectState.FilterEffect(filter: filter, adjustments: .balanced)
                 saveCurrentStateToHistory()
             } else {
-                effectState.filter = nil
+                resetToOriginal()
+                return
             }
         }
         
@@ -267,6 +264,8 @@ struct ImagePreviewView: View {
                 ) {
                     resultImage = blurredImage
                 }
+            } else {
+                resultImage = originalImage
             }
             
             // Apply filter second if selected
@@ -319,10 +318,6 @@ struct ImagePreviewView: View {
     }
 
     private func toggleBlurAdjustment() {
-        if showingBlurAdjustment {
-            showingAdjustments = false
-        }
-        
         // Always save state when toggling blur (structural change)
         // This creates a new baseline for future comparisons
         if showingBlurAdjustment {
@@ -335,9 +330,6 @@ struct ImagePreviewView: View {
             effectState.backgroundBlur.isEnabled = false
         }
         
-        if showingBlurAdjustment {
-            showingAdjustments = false
-        }
         applyEffects()
     }
     
@@ -384,7 +376,7 @@ struct ImagePreviewView: View {
             }
             
             // Auto-return to current state after 1.5 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                     self.isShowingPreviousState = false
                 }
@@ -523,9 +515,9 @@ struct ImagePreviewView: View {
     
     private func resetEffectState() {
         // Reset all effect-related state
-        effectState = ImageEffectState.default
+        effectState = .default
         processedImage = nil
-        stateHistory = ImageStateHistory.empty
+        stateHistory = .empty
         isShowingPreviousState = false
         hasPersonSegmentation = false
         
@@ -572,6 +564,9 @@ struct ImagePreviewView: View {
     
     private func resetToOriginal() {
         guard let originalImage = originalImage else { return }
+        
+        effectState = .default
+        stateHistory = .empty
         
         withAnimation(.easeInOut(duration: 0.3)) {
             processedImage = originalImage
