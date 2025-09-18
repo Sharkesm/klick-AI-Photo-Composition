@@ -449,13 +449,13 @@ struct ImagePreviewView: View {
     }
 
     private func generateFilterPreviews() {
-        guard let originalImage = originalImage else { return }
+        guard let imageToUse = originalImage ?? image else { return }
 
         DispatchQueue.global(qos: .userInitiated).async {
             var newPreviews: [String: UIImage] = [:]
 
             for filter in FilterManager.shared.filters(for: selectedPack) {
-                if let preview = FilterManager.shared.generateFilterPreview(filter, for: originalImage) {
+                if let preview = FilterManager.shared.generateFilterPreview(filter, for: imageToUse) {
                     newPreviews[filter.id] = preview
                 }
             }

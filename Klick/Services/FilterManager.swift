@@ -444,7 +444,7 @@ class FilterManager {
         return finalResult
     }
 
-    func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 60, height: 60)) -> UIImage? {
+    func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 70, height: 125)) -> UIImage? {
         // Create a smaller version for preview
         let previewImage = image.resized(to: size) ?? image
         return applyFilter(filter, to: previewImage, adjustments: .balanced, useCache: true)
