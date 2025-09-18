@@ -4,64 +4,6 @@ import Social
 import CoreImage
 import Vision
 
-// MARK: - Image Effect State
-struct ImageEffectState {
-    var backgroundBlur: BackgroundBlurEffect
-    var filter: FilterEffect?
-    
-    struct BackgroundBlurEffect {
-        var isEnabled: Bool = false
-        var intensity: Float = 5.0 // 0-20 range
-    }
-    
-    struct FilterEffect {
-        var filter: PhotoFilter
-        var adjustments: FilterAdjustment = .balanced
-    }
-    
-    static let `default` = ImageEffectState(
-        backgroundBlur: BackgroundBlurEffect(),
-        filter: nil
-    )
-}
-
-// MARK: - Image State History
-struct ImageStateHistory {
-    var currentState: ImageEffectState
-    var previousState: ImageEffectState?
-    var currentImage: UIImage?
-    var previousImage: UIImage?
-    
-    var previousStateInfo: String {
-        guard let filter = previousState?.filter else {
-            return "Background Blur"
-        }
-        
-        return filter.filter.displayName.uppercased()
-    }
-    
-    mutating func saveCurrentState(effectState: ImageEffectState, processedImage: UIImage?) {
-        // Save current as previous
-        previousState = currentState
-        previousImage = currentImage
-        
-        // Update current
-        currentState = effectState
-        currentImage = processedImage
-    }
-    
-    var hasPreviousState: Bool {
-        return previousState != nil && previousImage != nil
-    }
-    
-    static let empty = ImageStateHistory(
-        currentState: ImageEffectState.default,
-        previousState: nil,
-        currentImage: nil,
-        previousImage: nil
-    )
-}
-
 struct ImagePreviewView: View {
     @Binding var image: UIImage?
     let originalImage: UIImage?
@@ -166,6 +108,11 @@ struct ImagePreviewView: View {
                             FilterPackSelectorView(
                                 selectedPack: $selectedPack,
                                 onPackSelected: { pack in
+                                    // Save current state before changing pack (which clears filter)
+                                    // Only save if we currently have a filter applied
+                                    if effectState.filter != nil {
+                                        saveCurrentStateToHistory()
+                                    }
                                     selectedPack = pack
                                     effectState.filter = nil
                                     applyEffects()
@@ -229,20 +176,44 @@ struct ImagePreviewView: View {
         }
         .background(Color.black)
         .onAppear {
-            // MEMORY OPTIMIZATION: Start editing session for this image
-            if let originalImage = originalImage {
-                BackgroundBlurManager.shared.startEditingSession(for: originalImage)
-            }
+            // Reset the state on appear
+            resetEffectState()
             
-            generateFilterPreviews()
-            checkPersonSegmentationSupport()
-            resetEffectState()
+            // Try to initialize with either originalImage or the bound image
+            let imageToUse = originalImage ?? image
+            if let imageToUse = imageToUse {
+                BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
+                stateHistory.initializeWithOriginal(originalImage: imageToUse)
+                generateFilterPreviews()
+                checkPersonSegmentationSupport()
+            }
         }
-        .onChange(of: originalImage) { _ in
-            // Clear effect state and cache when image changes
-            resetEffectState()
-            generateFilterPreviews()
-            checkPersonSegmentationSupport()
+        .onChange(of: originalImage) { newValue in
+            if let originalImage = newValue ?? originalImage {
+                // MEMORY OPTIMIZATION: Start editing session for this image
+                BackgroundBlurManager.shared.startEditingSession(for: originalImage)
+                
+                // Clear effect state and cache when image changes
+                resetEffectState()
+                
+                // Initialize state history AFTER reset
+                stateHistory.initializeWithOriginal(originalImage: originalImage)
+                
+                generateFilterPreviews()
+                checkPersonSegmentationSupport()
+            } else {
+                // Just reset state if image becomes nil
+                resetEffectState()
+            }
+        }
+        .onChange(of: image) { newValue in
+            // If we don't have state history initialized yet and we get an image, use it
+            if !stateHistory.isInitialized, let imageToUse = newValue ?? originalImage {
+                BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
+                stateHistory.initializeWithOriginal(originalImage: imageToUse)
+                generateFilterPreviews()
+                checkPersonSegmentationSupport()
+            }
         }
         .onDisappear {
             // MEMORY OPTIMIZATION: End editing session when leaving the view
@@ -255,437 +226,15 @@ struct ImagePreviewView: View {
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
     }
 
-    // MARK: - Sub-Views
-
-    struct TopBarView: View {
-        @Binding var showingAdjustments: Bool
-        @Binding var showingBlurAdjustment: Bool
-        let selectedFilter: PhotoFilter?
-        let hasPersonSegmentation: Bool
-        let onSave: () -> Void
-        let onDiscard: () -> Void
-        let onToggleBlurAdjustment: () -> Void
-
-        var body: some View {
-            HStack {
-                // Dismiss button
-                Button(action: onDiscard) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(width: 32, height: 32)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-                }
-
-                Spacer()
-
-                // Background Blur Button
-                Button(action: {
-                    withAnimation(.spring) {
-                        showingBlurAdjustment.toggle()
-                        if showingBlurAdjustment {
-                            showingAdjustments = false
-                        }
-                        onToggleBlurAdjustment()
-                    }
-                }) {
-                    Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                        .foregroundColor(hasPersonSegmentation ? showingBlurAdjustment ? .yellow : .white : .white.opacity(0.35))
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(width: 32, height: 32)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-                }
-                .disabled(!hasPersonSegmentation)
-
-                // Filter Adjustments Button
-                Button(action: {
-                    if showingAdjustments {
-                        withAnimation(.easeIn(duration: 0.35)) {
-                            showingBlurAdjustment = false
-                        }
-                    }
-                    
-                    withAnimation(.spring) {
-                        showingAdjustments.toggle()
-                    }
-                }) {
-                    Image(systemName: "slider.horizontal.3")
-                        .foregroundColor(selectedFilter != nil ? .white : .white.opacity(0.35))
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(width: 32, height: 32)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-                }
-                .disabled(selectedFilter == nil)
-                
-                // Save button
-                Button(action: onSave) {
-                    Text("Save")
-                        .foregroundColor(.black)
-                        .font(.system(size: 14, weight: .semibold))
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 16)
-                        .background(.yellow)
-                        .clipShape(RoundedRectangle(cornerRadius: 22))
-                }
-
-            }
-            .padding(.vertical)
-        }
-    }
-
-    struct ImageDisplayView: View {
-        let image: UIImage?
-        let isProcessing: Bool
-        let selectedFilter: PhotoFilter?
-        
-        var body: some View {
-            if let previewImage = image {
-                Image(uiImage: previewImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay(
-                        Group {
-                            // Processing indicator
-                            if isProcessing {
-                                ZStack {
-                                    Color.black.opacity(0.3)
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                }
-                            }
-                        }
-                    )
-                    .animation(.easeInOut(duration: 0.3), value: isProcessing)
-            } else {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay(
-                        Text("No Image")
-                            .foregroundColor(.gray)
-                    )
-            }
-        }
-    }
-
-    struct FilterPackSelectorView: View {
-        @Binding var selectedPack: FilterPack
-        let onPackSelected: (FilterPack) -> Void
-
-        var body: some View {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(FilterPack.allCases, id: \.self) { pack in
-                        FilterPackButton(
-                            pack: pack,
-                            isSelected: selectedPack == pack,
-                            action: { onPackSelected(pack) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    struct FilterSelectionStripView: View {
-        let selectedPack: FilterPack
-        let selectedFilter: PhotoFilter?
-        let filterPreviews: [String: UIImage]
-        let originalImage: UIImage?
-        let onFilterSelected: (PhotoFilter?) -> Void
-
-        var body: some View {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 12) {
-                    FilterButton(
-                        filter: nil,
-                        previewImage: originalImage,
-                        isSelected: selectedFilter == nil,
-                        action: { onFilterSelected(nil) }
-                    )
-
-                    ForEach(FilterManager.shared.filters(for: selectedPack)) { filter in
-                        FilterButton(
-                            filter: filter,
-                            previewImage: filterPreviews[filter.id] ?? originalImage,
-                            isSelected: selectedFilter?.id == filter.id,
-                            action: { onFilterSelected(filter) }
-                        )
-                    }
-                }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 10)
-            }
-        }
-    }
-
-    struct PresetButtonsView: View {
-        let isProcessing: Bool
-        let selectedFilter: PhotoFilter?
-        let filterAdjustment: FilterAdjustment
-        let onApplyPreset: (FilterAdjustment) -> Void
-        
-        var filterAdjustments: [FilterAdjustment] = [.subtle, .balanced, .strong]
-        
-        var body: some View {
-            HStack(spacing: 10) {
-                ForEach(filterAdjustments, id: \.id) { element in
-                    Button(action: {
-                        onApplyPreset(element)
-                    }) {
-                        Text(element.title)
-                            .font(.footnote)
-                            .foregroundColor((selectedFilter == nil) ? Color.white.opacity(0.8) : element.title == filterAdjustment.title ? .black : .white.opacity(0.8))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                (selectedFilter == nil) ? Color.white.opacity(0.1) : Color.white.opacity((element.title == filterAdjustment.title) ? 1 : 0.1)
-                            )
-                            .cornerRadius(12)
-                    }
-                    .disabled(isProcessing || selectedFilter == nil)
-                }
-            }
-        }
-    }
-
-    // MARK: - Filter Helper Views
-
-    struct FilterPackButton: View {
-        let pack: FilterPack
-        let isSelected: Bool
-        let action: () -> Void
-
-        var body: some View {
-            Button(action: {
-                withAnimation(.spring) {
-                    action()
-                }
-            }) {
-                Text(pack.rawValue)
-                    .font(.subheadline)
-                    .foregroundColor(isSelected ? .black : .white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(isSelected ? Color.yellow : Color.white.opacity(0.1))
-                    )
-            }
-        }
-    }
-
-    struct FilterButton: View {
-        let filter: PhotoFilter?
-        let previewImage: UIImage?
-        let isSelected: Bool
-        let action: () -> Void
-
-        var body: some View {
-            Button(action: action) {
-                ZStack(alignment: .bottom) {
-                    if let preview = previewImage {
-                        Image(uiImage: preview)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 70, height: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    } else {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(width: 70, height: 80)
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .foregroundColor(.gray)
-                            )
-                    }
-                    
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color.clear, location: 0),
-                            .init(color: Color.black.opacity(0.3), location: 0.3),
-                            .init(color: Color.black.opacity(0.7), location: 0.6),
-                            .init(color: Color.black, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 30)
-                    .overlay(alignment: .bottom) {
-                        Text(filter?.name ?? "Normal")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .scaleEffect(0.92)
-                            .foregroundColor(Color.white.opacity(0.85))
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity)
-                            .multilineTextAlignment(.center)
-                            .padding(.bottom, 5)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .overlay {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.yellow, lineWidth: 3)
-                            .frame(width: 70, height: 80)
-                    }
-                }
-            }
-        }
-    }
-
-    struct BlurAdjustmentControlsView: View {
-        @Binding var blurIntensity: Float
-        let isProcessing: Bool
-        let onBlurChanged: () -> Void
-        let onDebouncedBlurChanged: () -> Void
-
-        var body: some View {
-            VStack(spacing: 16) {
-                Text("Background Blur")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                VStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Blur Intensity")
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text(String(format: "%.0f", blurIntensity))
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-
-                        Slider(value: Binding(get: { Double(blurIntensity) }, set: { blurIntensity = Float($0) }), in: 0...20, step: 0.05)
-                            .accentColor(.white)
-                            .disabled(isProcessing)
-                            .onChange(of: blurIntensity) { _ in
-                                onDebouncedBlurChanged()
-                            }
-                    }
-                    
-                    // Preset buttons for quick blur levels
-                    HStack(spacing: 16) {
-                        ForEach([("None", Float(0)), ("Light", Float(5)), ("Medium", Float(10)), ("Strong", Float(18))], id: \.0) { preset in
-                            Button(action: {
-                                blurIntensity = preset.1
-                                onBlurChanged()
-                            }) {
-                                Text(preset.0)
-                                    .font(.footnote)
-                                    .foregroundColor(abs(blurIntensity - preset.1) < 0.5 ? .black : .white.opacity(0.8))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        Color.white.opacity(abs(blurIntensity - preset.1) < 0.5 ? 1 : 0.1)
-                                    )
-                                    .cornerRadius(12)
-                            }
-                            .disabled(isProcessing)
-                        }
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-            .padding(.vertical, 20)
-        }
-    }
-
-    struct AdjustmentControlsView: View {
-        @Binding var adjustments: FilterAdjustment
-        let onAdjustmentChanged: () -> Void
-        let onDebouncedAdjustmentChanged: () -> Void
-
-        var body: some View {
-            VStack(spacing: 16) {
-                Text("Adjustments")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                VStack(spacing: 12) {
-                    // Intensity
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Intensity")
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text(String(format: "%.0f%%", adjustments.intensity * 100))
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-
-                        Slider(value: $adjustments.intensity, in: 0...1, step: 0.01)
-                            .accentColor(.white)
-                            .onChange(of: adjustments.intensity) { _ in
-                                onDebouncedAdjustmentChanged()
-                            }
-                    }
-
-                    // Brightness
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Brightness")
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text(String(format: "%+.0f", adjustments.brightness * 100))
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-
-                        Slider(value: $adjustments.brightness, in: -0.2...0.2, step: 0.01)
-                            .accentColor(.white)
-                            .onChange(of: adjustments.brightness) { _ in
-                                onDebouncedAdjustmentChanged()
-                            }
-                    }
-
-                    // Warmth
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Warmth")
-                                .font(.subheadline)
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text(String(format: "%+.0f", adjustments.warmth * 100))
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-
-                        Slider(value: $adjustments.warmth, in: -0.2...0.2, step: 0.01)
-                            .accentColor(.white)
-                            .onChange(of: adjustments.warmth) { _ in
-                                onDebouncedAdjustmentChanged()
-                            }
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-            .padding(.vertical, 20)
-        }
-    }
-
     // MARK: - Effect Functions
 
-    private func selectFilter(_ filter: PhotoFilter?) {
-        // Save current state before making changes
-        saveCurrentStateToHistory()
-        
+    private func selectFilter(_ filter: PhotoFilter?) {        
         withAnimation(.spring) {
             if let filter = filter {
+                // Always save state when applying any filter (styling choice)
+                // This ensures we can compare current filter vs baseline (original or blur)
                 effectState.filter = ImageEffectState.FilterEffect(filter: filter, adjustments: .balanced)
+                saveCurrentStateToHistory()
             } else {
                 effectState.filter = nil
             }
@@ -756,7 +305,7 @@ struct ImagePreviewView: View {
 
     private func applyPreset(_ preset: FilterAdjustment) {
         if effectState.filter != nil {
-            // Save current state before applying preset
+            // Always save state before applying filter preset (styling choice refinement)
             saveCurrentStateToHistory()
             effectState.filter!.adjustments = preset
             applyEffects()
@@ -764,19 +313,28 @@ struct ImagePreviewView: View {
     }
     
     private func applyBlurPreset() {
-        // Save current state before applying blur preset
+        // Always save state before applying blur preset (structural change)
         saveCurrentStateToHistory()
         applyEffects()
     }
 
-    
     private func toggleBlurAdjustment() {
-        // Save current state before making changes
-        if !effectState.backgroundBlur.isEnabled && showingBlurAdjustment {
-            saveCurrentStateToHistory()
+        if showingBlurAdjustment {
+            showingAdjustments = false
         }
         
-        effectState.backgroundBlur.isEnabled = showingBlurAdjustment
+        // Always save state when toggling blur (structural change)
+        // This creates a new baseline for future comparisons
+        if showingBlurAdjustment {
+            // We're about to enable blur - always save current state
+            saveCurrentStateToHistory()
+            effectState.backgroundBlur.isEnabled = true
+        } else {
+            // We're disabling blur - also save state
+            saveCurrentStateToHistory()
+            effectState.backgroundBlur.isEnabled = false
+        }
+        
         if showingBlurAdjustment {
             showingAdjustments = false
         }
@@ -795,7 +353,9 @@ struct ImagePreviewView: View {
             }
             
             // Scenario 1 & 2: Smart previous state preview
-            if stateHistory.hasPreviousState {
+            // Allow preview if there are actual effects applied (even for first effect)
+            let currentStateDescription = getCurrentStateDescription(effectState)
+            if currentStateDescription != "ORIGINAL" {
                 togglePreviousStatePreview()
             }
         }
@@ -809,6 +369,20 @@ struct ImagePreviewView: View {
             // Show previous state
             isShowingPreviousState = true
             
+            // Log the history state access
+            if stateHistory.hasPreviousState {
+                let currentStateDescription = getCurrentStateDescription(effectState)
+                let previousStateDescription = stateHistory.previousState != nil ? 
+                    getCurrentStateDescription(stateHistory.previousState!) : "ORIGINAL"
+                
+                print("------ Image History State --------")
+                print("")
+                print("Current State: \(currentStateDescription)")
+                print("Previous State: \(previousStateDescription)")
+                print("")
+                print("-----------------------------------")
+            }
+            
             // Auto-return to current state after 1.5 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -821,10 +395,65 @@ struct ImagePreviewView: View {
     // MARK: - State History Management
     
     private func saveCurrentStateToHistory() {
-        // Only save if there's actually a change to track
-        guard processedImage != nil else { return }
+        guard let originalImage = originalImage else { return }
         
-        stateHistory.saveCurrentState(effectState: effectState, processedImage: processedImage)
+        // Determine the correct baseline based on the type of change
+        let previousStateDescription = determineCorrectBaseline()
+        
+        // Use the current displayed image (processed or original)
+        let currentDisplayedImage = processedImage ?? originalImage
+        
+        // Save the new state to history
+        stateHistory.saveCurrentState(effectState: effectState, processedImage: currentDisplayedImage)
+        
+        // Only log meaningful transitions (when there's an actual effect applied)
+        let currentStateDescription = getCurrentStateDescription(effectState)
+        if currentStateDescription != "ORIGINAL" {
+            print("------ Image Change State --------")
+            print("")
+            print("Current State: \(currentStateDescription)")
+            print("Previous State: \(previousStateDescription)")
+            print("")
+            print("-----------------------------------")
+        }
+    }
+    
+    private func determineCorrectBaseline() -> String {
+        // Check if we have blur active in current state
+        let currentHasBlur = effectState.backgroundBlur.isEnabled && effectState.backgroundBlur.intensity > 0
+        
+        // Check if we had blur in previous state
+        let previousHadBlur = stateHistory.previousState?.backgroundBlur.isEnabled == true && 
+                             (stateHistory.previousState?.backgroundBlur.intensity ?? 0) > 0
+        
+        // Styling Choice Rule: For filter-only changes, always compare to original
+        if !currentHasBlur && !previousHadBlur {
+            // Pure filter changes always compare to original
+            return "ORIGINAL"
+        }
+        
+        // Structural Change Rule: When blur is involved, use the immediate previous state
+        if let previousState = stateHistory.previousState {
+            return getCurrentStateDescription(previousState)
+        }
+        
+        // Fallback to original if no previous state
+        return "ORIGINAL"
+    }
+    
+    private func getCurrentStateDescription(_ state: ImageEffectState) -> String {
+        let hasBlur = state.backgroundBlur.isEnabled && state.backgroundBlur.intensity > 0
+        let hasFilter = state.filter != nil
+        
+        if hasBlur && hasFilter {
+            return "\(state.filter!.filter.name.uppercased()) + BLUR (\(String(format: "%.0f", state.backgroundBlur.intensity)))"
+        } else if hasFilter {
+            return state.filter!.filter.name.uppercased()
+        } else if hasBlur {
+            return "BACKGROUND BLUR (\(String(format: "%.0f", state.backgroundBlur.intensity)))"
+        } else {
+            return "ORIGINAL"
+        }
     }
 
     private func generateFilterPreviews() {
