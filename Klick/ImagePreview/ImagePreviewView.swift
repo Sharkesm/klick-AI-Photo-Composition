@@ -227,10 +227,6 @@ struct ImagePreviewView: View {
     private func selectFilter(_ filter: PhotoFilter?) {
         withAnimation(.spring) {
             if let filter = filter {
-                if isShowingPreviousState {
-                   isShowingPreviousState = false
-                }
-                
                 // Always save state when applying any filter (styling choice)
                 // This ensures we can compare current filter vs baseline (original or blur)
                 effectState.filter = ImageEffectState.FilterEffect(filter: filter, adjustments: .balanced)
@@ -340,6 +336,11 @@ struct ImagePreviewView: View {
     // MARK: - Smart Tap Gesture Handling
     
     private func handleImageTap() {
+        // Hide previous state label incase it's ON during an operation
+        if isShowingPreviousState {
+            isShowingPreviousState = false
+        }
+        
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             // Scenario 3: If any adjustment controls are active, close them first
             if showingAdjustments || showingBlurAdjustment {
