@@ -224,9 +224,13 @@ struct ImagePreviewView: View {
 
     // MARK: - Effect Functions
 
-    private func selectFilter(_ filter: PhotoFilter?) {        
+    private func selectFilter(_ filter: PhotoFilter?) {
         withAnimation(.spring) {
             if let filter = filter {
+                if isShowingPreviousState {
+                   isShowingPreviousState = false
+                }
+                
                 // Always save state when applying any filter (styling choice)
                 // This ensures we can compare current filter vs baseline (original or blur)
                 effectState.filter = ImageEffectState.FilterEffect(filter: filter, adjustments: .balanced)
