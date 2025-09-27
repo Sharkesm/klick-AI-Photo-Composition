@@ -349,7 +349,6 @@ struct ImagePreviewView: View {
                 return
             }
             
-            // Scenario 1 & 2: Smart previous state preview
             // Allow preview if there are actual effects applied (even for first effect)
             let currentStateDescription = getCurrentStateDescription(effectState)
             if currentStateDescription != "ORIGINAL" {

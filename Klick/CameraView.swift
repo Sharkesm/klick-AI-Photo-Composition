@@ -102,7 +102,8 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         
         // Create camera session
         let session = AVCaptureSession()
-        session.sessionPreset = cameraQuality.sessionPreset
+        session.sessionPreset = .photo
+        
         print("📷 Camera quality set to: \(cameraQuality.displayName) (\(cameraQuality.sessionPreset.rawValue))")
         
         // Add camera input - select camera based on zoom level
@@ -217,12 +218,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             }
         }
         
-        // Update camera quality if it has changed
-        if let session = context.coordinator.session,
-           session.sessionPreset != cameraQuality.sessionPreset {
-            updateCameraQuality(session: session, newQuality: cameraQuality, forContext: context)
-        }
-        
         // Update camera device if zoom level has changed
         if let session = context.coordinator.session,
            context.coordinator.currentZoomLevel != zoomLevel {
@@ -230,6 +225,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         }
     }
     
+    @available(*, deprecated, message: "No longer supporting updating camera quality")
     private func updateCameraQuality(session: AVCaptureSession, newQuality: CameraQuality, forContext context: Context) {
         DispatchQueue.global(qos: .userInitiated).async {
             // Check if the new preset is supported
