@@ -24,7 +24,7 @@ struct ContentView: View {
     @State private var areOverlaysHidden = false
     
     // Camera quality state
-    @State private var selectedCameraQuality: CameraQuality = .hd720p
+    @State private var selectedCameraQuality: CameraQuality = .standard
     
     // Flash state
     @State private var selectedFlashMode: FlashMode = .auto
@@ -48,6 +48,7 @@ struct ContentView: View {
     // Image Preview
     @State private var showImagePreview = false
     @State private var capturedPreviewImage: UIImage?
+    @State private var capturedRawImage: UIImage? // New: RAW image for Pro mode
     @State private var processedImage: UIImage?
     @State private var isProcessingImage = false
     
@@ -84,14 +85,15 @@ struct ContentView: View {
                                         cameraLoading = false
                                     }
                                 },
-                                onPhotoCaptured: { image, imageData in
+                                onPhotoCaptured: { processedImage, rawImage, imageData in
                                     // Show preview instead of immediately saving
-                                    capturedPreviewImage = image
-                                    processedImage = image // Initialize with original image
+                                    capturedPreviewImage = processedImage
+                                    capturedRawImage = rawImage // Store RAW image if available
+                                    self.processedImage = processedImage // Initialize with processed image
                                     withAnimation(.easeInOut(duration: 0.3)) {
                                         showImagePreview = true
                                     }
-                                    print("📸 Photo captured, showing preview")
+                                    print("📸 Photo captured - Processed: ✓, RAW: \(rawImage != nil ? "✓" : "✗"), showing preview")
                                 }
                             )
                             .overlay(alignment: .top, content: {
@@ -275,6 +277,8 @@ struct ContentView: View {
             ImagePreviewView(
                 image: $processedImage,
                 originalImage: capturedPreviewImage,
+                rawImage: capturedRawImage,
+                cameraQuality: selectedCameraQuality,
                 isProcessing: $isProcessingImage,
                 onSave: {
                     // Save the processed image
@@ -316,6 +320,7 @@ struct ContentView: View {
                         showImagePreview = false
                     }
                     capturedPreviewImage = nil
+                    capturedRawImage = nil
                     processedImage = nil
                 }
             )

@@ -7,6 +7,8 @@ import Vision
 struct ImagePreviewView: View {
     @Binding var image: UIImage?
     let originalImage: UIImage?
+    let rawImage: UIImage? // New: RAW image for Pro mode
+    let cameraQuality: CameraQuality // New: Camera quality used for capture
     @Binding var isProcessing: Bool
 
     let onSave: () -> Void
@@ -14,6 +16,9 @@ struct ImagePreviewView: View {
 
     @State private var showingShareSheet = false
 
+    // ProRaw toggle state
+    @State private var selectedProcessingMode: ImageProcessingMode = .standard
+    
     // Unified effect state
     @State private var effectState = ImageEffectState.default
     @State private var processedImage: UIImage?
@@ -35,18 +40,40 @@ struct ImagePreviewView: View {
     // Save options
     @State private var showingSaveOptions = false
     
+    // Computed property for determining the base image to use for processing
+    private var baseImage: UIImage? {
+        switch selectedProcessingMode {
+        case .standard:
+            return originalImage
+        case .proRaw:
+            return rawImage ?? originalImage // Fallback to standard if no RAW available
+        }
+    }
+    
     // Computed property for determining which image to display
     private var displayImage: UIImage? {
         if isShowingPreviousState {
-            return originalImage
+            return baseImage
         } else {
-            return processedImage ?? originalImage
+            return processedImage ?? baseImage
         }
     }
     
     var body: some View {
         GeometryReader { geo in
-            VStack {
+            VStack(spacing: 0) {
+                // ProRaw Toggle at the top
+                VStack(spacing: 16) {
+                    ProRawToggleView(
+                        selectedMode: $selectedProcessingMode,
+                        isProModeCapture: cameraQuality == .pro && rawImage != nil,
+                        onModeChanged: { newMode in
+                            handleProcessingModeChange(newMode)
+                        }
+                    )
+                    .padding(.top, 8)
+                }
+                
                 ImageDisplayView(
                     image: displayImage,
                     isProcessing: isProcessing,
@@ -175,8 +202,8 @@ struct ImagePreviewView: View {
             // Reset the state on appear
             resetEffectState()
             
-            // Try to initialize with either originalImage or the bound image
-            let imageToUse = originalImage ?? image
+            // Try to initialize with either baseImage or the bound image
+            let imageToUse = baseImage ?? image
             if let imageToUse = imageToUse {
                 BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 stateHistory.initializeWithOriginal(originalImage: imageToUse)
@@ -185,15 +212,15 @@ struct ImagePreviewView: View {
             }
         }
         .onChange(of: originalImage) { newValue in
-            if let originalImage = newValue ?? originalImage {
+            if let imageToUse = newValue ?? originalImage {
                 // MEMORY OPTIMIZATION: Start editing session for this image
-                BackgroundBlurManager.shared.startEditingSession(for: originalImage)
+                BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 
                 // Clear effect state and cache when image changes
                 resetEffectState()
                 
                 // Initialize state history AFTER reset
-                stateHistory.initializeWithOriginal(originalImage: originalImage)
+                stateHistory.initializeWithOriginal(originalImage: imageToUse)
                 
                 generateFilterPreviews()
                 checkPersonSegmentationSupport()
@@ -222,6 +249,20 @@ struct ImagePreviewView: View {
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
     }
 
+    // MARK: - ProRaw Mode Handling
+    
+    private func handleProcessingModeChange(_ newMode: ImageProcessingMode) {
+        // Save current state before switching modes
+        saveCurrentStateToHistory()
+        
+        // Reset effects when switching modes to avoid confusion
+        effectState = .default
+        processedImage = nil
+        
+        // Apply effects with the new base image
+        applyEffects()
+    }
+
     // MARK: - Effect Functions
 
     private func selectFilter(_ filter: PhotoFilter?) {
@@ -241,7 +282,7 @@ struct ImagePreviewView: View {
     }
 
     private func applyEffects(debounce: Bool = false) {
-        guard let originalImage = originalImage else { return }
+        guard let currentBaseImage = baseImage else { return }
 
         // Cancel previous work item for debouncing
         effectWorkItem?.cancel()
@@ -253,7 +294,7 @@ struct ImagePreviewView: View {
                 self.isProcessing = true
             }
 
-            var resultImage = originalImage
+            var resultImage = currentBaseImage
             
             // Apply background blur first if enabled
             if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
@@ -265,7 +306,7 @@ struct ImagePreviewView: View {
                     resultImage = blurredImage
                 }
             } else {
-                resultImage = originalImage
+                resultImage = currentBaseImage
             }
             
             // Apply filter second if selected
@@ -391,13 +432,13 @@ struct ImagePreviewView: View {
     // MARK: - State History Management
     
     private func saveCurrentStateToHistory() {
-        guard let originalImage = originalImage else { return }
+        guard let currentBaseImage = baseImage else { return }
         
         // Determine the correct baseline based on the type of change
         let previousStateDescription = determineCorrectBaseline()
         
-        // Use the current displayed image (processed or original)
-        let currentDisplayedImage = processedImage ?? originalImage
+        // Use the current displayed image (processed or base)
+        let currentDisplayedImage = processedImage ?? currentBaseImage
         
         // Save the new state to history
         stateHistory.saveCurrentState(effectState: effectState, processedImage: currentDisplayedImage)
@@ -453,7 +494,7 @@ struct ImagePreviewView: View {
     }
 
     private func generateFilterPreviews() {
-        guard let imageToUse = originalImage ?? image else { return }
+        guard let imageToUse = baseImage ?? image else { return }
 
         DispatchQueue.global(qos: .userInitiated).async {
             var newPreviews: [String: UIImage] = [:]
@@ -471,12 +512,12 @@ struct ImagePreviewView: View {
     }
 
     private func overwriteOriginal() {
-        guard let originalImage = originalImage else { return }
+        guard let currentBaseImage = baseImage else { return }
 
         isProcessing = true
 
         DispatchQueue.global(qos: .userInitiated).async {
-            var finalImage = originalImage
+            var finalImage = currentBaseImage
             
             // Apply background blur first if enabled
             if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
@@ -536,12 +577,12 @@ struct ImagePreviewView: View {
     private func checkPersonSegmentationSupport() {
         hasPersonSegmentation = BackgroundBlurManager.shared.isPersonSegmentationSupported()
         
-        // If supported and we have an original image, try to detect a person
-        if hasPersonSegmentation, let originalImage = originalImage {
+        // If supported and we have a base image, try to detect a person
+        if hasPersonSegmentation, let currentBaseImage = baseImage {
             DispatchQueue.global(qos: .userInitiated).async {
                 // Create a small preview for faster person detection
                 let testSize = CGSize(width: 200, height: 300)
-                guard let smallImage = originalImage.resized(to: testSize) else { return }
+                guard let smallImage = currentBaseImage.resized(to: testSize) else { return }
                 
                 // Try to apply masking to test if person detection works
                 let testResult = BackgroundBlurManager.shared.applySubjectMasking(
@@ -567,14 +608,14 @@ struct ImagePreviewView: View {
     // MARK: - Legacy Image Processing Functions (kept for compatibility)
     
     private func resetToOriginal() {
-        guard let originalImage = originalImage else { return }
+        guard let currentBaseImage = baseImage else { return }
         
         effectState = .default
         stateHistory = .empty
         
         withAnimation(.easeInOut(duration: 0.3)) {
-            processedImage = originalImage
-            image = originalImage
+            processedImage = currentBaseImage
+            image = currentBaseImage
         }
     }
 }
@@ -618,6 +659,8 @@ extension UIImage {
     ImagePreviewView(
         image: .constant(UIImage(resource: .rectangle10)),
         originalImage: UIImage(resource: .rectangle10),
+        rawImage: nil, // No RAW for preview
+        cameraQuality: .standard,
         isProcessing: .constant(false),
         onSave: {},
         onDiscard: {}

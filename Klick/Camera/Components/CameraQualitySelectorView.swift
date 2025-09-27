@@ -3,29 +3,15 @@ import AVFoundation
 
 // MARK: - Camera Quality Enum
 enum CameraQuality: String, CaseIterable {
-    case hd720p = "hd720p"
-    case hd1080p = "hd1080p"
-    case uhd4K = "uhd4K"
-    
-    var sessionPreset: AVCaptureSession.Preset {
-        switch self {
-        case .hd720p:
-            return .hd1280x720
-        case .hd1080p:
-            return .hd1920x1080
-        case .uhd4K:
-            return .hd4K3840x2160
-        }
-    }
+    case standard
+    case pro
     
     var displayName: String {
         switch self {
-        case .hd720p:
-            return "HD"
-        case .hd1080p:
-            return "HD+"
-        case .uhd4K:
-            return "4K"
+        case .standard:
+            return "HQ"
+        case .pro:
+            return "Pro"
         }
     }
 }

@@ -15,7 +15,7 @@ struct CameraView: View {
     @Binding var zoomLevel: ZoomLevel
     @Binding var isSessionActive: Bool
     let onCameraReady: () -> Void
-    let onPhotoCaptured: ((UIImage, Data?) -> Void)?
+    let onPhotoCaptured: ((UIImage, UIImage?, Data?) -> Void)?
     
     // Focus-related state
     @State private var focusPoint: CGPoint = .zero
@@ -76,7 +76,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     let onCameraReady: () -> Void
     @Binding var focusPoint: CGPoint
     @Binding var showFocusIndicator: Bool
-    let onPhotoCaptured: ((UIImage, Data?) -> Void)?
+    let onPhotoCaptured: ((UIImage, UIImage?, Data?) -> Void)?
     
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -104,7 +104,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         let session = AVCaptureSession()
         session.sessionPreset = .photo
         
-        print("📷 Camera quality set to: \(cameraQuality.displayName) (\(cameraQuality.sessionPreset.rawValue))")
+        print("📷 Camera quality set to: \(cameraQuality.displayName)")
         
         // Add camera input - select camera based on zoom level
         let deviceType = zoomLevel.deviceType
@@ -225,64 +225,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         }
     }
     
-    @available(*, deprecated, message: "No longer supporting updating camera quality")
-    private func updateCameraQuality(session: AVCaptureSession, newQuality: CameraQuality, forContext context: Context) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            // Check if the new preset is supported
-            guard session.canSetSessionPreset(newQuality.sessionPreset) else {
-                print("⚠️ Camera quality \(newQuality.displayName) not supported")
-                return
-            }
-            
-            // Begin configuration transaction
-            session.beginConfiguration()
-            
-            // Set the new preset
-            session.sessionPreset = newQuality.sessionPreset
-            
-            // Reconfigure video output for optimal quality
-            if let videoOutput = session.outputs.first(where: { $0 is AVCaptureVideoDataOutput }) as? AVCaptureVideoDataOutput {
-                
-                // Use optimal video settings without forcing specific dimensions
-                let videoSettings: [String: Any] = [
-                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
-                ]
-                
-                videoOutput.videoSettings = videoSettings
-                
-                // Ensure proper connection configuration
-                if let connection = videoOutput.connection(with: .video) {
-                    connection.videoOrientation = .portrait
-                    if connection.isVideoMirroringSupported {
-                        connection.isVideoMirrored = false
-                    }
-                    
-                    // Enable video stabilization for better quality
-                    if connection.isVideoStabilizationSupported {
-                        connection.preferredVideoStabilizationMode = .auto
-                    }
-                }
-            }
-            
-            // Commit all changes atomically
-            session.commitConfiguration()
-            
-            // Brief pause to allow session to stabilize
-            Thread.sleep(forTimeInterval: 0.1)
-            
-            print("✅ Camera quality updated to: \(newQuality.displayName) (\(newQuality.sessionPreset.rawValue))")
-            
-            // Update UI on main thread
-            DispatchQueue.main.async {
-                // Force preview layer to refresh
-                if let previewLayer = context.coordinator.previewLayer {
-                    previewLayer.connection?.isEnabled = false
-                    previewLayer.connection?.isEnabled = true
-                }
-            }
-        }
-    }
-    
     private func updateCameraDevice(session: AVCaptureSession, newZoomLevel: ZoomLevel, forContext context: Context) {
         DispatchQueue.global(qos: .userInitiated).async {
             // Begin configuration transaction
@@ -332,23 +274,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             }
         }
     }
-
-    // Helper methods for optimal resolution (kept for reference but not used to avoid crashes)
-    private func getOptimalWidth(for quality: CameraQuality) -> Int {
-        switch quality {
-        case .hd720p: return 1280
-        case .hd1080p: return 1920
-        case .uhd4K: return 3840
-        }
-    }
-
-    private func getOptimalHeight(for quality: CameraQuality) -> Int {
-        switch quality {
-        case .hd720p: return 720
-        case .hd1080p: return 1080
-        case .uhd4K: return 2160
-        }
-    }
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -366,8 +291,14 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         var cameraReady = false
         var cameraDevice: AVCaptureDevice?
         var photoOutput: AVCapturePhotoOutput?
-        var onPhotoCaptured: ((UIImage, Data?) -> Void)?
+        var onPhotoCaptured: ((UIImage, UIImage?, Data?) -> Void)?
         var currentZoomLevel: ZoomLevel = .wide
+        
+        // Storage for dual-capture in Pro mode
+        private var capturedProcessedImage: UIImage?
+        private var capturedRawImage: UIImage?
+        private var capturedMetadata: Data?
+        private var isExpectingDualCapture = false
     
         init(_ parent: CameraUIViewRepresentable) {
             self.parent = parent
@@ -408,25 +339,56 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             // Create photo settings with preferred codec
             let settings: AVCapturePhotoSettings
             
+            // Reset capture state for new photo
+            resetCaptureState()
+            
             // Configure photo settings based on available codecs
-            if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
-                settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
-            } else if photoOutput.availablePhotoCodecTypes.contains(.jpeg) {
-                settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
-            } else {
-                // Fallback to default settings
-                settings = AVCapturePhotoSettings()
+            switch parent.cameraQuality {
+            case .standard:
+                isExpectingDualCapture = false
+                if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
+                    settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                } else if photoOutput.availablePhotoCodecTypes.contains(.jpeg) {
+                    settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+                } else {
+                    // Fallback to default settings
+                    settings = AVCapturePhotoSettings()
+                }
+            case .pro:
+                if let rawFormat = photoOutput.availableRawPhotoPixelFormatTypes.first {
+                    // Pro mode with RAW+Processed - expect dual capture
+                    isExpectingDualCapture = true
+                    settings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat, processedFormat: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                    print("📸 Pro mode: Expecting dual capture (RAW + Processed)")
+                } else {
+                    // Pro mode but no RAW available - single capture
+                    isExpectingDualCapture = false
+                    if photoOutput.availablePhotoCodecTypes.contains(.hevc) {
+                        settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                    } else {
+                        settings = AVCapturePhotoSettings()
+                    }
+                    print("⚠️ Pro mode: RAW not available, using processed only")
+                }
             }
             
             // Enable high resolution capture if available (modern API)
-            // Only set quality prioritization if the output supports it
-            if photoOutput.maxPhotoQualityPrioritization.rawValue >= AVCapturePhotoOutput.QualityPrioritization.balanced.rawValue {
-                settings.photoQualityPrioritization = .balanced
-            }
-            
-            // If the output supports quality prioritization, use it
-            if photoOutput.maxPhotoQualityPrioritization == .quality {
-                settings.photoQualityPrioritization = .quality
+            // Note: photoQualityPrioritization is not supported when capturing RAW
+            if !isExpectingDualCapture {
+                // Only set quality prioritization for non-RAW captures
+                // Check the maximum supported quality prioritization
+                let maxQuality = photoOutput.maxPhotoQualityPrioritization
+                let desiredQuality = AVCapturePhotoOutput.QualityPrioritization.quality
+                
+                if desiredQuality.rawValue <= maxQuality.rawValue {
+                    settings.photoQualityPrioritization = desiredQuality
+                    print("📸 Quality prioritization set to: \(desiredQuality.rawValue) (max: \(maxQuality.rawValue))")
+                } else {
+                    settings.photoQualityPrioritization = maxQuality
+                    print("📸 Quality prioritization limited to max supported: \(maxQuality.rawValue)")
+                }
+            } else {
+                print("📸 Skipping quality prioritization for RAW+Processed capture")
             }
             
             // Set flash mode based on user selection
@@ -440,7 +402,12 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             
             // Capture the photo
             photoOutput.capturePhoto(with: settings, delegate: self)
-            print("📸 Photo capture initiated")
+            
+            if isExpectingDualCapture {
+                print("📸 Pro mode capture initiated - expecting RAW + Processed")
+            } else {
+                print("📸 Standard capture initiated")
+            }
         }
         
         // MARK: - AVCapturePhotoCaptureDelegate
@@ -448,31 +415,71 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
             if let error = error {
                 print("❌ Photo capture error: \(error.localizedDescription)")
+                resetCaptureState()
                 return
             }
             
             guard let imageData = photo.fileDataRepresentation(),
                   let image = UIImage(data: imageData) else {
                 print("❌ Failed to convert photo to UIImage")
+                resetCaptureState()
                 return
             }
             
-            // Log captured photo metadata for debugging
-            self.logCaptureMetadata(photo: photo)
-            
-            // Create enhanced image data with actual capture metadata
-            let enhancedImageData = self.createImageDataWithActualMetadata(image: image, capturePhoto: photo)
-            
-            // Correct image orientation for portrait mode
             let correctedImage = image.fixOrientation()
             
-            print("✅ Photo captured successfully with actual metadata preserved")
-            
-            // Call the callback on main thread with both image and metadata
-            DispatchQueue.main.async {
-                // Pass both the corrected image and the enhanced data with actual metadata
-                self.onPhotoCaptured?(correctedImage, enhancedImageData)
+            // Handle dual capture for Pro mode
+            if isExpectingDualCapture {
+                if photo.isRawPhoto {
+                    // This is the RAW image
+                    capturedRawImage = correctedImage
+                    print("✅ RAW image captured - Pure sensor data")
+                } else {
+                    // This is the processed image
+                    capturedProcessedImage = correctedImage
+                    
+                    // Log metadata and create enhanced data from processed image
+                    self.logCaptureMetadata(photo: photo)
+                    capturedMetadata = self.createImageDataWithActualMetadata(image: correctedImage, capturePhoto: photo)
+                    
+                    print("✅ Processed image captured - With computational photography")
+                }
+                
+                // Check if we have both images (or processed image is ready)
+                if let processedImg = capturedProcessedImage {
+                    let rawImg = capturedRawImage // May be nil if RAW processing failed
+                    let metadata = capturedMetadata
+                    
+                    print("✅ Dual capture completed - Processed: ✓, RAW: \(rawImg != nil ? "✓" : "✗")")
+                    
+                    // Send callback with both images
+                    DispatchQueue.main.async {
+                        self.onPhotoCaptured?(processedImg, rawImg, metadata)
+                    }
+                    
+                    // Reset for next capture
+                    resetCaptureState()
+                }
+            } else {
+                // Standard single capture
+                self.logCaptureMetadata(photo: photo)
+                let enhancedImageData = self.createImageDataWithActualMetadata(image: correctedImage, capturePhoto: photo)
+                
+                print("✅ Standard capture completed")
+                
+                DispatchQueue.main.async {
+                    self.onPhotoCaptured?(correctedImage, nil, enhancedImageData)
+                }
             }
+        }
+        
+        // MARK: - Capture State Management
+        
+        private func resetCaptureState() {
+            capturedProcessedImage = nil
+            capturedRawImage = nil
+            capturedMetadata = nil
+            isExpectingDualCapture = false
         }
         
         // MARK: - Enhanced Metadata Creation
