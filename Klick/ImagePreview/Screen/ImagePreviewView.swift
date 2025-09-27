@@ -178,106 +178,110 @@ struct ImagePreviewView: View {
                             )
                         }
                         
-                        HStack {
+                        HStack(spacing: 26) {
+                            Spacer()
+                            
                             // Dismiss button
                             Button(action: onDiscard) {
                                 Image(systemName: "xmark")
                                     .foregroundColor(Color.white)
                                     .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 30, height: 30)
                                     .padding(8)
                                     .background(.ultraThinMaterial)
                                     .clipShape(Circle())
                                     .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                             }
                             
-                            Spacer()
-                            
-                            // Effects Button
-                            Button(action: {
-                                if showingBlurAdjustment || showingAdjustments {
-                                    withAnimation(.easeIn(duration: 0.35)) {
-                                        showingAdjustments = false
-                                        showingBlurAdjustment = false
+                            HStack {
+                                // Effects Button
+                                Button(action: {
+                                    if showingBlurAdjustment || showingAdjustments {
+                                        withAnimation(.easeIn(duration: 0.35)) {
+                                            showingAdjustments = false
+                                            showingBlurAdjustment = false
+                                        }
                                     }
+                                    
+                                    withAnimation(.spring) {
+                                        showingEffects.toggle()
+                                    }
+                                }) {
+                                    Image(systemName: "wand.and.stars")
+                                        .foregroundColor(effectState.filter == nil ? Color.white : .yellow)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .frame(width: 30, height: 30)
+                                        .padding(8)
+                                        .clipShape(Circle())
+                                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                                 }
                                 
-                                withAnimation(.spring) {
-                                    showingEffects.toggle()
-                                }
-                            }) {
-                                Image(systemName: "wand.and.stars")
-                                    .foregroundColor(effectState.filter == nil ? Color.white : .yellow)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 36, height: 36)
-                                    .padding(8)
-                                    .background(.ultraThinMaterial)
-                                    .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-                            }
-                            
-                            // Background Blur Button
-                            Button(action: {
-                                if showingAdjustments || showingEffects {
-                                    withAnimation(.easeIn(duration: 0.35)) {
-                                        showingAdjustments = false
-                                        showingEffects = false
+                                // Background Blur Button
+                                Button(action: {
+                                    if showingAdjustments || showingEffects {
+                                        withAnimation(.easeIn(duration: 0.35)) {
+                                            showingAdjustments = false
+                                            showingEffects = false
+                                        }
                                     }
-                                }
-                                
-                                withAnimation(.spring) {
-                                    showingBlurAdjustment.toggle()
-                                    toggleBlurAdjustment()
-                                }
-                            }) {
-                                Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                                    .foregroundColor(hasPersonSegmentation ? effectState.backgroundBlur.isEnabled ? .yellow : .white : .white.opacity(0.35))
-                                    .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 36, height: 36)
-                                    .padding(8)
-                                    .background(.ultraThinMaterial)
-                                    .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-                            }
-                            .disabled(!hasPersonSegmentation)
-
-                            // Filter Adjustments Button
-                            Button(action: {
-                                if showingBlurAdjustment || showingEffects {
-                                    withAnimation(.easeIn(duration: 0.35)) {
-                                        showingBlurAdjustment = false
-                                        showingEffects = false
+                                    
+                                    withAnimation(.spring) {
+                                        showingBlurAdjustment.toggle()
+                                        toggleBlurAdjustment()
                                     }
+                                }) {
+                                    Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
+                                        .foregroundColor(hasPersonSegmentation ? effectState.backgroundBlur.isEnabled ? .yellow : .white : .white.opacity(0.35))
+                                        .font(.system(size: 16, weight: .medium))
+                                        .frame(width: 30, height: 30)
+                                        .padding(8)
+                                        .clipShape(Circle())
+                                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                                 }
+                                .disabled(!hasPersonSegmentation)
                                 
-                                withAnimation(.spring) {
-                                    showingAdjustments.toggle()
+                                // Filter Adjustments Button
+                                Button(action: {
+                                    if showingBlurAdjustment || showingEffects {
+                                        withAnimation(.easeIn(duration: 0.35)) {
+                                            showingBlurAdjustment = false
+                                            showingEffects = false
+                                        }
+                                    }
+                                    
+                                    withAnimation(.spring) {
+                                        showingAdjustments.toggle()
+                                    }
+                                }) {
+                                    Image(systemName: "slider.horizontal.3")
+                                        .foregroundColor(effectState.filter?.filter != nil ? .white : .white.opacity(0.35))
+                                        .font(.system(size: 16, weight: .medium))
+                                        .frame(width: 30, height: 30)
+                                        .padding(8)
+                                        .clipShape(Circle())
+                                        .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                                 }
-                            }) {
-                                Image(systemName: "slider.horizontal.3")
-                                    .foregroundColor(effectState.filter?.filter != nil ? .white : .white.opacity(0.35))
-                                    .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 36, height: 36)
-                                    .padding(8)
-                                    .background(.ultraThinMaterial)
-                                    .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                                .disabled(effectState.filter?.filter == nil)
                             }
-                            .disabled(effectState.filter?.filter == nil)
+                            .padding(6)
+                            .background(.ultraThinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 100))
+                            .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                             
-                            Spacer()
                             
                             // Save button
                             Button(action: onSaveChanges) {
                                 Image(systemName: "checkmark")
                                     .foregroundColor(.black)
                                     .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 30, height: 30)
                                     .padding(8)
                                     .background(.yellow)
                                     .clipShape(Circle())
                                     .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                             }
+                            
+                            Spacer()
                         }
                     }
                     .padding(.top, 16)
