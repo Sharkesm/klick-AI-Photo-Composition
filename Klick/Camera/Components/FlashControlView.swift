@@ -51,7 +51,7 @@ enum FlashMode: String, CaseIterable {
 }
 
 // MARK: - Flash Control View
-struct FlashControl: View {
+struct FlashControlView: View {
     @Binding var selectedFlashMode: FlashMode
     @State private var showFlashChange = false
     

@@ -32,8 +32,8 @@ struct TopControlsView: View {
                      
                      Spacer()
                      VStack {
-                         CameraQualitySelector(selectedQuality: $selectedCameraQuality)
-                         FlashControl(selectedFlashMode: $selectedFlashMode)
+                         CameraQualitySelectorView(selectedQuality: $selectedCameraQuality)
+                         FlashControlView(selectedFlashMode: $selectedFlashMode)
                          ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
                          CompositionStylePracticeControl(showCompositionPractice: $showCompositionPractice)
                      }
