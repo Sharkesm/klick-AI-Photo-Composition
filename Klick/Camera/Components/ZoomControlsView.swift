@@ -85,8 +85,6 @@ struct ZoomControlsView: View {
                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
                     isRevealed.toggle()
                 }
-                impactFeedback.impactOccurred()
-                impactFeedback.prepare()
             } label: {
                 ZStack {
                     // Animated background with smooth color transition

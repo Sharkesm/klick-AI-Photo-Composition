@@ -29,6 +29,7 @@ struct ImagePreviewView: View {
     @State private var selectedPack: FilterPack = .glow
     @State private var showingAdjustments = false
     @State private var showingBlurAdjustment = false
+    @State private var showingEffects = false
     @State private var filterPreviews: [String: UIImage] = [:]
 
     // Subject masking state
@@ -59,20 +60,28 @@ struct ImagePreviewView: View {
         }
     }
     
+    // Computed property for determining whether to show a pro-raw toggle
+    private var shouldShowProRawToggle: Bool {
+        let controlStates = (!showingAdjustments || showingBlurAdjustment || (!isShowingPreviousState && stateHistory.hasPreviousState))
+        let qualityState = cameraQuality == .pro && rawImage != nil
+        return controlStates && qualityState
+    }
+    
+    private var shouldShrinkImage: Bool {
+        showingEffects || showingAdjustments || showingBlurAdjustment
+    }
+    
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
                 // ProRaw Toggle at the top
-                VStack(spacing: 16) {
-                    ProRawToggleView(
-                        selectedMode: $selectedProcessingMode,
-                        isProModeCapture: cameraQuality == .pro && rawImage != nil,
-                        onModeChanged: { newMode in
-                            handleProcessingModeChange(newMode)
-                        }
-                    )
-                    .padding(.top, 8)
-                }
+                TopBarView(
+                    selectedProcessingMode: $selectedProcessingMode,
+                    showProRaw: shouldShowProRawToggle,
+                    onProRawToggle: handleProcessingModeChange
+                )
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
                 
                 ImageDisplayView(
                     image: displayImage,
@@ -83,40 +92,26 @@ struct ImagePreviewView: View {
                 .frame(height: geo.size.height * 0.75)
                 .cornerRadius(22)
                 .contentShape(RoundedRectangle(cornerRadius: 22))
+                .scaleEffect(shouldShrinkImage ? 0.9 : 1)
+                .animation(.spring(response: 0.25, dampingFraction: 0.8, blendDuration: 0.15).delay(0.35), value: shouldShrinkImage)
                 .overlay(alignment: .bottom, content: {
-                    // Previous state indicator
-                    Group {
+                    HStack {
+                        // Previous state indicator
                         if isShowingPreviousState && stateHistory.hasPreviousState {
-                            VStack(alignment: .center, spacing: 12) {
-                                Text("BEFORE")
-                                    .font(.footnote)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(.ultraThickMaterial)
-                                    .clipShape(RoundedRectangle(cornerRadius: 30))
-                            }
-                            .padding(16)
+                            Text("BEFORE")
+                                .font(.footnote)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(.ultraThickMaterial)
+                                .clipShape(RoundedRectangle(cornerRadius: 30))
                         }
                     }
+                    .padding(16)
                 })
                 .onTapGesture {
                     handleImageTap()
-                }
-                .overlay(alignment: .top) {
-                    TopBarView(
-                        showingAdjustments: $showingAdjustments,
-                        showingBlurAdjustment: $showingBlurAdjustment,
-                        effectState: effectState,
-                        hasPersonSegmentation: hasPersonSegmentation,
-                        onSave: overwriteOriginal,
-                        onDiscard: onDiscard,
-                        onToggleBlurAdjustment: {
-                            toggleBlurAdjustment()
-                        }
-                    )
-                    .padding(.horizontal, 12)
                 }
                 
                 Spacer()
@@ -125,36 +120,6 @@ struct ImagePreviewView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay(alignment: .bottom) {
                 VStack(spacing: 10) {
-                    VStack(spacing: 10) {
-                        // Show filter pack selector when not showing adjustments
-                        if !showingAdjustments {
-                            FilterPackSelectorView(
-                                selectedPack: $selectedPack,
-                                onPackSelected: { pack in
-                                    // Save current state before changing pack (which clears filter)
-                                    // Only save if we currently have a filter applied
-                                    if effectState.filter != nil {
-                                        saveCurrentStateToHistory()
-                                    }
-                                    selectedPack = pack
-                                    effectState.filter = nil
-                                    applyEffects()
-                                }
-                            )
-                        }
-                        
-                        // Always show filter selection strip (blur adjustment removed)
-                        FilterSelectionStripView(
-                            selectedPack: selectedPack,
-                            selectedFilter: effectState.filter?.filter,
-                            filterPreviews: filterPreviews,
-                            originalImage: originalImage,
-                            onFilterSelected: selectFilter
-                        )
-                    }
-                    .padding(.top, 16)
-                    .padding(.horizontal, 12)
-                    
                     VStack(spacing: 16) {
                         if showingBlurAdjustment {
                             BlurAdjustmentControlsView(
@@ -172,7 +137,7 @@ struct ImagePreviewView: View {
                             AdjustmentControlsView(
                                 adjustments: Binding(
                                     get: { effectState.filter?.adjustments ?? .balanced },
-                                    set: { 
+                                    set: {
                                         if effectState.filter != nil {
                                             effectState.filter!.adjustments = $0
                                         }
@@ -182,19 +147,144 @@ struct ImagePreviewView: View {
                                 onDebouncedAdjustmentChanged: { applyEffects(debounce: true) }
                             )
                         }
-                        
-                        // Show preset buttons when filter is selected and not showing blur adjustment
-                        if effectState.filter != nil && !showingBlurAdjustment {
-                            PresetButtonsView(
-                                isProcessing: isProcessing,
+                    }
+                    
+                    VStack(spacing: 10) {
+                        // Show filter pack selector when not showing adjustments
+                        if showingEffects {
+                            if !showingAdjustments {
+                                FilterPackSelectorView(
+                                    selectedPack: $selectedPack,
+                                    onPackSelected: { pack in
+                                        // Save current state before changing pack (which clears filter)
+                                        // Only save if we currently have a filter applied
+                                        if effectState.filter != nil {
+                                            saveCurrentStateToHistory()
+                                        }
+                                        selectedPack = pack
+                                        effectState.filter = nil
+                                        applyEffects()
+                                    }
+                                )
+                            }
+                            
+                            // Always show filter selection strip (blur adjustment removed)
+                            FilterSelectionStripView(
+                                selectedPack: selectedPack,
                                 selectedFilter: effectState.filter?.filter,
-                                filterAdjustment: effectState.filter?.adjustments ?? .balanced,
-                                onApplyPreset: applyPreset
+                                filterPreviews: filterPreviews,
+                                originalImage: originalImage,
+                                onFilterSelected: selectFilter
                             )
                         }
+                        
+                        HStack {
+                            // Dismiss button
+                            Button(action: onDiscard) {
+                                Image(systemName: "xmark")
+                                    .foregroundColor(Color.white)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(width: 36, height: 36)
+                                    .padding(8)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                            }
+                            
+                            Spacer()
+                            
+                            // Effects Button
+                            Button(action: {
+                                if showingBlurAdjustment || showingAdjustments {
+                                    withAnimation(.easeIn(duration: 0.35)) {
+                                        showingAdjustments = false
+                                        showingBlurAdjustment = false
+                                    }
+                                }
+                                
+                                withAnimation(.spring) {
+                                    showingEffects.toggle()
+                                }
+                            }) {
+                                Image(systemName: "wand.and.stars")
+                                    .foregroundColor(effectState.filter == nil ? Color.white : .yellow)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(width: 36, height: 36)
+                                    .padding(8)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                            }
+                            
+                            // Background Blur Button
+                            Button(action: {
+                                if showingAdjustments || showingEffects {
+                                    withAnimation(.easeIn(duration: 0.35)) {
+                                        showingAdjustments = false
+                                        showingEffects = false
+                                    }
+                                }
+                                
+                                withAnimation(.spring) {
+                                    showingBlurAdjustment.toggle()
+                                    toggleBlurAdjustment()
+                                }
+                            }) {
+                                Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
+                                    .foregroundColor(hasPersonSegmentation ? effectState.backgroundBlur.isEnabled ? .yellow : .white : .white.opacity(0.35))
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(width: 36, height: 36)
+                                    .padding(8)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                            }
+                            .disabled(!hasPersonSegmentation)
+
+                            // Filter Adjustments Button
+                            Button(action: {
+                                if showingBlurAdjustment || showingEffects {
+                                    withAnimation(.easeIn(duration: 0.35)) {
+                                        showingBlurAdjustment = false
+                                        showingEffects = false
+                                    }
+                                }
+                                
+                                withAnimation(.spring) {
+                                    showingAdjustments.toggle()
+                                }
+                            }) {
+                                Image(systemName: "slider.horizontal.3")
+                                    .foregroundColor(effectState.filter?.filter != nil ? .white : .white.opacity(0.35))
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(width: 36, height: 36)
+                                    .padding(8)
+                                    .background(.ultraThinMaterial)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                            }
+                            .disabled(effectState.filter?.filter == nil)
+                            
+                            Spacer()
+                            
+                            // Save button
+                            Button(action: onSaveChanges) {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.black)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .frame(width: 36, height: 36)
+                                    .padding(8)
+                                    .background(.yellow)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                            }
+                        }
                     }
+                    .padding(.top, 16)
+                    .padding(.horizontal, 12)
                 }
                 .background(.black.opacity(0.85))
+                .padding(.vertical, 16)
             }
         }
         .background(Color.black)
@@ -384,9 +474,10 @@ struct ImagePreviewView: View {
         
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             // Scenario 3: If any adjustment controls are active, close them first
-            if showingAdjustments || showingBlurAdjustment {
+            if showingAdjustments || showingBlurAdjustment || showingEffects {
                 showingAdjustments = false
                 showingBlurAdjustment = false
+                showingEffects = false
                 return
             }
             
@@ -511,7 +602,7 @@ struct ImagePreviewView: View {
         }
     }
 
-    private func overwriteOriginal() {
+    private func onSaveChanges() {
         guard let currentBaseImage = baseImage else { return }
 
         isProcessing = true

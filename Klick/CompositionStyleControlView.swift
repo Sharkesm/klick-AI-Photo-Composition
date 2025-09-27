@@ -11,8 +11,6 @@ struct CompositionStyleControlView: View {
     
     @State var compositionStyle: CompositionType = .ruleOfThirds
     
-    private let impactGenerator = UIImpactFeedbackGenerator(style: .light)
-    
     private func backgroundForType(_ type: CompositionType) -> some ShapeStyle {
         compositionStyle == type ? AnyShapeStyle(.yellow) : AnyShapeStyle(.ultraThinMaterial)
     }
@@ -21,8 +19,7 @@ struct CompositionStyleControlView: View {
         HStack {
             ForEach(CompositionType.allCases, id: \.self) { type in
                 Button {
-                    impactGenerator.impactOccurred()
-                    impactGenerator.prepare()
+                    HapticFeedback.light.generateSelection()
                     
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
                         compositionStyle = type

@@ -7,100 +7,34 @@
 import SwiftUI
 
 struct TopBarView: View {
-    @Binding var showingAdjustments: Bool
-    @Binding var showingBlurAdjustment: Bool
-    let effectState: ImageEffectState
-    let hasPersonSegmentation: Bool
-    let onSave: () -> Void
-    let onDiscard: () -> Void
-    let onToggleBlurAdjustment: () -> Void
-
+    @Binding var selectedProcessingMode: ImageProcessingMode
+    let showProRaw: Bool
+    let onProRawToggle: (ImageProcessingMode) -> Void
+    
     var body: some View {
         HStack {
-            // Dismiss button
-            Button(action: onDiscard) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-            }
-
             Spacer()
 
-            // Background Blur Button
-            Button(action: {
-                if showingAdjustments {
-                    withAnimation(.easeIn(duration: 0.35)) {
-                        showingAdjustments = false
-                    }
-                }
-                
-                withAnimation(.spring) {
-                    showingBlurAdjustment.toggle()
-                    onToggleBlurAdjustment()
-                }
-            }) {
-                Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                    .foregroundColor(hasPersonSegmentation ? effectState.backgroundBlur.isEnabled ? .yellow : .white : .white.opacity(0.35))
-                    .font(.system(size: 16, weight: .medium))
-                    .frame(width: 32, height: 32)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-            }
-            .disabled(!hasPersonSegmentation)
-
-            // Filter Adjustments Button
-            Button(action: {
-                if showingBlurAdjustment {
-                    withAnimation(.easeIn(duration: 0.35)) {
-                        showingBlurAdjustment = false
-                    }
-                }
-                
-                withAnimation(.spring) {
-                    showingAdjustments.toggle()
-                }
-            }) {
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundColor(effectState.filter?.filter != nil ? .white : .white.opacity(0.35))
-                    .font(.system(size: 16, weight: .medium))
-                    .frame(width: 32, height: 32)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
-            }
-            .disabled(effectState.filter?.filter == nil)
-            
-            // Save button
-            Button(action: onSave) {
-                Text("Save")
+            // ProRaw Toggle at the top
+            if showProRaw  {
+                ProRawToggleView(
+                    selectedMode: $selectedProcessingMode,
+                    onModeChanged: onProRawToggle
+                )
+            } else {
+                Text("Preview")
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.black)
-                    .font(.system(size: 14, weight: .semibold))
                     .padding(.vertical, 6)
-                    .padding(.horizontal, 16)
-                    .background(.yellow)
-                    .clipShape(RoundedRectangle(cornerRadius: 22))
+                    .padding(.horizontal, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.white)
+                    )
             }
-
+            
+            Spacer()
         }
         .padding(.vertical)
     }
-}
-
-#Preview {
-    VStack {
-        Spacer()
-        TopBarView(
-            showingAdjustments: .constant(false),
-            showingBlurAdjustment: .constant(false),
-            effectState: .init(backgroundBlur: .init(isEnabled: true, intensity: 0.5), filter: nil),
-            hasPersonSegmentation: true
-        ) {} onDiscard: {} onToggleBlurAdjustment: {}
-        Spacer()
-    }
-    .background(Color.black)
 }

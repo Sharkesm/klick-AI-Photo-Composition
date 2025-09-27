@@ -30,34 +30,13 @@ struct BlurAdjustmentControlsView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Slider(value: $blurIntensity, in: 0...20, step: 0.5) {
+                    Slider(value: $blurIntensity, in: 0...20, step: 1.0) {
                         
                     } onEditingChanged: { value in
                         onDebouncedBlurChanged()
                     }
                     .accentColor(.white)
                     .disabled(isProcessing)
-                }
-                
-                // Preset buttons for quick blur levels
-                HStack(spacing: 16) {
-                    ForEach([("None", Float(0)), ("Light", Float(5)), ("Medium", Float(10)), ("Strong", Float(18))], id: \.0) { preset in
-                        Button(action: {
-                            blurIntensity = preset.1
-                            onBlurChanged()
-                        }) {
-                            Text(preset.0)
-                                .font(.footnote)
-                                .foregroundColor(abs(blurIntensity - preset.1) < 0.5 ? .black : .white.opacity(0.8))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Color.white.opacity(abs(blurIntensity - preset.1) < 0.5 ? 1 : 0.1)
-                                )
-                                .cornerRadius(12)
-                        }
-                        .disabled(isProcessing)
-                    }
                 }
             }
             .padding(.horizontal, 20)

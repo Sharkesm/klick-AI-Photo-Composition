@@ -18,63 +18,35 @@ enum ImageProcessingMode: String, CaseIterable {
 
 struct ProRawToggleView: View {
     @Binding var selectedMode: ImageProcessingMode
-    let isProModeCapture: Bool
     let onModeChanged: (ImageProcessingMode) -> Void
     
     var body: some View {
-        if isProModeCapture {
-            HStack(spacing: 0) {
-                ForEach(ImageProcessingMode.allCases, id: \.self) { mode in
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedMode = mode
-                            onModeChanged(mode)
-                        }
-                    }) {
-                        Text(mode.displayName)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(selectedMode == mode ? .black : .white)
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(selectedMode == mode ? .white : .clear)
-                            )
+        HStack(spacing: 0) {
+            ForEach(ImageProcessingMode.allCases, id: \.self) { mode in
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedMode = mode
+                        onModeChanged(mode)
                     }
+                }) {
+                    Text(mode.displayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(selectedMode == mode ? .black : .white)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(selectedMode == mode ? .white : .clear)
+                        )
                 }
             }
-            .padding(2)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-            )
-            .transition(.scale.combined(with: .opacity))
         }
+        .padding(2)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(.ultraThinMaterial)
+                .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+        )
+        .transition(.scale.combined(with: .opacity))
     }
-}
-
-#Preview {
-    VStack(spacing: 20) {
-        ProRawToggleView(
-            selectedMode: .constant(.standard),
-            isProModeCapture: true,
-            onModeChanged: { _ in }
-        )
-        
-        ProRawToggleView(
-            selectedMode: .constant(.proRaw),
-            isProModeCapture: true,
-            onModeChanged: { _ in }
-        )
-        
-        // Hidden when not Pro mode
-        ProRawToggleView(
-            selectedMode: .constant(.standard),
-            isProModeCapture: false,
-            onModeChanged: { _ in }
-        )
-    }
-    .padding()
-    .background(Color.black)
 }
