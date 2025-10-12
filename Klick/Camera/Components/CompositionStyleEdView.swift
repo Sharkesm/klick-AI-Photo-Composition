@@ -52,7 +52,7 @@ struct CompositionStyleEdView: View {
         ),
         CompositionSection(
             id: "styling",
-            icon: "figure.dress.line.vertical.figure",
+            icon: "tshirt",
             title: "Styling & Details",
             description: "Outfits, hair, little touches — small details, big impact.",
             detailedDescription: "Clothing sets the mood: soft pastels feel calm, bold colors pop with energy. Avoid loud patterns that distract. A quick check for flyaway hair, wrinkled sleeves, or uneven accessories makes portraits look instantly more polished.",
