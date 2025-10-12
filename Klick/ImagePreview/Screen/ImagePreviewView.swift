@@ -31,7 +31,8 @@ struct ImagePreviewView: View {
     @State private var showingBlurAdjustment = false
     @State private var showingEffects = false
     @State private var filterPreviews: [String: UIImage] = [:]
-
+    @State private var shouldShrinkImage: Bool = false
+    
     // Subject masking state
     @State private var hasPersonSegmentation = false
 
@@ -67,10 +68,6 @@ struct ImagePreviewView: View {
         return controlStates && qualityState
     }
     
-    private var shouldShrinkImage: Bool {
-        showingEffects || showingAdjustments || showingBlurAdjustment
-    }
-    
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
@@ -93,7 +90,7 @@ struct ImagePreviewView: View {
                 .cornerRadius(22)
                 .contentShape(RoundedRectangle(cornerRadius: 22))
                 .scaleEffect(shouldShrinkImage ? 0.9 : 1)
-                .animation(.spring(response: 0.25, dampingFraction: 0.8, blendDuration: 0.15).delay(0.35), value: shouldShrinkImage)
+                .animation(.spring(response: 0.25, dampingFraction: 0.8, blendDuration: 0.15), value: shouldShrinkImage)
                 .overlay(alignment: .bottom, content: {
                     HStack {
                         // Previous state indicator
@@ -203,8 +200,16 @@ struct ImagePreviewView: View {
                                         }
                                     }
                                     
+                                    if !shouldShrinkImage {
+                                        shouldShrinkImage = true
+                                    }
+                                    
                                     withAnimation(.spring) {
                                         showingEffects.toggle()
+                                    }
+                                    
+                                    if !showingEffects {
+                                       shouldShrinkImage = false
                                     }
                                 }) {
                                     Image(systemName: "wand.and.stars")
@@ -225,9 +230,17 @@ struct ImagePreviewView: View {
                                         }
                                     }
                                     
+                                    if !shouldShrinkImage {
+                                        shouldShrinkImage = true
+                                    }
+                                    
                                     withAnimation(.spring) {
                                         showingBlurAdjustment.toggle()
                                         toggleBlurAdjustment()
+                                    }
+                                    
+                                    if !showingBlurAdjustment {
+                                       shouldShrinkImage = false
                                     }
                                 }) {
                                     Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
@@ -249,8 +262,16 @@ struct ImagePreviewView: View {
                                         }
                                     }
                                     
+                                    if !shouldShrinkImage {
+                                        shouldShrinkImage = true
+                                    }
+                                    
                                     withAnimation(.spring) {
                                         showingAdjustments.toggle()
+                                    }
+                                    
+                                    if !showingAdjustments {
+                                       shouldShrinkImage = false
                                     }
                                 }) {
                                     Image(systemName: "slider.horizontal.3")
@@ -284,7 +305,7 @@ struct ImagePreviewView: View {
                             Spacer()
                         }
                     }
-                    .padding(.top, 16)
+                    .padding(.top, 0)
                     .padding(.horizontal, 12)
                 }
                 .background(.black.opacity(0.85))
@@ -482,6 +503,7 @@ struct ImagePreviewView: View {
                 showingAdjustments = false
                 showingBlurAdjustment = false
                 showingEffects = false
+                shouldShrinkImage = false
                 return
             }
             
