@@ -42,6 +42,11 @@ struct ImagePreviewView: View {
     // Save options
     @State private var showingSaveOptions = false
     
+    // Onboarding state
+    @AppStorage("hasSeenImagePreviewOnboarding") private var hasSeenImagePreviewOnboarding: Bool = false
+    @State private var showOnboardingAnimation = false
+    @State private var hasAppliedFirstFilter = false
+    
     // Computed property for determining the base image to use for processing
     private var baseImage: UIImage? {
         switch selectedProcessingMode {
@@ -91,6 +96,26 @@ struct ImagePreviewView: View {
                 .contentShape(RoundedRectangle(cornerRadius: 22))
                 .scaleEffect(shouldShrinkImage ? 0.9 : 1)
                 .animation(.spring(response: 0.25, dampingFraction: 0.8, blendDuration: 0.15), value: shouldShrinkImage)
+                .overlay(
+                    Group {
+                        if showOnboardingAnimation {
+                            Color.black.opacity(0.6)
+                                .animation(.easeInOut(duration: 0.3), value: showOnboardingAnimation)
+                        }
+                    }
+                )
+                .overlay(alignment: .center) {
+                    if showOnboardingAnimation {
+                        ImagePreviewOnboardingView(
+                            isVisible: $showOnboardingAnimation,
+                            onComplete: {
+                                hasSeenImagePreviewOnboarding = true
+                                showOnboardingAnimation = false
+                            }
+                        )
+                        .zIndex(1000)
+                    }
+                }
                 .overlay(alignment: .bottom, content: {
                     HStack {
                         // Previous state indicator
@@ -109,6 +134,9 @@ struct ImagePreviewView: View {
                 })
                 .onTapGesture {
                     handleImageTap()
+                }
+                .onLongPressGesture {
+                    handleImageOriginalState()
                 }
                 
                 Spacer()
@@ -362,6 +390,10 @@ struct ImagePreviewView: View {
             effectWorkItem = nil
         }
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
+        .onChange(of: showingEffects) { _ in checkForOnboardingTrigger() }
+        .onChange(of: showingBlurAdjustment) { _ in checkForOnboardingTrigger() }
+        .onChange(of: showingAdjustments) { _ in checkForOnboardingTrigger() }
+        .onChange(of: effectState.filter?.filter.id) { _ in markFirstFilterApplied() }
     }
 
     // MARK: - ProRaw Mode Handling
@@ -497,16 +529,21 @@ struct ImagePreviewView: View {
             isShowingPreviousState = false
         }
         
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            // Scenario 3: If any adjustment controls are active, close them first
-            if showingAdjustments || showingBlurAdjustment || showingEffects {
+        // Scenario 3: If any adjustment controls are active, close them first
+        if showingAdjustments || showingBlurAdjustment || showingEffects {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 showingAdjustments = false
                 showingBlurAdjustment = false
                 showingEffects = false
                 shouldShrinkImage = false
-                return
             }
-            
+        }
+    }
+    
+    private func handleImageOriginalState() {
+        HapticFeedback.light.generate()
+        
+        withAnimation(.easeInOut) {
             // Allow preview if there are actual effects applied (even for first effect)
             let currentStateDescription = getCurrentStateDescription(effectState)
             if currentStateDescription != "ORIGINAL" {
@@ -733,6 +770,29 @@ struct ImagePreviewView: View {
         withAnimation(.easeInOut(duration: 0.3)) {
             processedImage = currentBaseImage
             image = currentBaseImage
+        }
+    }
+    
+    // MARK: - Onboarding Logic
+
+    private func checkForOnboardingTrigger() {
+        guard !hasSeenImagePreviewOnboarding && hasAppliedFirstFilter else { return }
+        
+        // Check if all control views are now dismissed
+        let allControlsDismissed = !showingEffects && !showingBlurAdjustment && !showingAdjustments
+        
+        if allControlsDismissed {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    showOnboardingAnimation = true
+                }
+            }
+        }
+    }
+
+    private func markFirstFilterApplied() {
+        if !hasAppliedFirstFilter && effectState.filter != nil {
+            hasAppliedFirstFilter = true
         }
     }
 }
