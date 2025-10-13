@@ -5,6 +5,7 @@ struct FrameSettingsView: View {
     @Binding var isFacialRecognitionEnabled: Bool
     @Binding var isCompositionAnalysisEnabled: Bool
     @Binding var areOverlaysHidden: Bool
+    @Binding var isLiveFeedbackEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @State private var showOnboarding = false
     
@@ -19,13 +20,13 @@ struct FrameSettingsView: View {
                             .foregroundColor(.blue)
                         
                         Text("Frame Settings")
-                            .font(.title2)
-                            .fontWeight(.semibold)
+                            .font(.title2.weight(.semibold))
+                            .foregroundStyle(Color.white)
                             .multilineTextAlignment(.center)
                         
                         Text("Configure your camera frame analysis preferences")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.white.opacity(0.8))
                             .multilineTextAlignment(.center)
                             .lineLimit(nil)
                     }
@@ -60,6 +61,17 @@ struct FrameSettingsView: View {
                         
                         Divider()
                         
+                        // Live Feedback Setting
+                        SettingRow(
+                            icon: "message.badge",
+                            title: "Live Feedback",
+                            description: "Show real-time composition feedback messages. Disable to reduce distractions while keeping visual guides active.",
+                            isEnabled: $isLiveFeedbackEnabled,
+                            accentColor: .orange
+                        )
+                        
+                        Divider()
+                        
                         // Hide Overlays Setting
                         SettingRow(
                             icon: "eye.slash",
@@ -68,7 +80,7 @@ struct FrameSettingsView: View {
                             isEnabled: $areOverlaysHidden,
                             accentColor: .purple
                         )
-                    
+                        
                         Divider()
                     }
                     .padding(.horizontal, 20)
@@ -90,24 +102,24 @@ struct FrameSettingsView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("How Klick Works")
                                         .font(.headline)
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(.blue)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     
                                     Text("Learn about Klick's features and composition tips")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(.white)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.blue)
                             }
                             .padding(.horizontal, 20)
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue.opacity(0.05))
+                                    .fill(Color.blue.opacity(0.15))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
                                             .stroke(Color.blue.opacity(0.2), lineWidth: 1)
@@ -134,14 +146,7 @@ struct FrameSettingsView: View {
                     MadeWithLoveView(location: "🇹🇿")
                 }
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        isPresented = false
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
+            .background(Color.black)
             .sheet(isPresented: $showOnboarding) {
                 OnboardingView(isPresented: $showOnboarding)
             }
@@ -160,11 +165,13 @@ struct SettingRow: View {
         HStack(alignment: .top, spacing: 16) {
             // Icon
             Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundColor(isEnabled ? accentColor : .secondary)
-                .frame(width: 50, height: 50)
-                .background(isEnabled ? accentColor.opacity(0.1) : Color.gray.opacity(0.1))
-                .clipShape(Circle())
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(.white)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                )
                 .padding(.top, 4) // Align with text baseline
             
             // Content
@@ -172,8 +179,8 @@ struct SettingRow: View {
                 // Title row with toggle
                 HStack(alignment: .center, spacing: 12) {
                     Text(title)
-                        .font(.headline)
-                        .foregroundColor(.primary)
+                        .font(.system(size: 14, weight: .medium, design: .default))
+                        .foregroundColor(.white)
                         .lineLimit(nil)
                         .multilineTextAlignment(.leading)
                     
@@ -181,14 +188,14 @@ struct SettingRow: View {
                     
                     // Toggle aligned with title
                     Toggle("", isOn: $isEnabled)
-                        .tint(accentColor)
+                        .tint(.green)
                         .toggleStyle(SwitchToggleStyle())
                 }
                 
                 // Description (unaffected by toggle)
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.white.opacity(0.8))
                     .lineLimit(nil)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -253,6 +260,7 @@ struct InfoSection: View {
         isFacialRecognitionEnabled: .constant(true),
         isCompositionAnalysisEnabled: .constant(true),
         areOverlaysHidden: .constant(false),
+        isLiveFeedbackEnabled: .constant(true),
         compositionManager: CompositionManager()
     )
 } 

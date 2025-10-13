@@ -10,7 +10,6 @@ struct FeedbackOverlayView: View {
     let isCompositionAnalysisEnabled: Bool
     
     var body: some View {
-        // Feedback overlay - only show when camera is ready and analysis is enabled
         if hasCameraPermission && !cameraLoading && isCompositionAnalysisEnabled {
             if showFeedback, let message = feedbackMessage {
                 HStack(spacing: 8) {

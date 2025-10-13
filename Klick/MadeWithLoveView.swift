@@ -9,7 +9,7 @@ import SwiftUI
 struct MadeWithLoveView: View {
     var location: String? = nil
     var fontSize: CGFloat = 14
-    var textColor: Color = .secondary
+    var textColor: Color = .white.opacity(0.8)
     
     @State private var isPulsing = false
 

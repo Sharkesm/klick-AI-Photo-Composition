@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var isFacialRecognitionEnabled = true
     @State private var isCompositionAnalysisEnabled = true
     @State private var areOverlaysHidden = false
+    @State private var isLiveFeedbackEnabled = true
     
     // Camera quality state
     @State private var selectedCameraQuality: CameraQuality = .standard
@@ -151,11 +152,10 @@ struct ContentView: View {
                         .overlay(alignment: .bottom) {
                             VStack {
                                 Spacer()
-                                // Feedback overlay
                                 FeedbackOverlayView(
                                     showFeedback: showFeedback,
-                                    feedbackMessage: feedbackMessage,
-                                    feedbackIcon: feedbackIcon,
+                                    feedbackMessage: isLiveFeedbackEnabled ? feedbackMessage : "Live feedback disabled",
+                                    feedbackIcon: isLiveFeedbackEnabled ? feedbackIcon : "exclamationmark.message",
                                     hasCameraPermission: hasCameraPermission,
                                     cameraLoading: cameraLoading,
                                     isCompositionAnalysisEnabled: isCompositionAnalysisEnabled
@@ -269,9 +269,10 @@ struct ContentView: View {
                 isFacialRecognitionEnabled: $isFacialRecognitionEnabled,
                 isCompositionAnalysisEnabled: $isCompositionAnalysisEnabled,
                 areOverlaysHidden: $areOverlaysHidden,
+                isLiveFeedbackEnabled: $isLiveFeedbackEnabled,
                 compositionManager: compositionManager
             )
-            .presentationDetents([.fraction(0.8)])
+            .presentationDetents([.fraction(0.8), .large])
         }
         .fullScreenCover(isPresented: $showImagePreview) {
             ImagePreviewView(
