@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var showPhotoAlbumGlimpse = false
     @State private var isPhotoAlbumFullScreen = false
     @State private var isCameraSessionActive = true
+    @State private var showPhotoAlbum: Bool = false
     
     // Photo management
     @StateObject private var photoManager = PhotoManager()
@@ -67,7 +68,7 @@ struct ContentView: View {
             if hasCameraPermission {
                 GeometryReader { geometry in
                     let screenHeight = geometry.size.height
-                    let height = shouldShowPhotoAlbum ? screenHeight - 50 : screenHeight
+                    let height = shouldShowPhotoAlbum ? screenHeight - 45 : screenHeight
                     
                     VStack {
                         ZStack {
@@ -201,54 +202,35 @@ struct ContentView: View {
                         }
                         
                         if shouldShowPhotoAlbum {
-                            Spacer()
-                        }
-                    }
-                }
-            }
-            
-            // Photo Album View - positioned at the bottom and can be dragged up
-            if hasCameraPermission && !cameraLoading && photoAlbumSnapshot {
-                GeometryReader { geometry in
-                    let screenHeight = geometry.size.height
-                    let glimpseHeight: CGFloat = 70
-                    let fullScreenOffset: CGFloat = 0
-                    let hiddenOffset: CGFloat = screenHeight - 60
-                    let glimpseOffset: CGFloat = showPhotoAlbumGlimpse ? screenHeight - glimpseHeight : 0
-                    
-                    PhotoAlbumView(
-                        glipseRevealStarted: glimpseOffset > 0,
-                        isFullScreen: $isPhotoAlbumFullScreen,
-                        photoManager: photoManager,
-                        onTap: {
-                            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                                if isPhotoAlbumFullScreen {
-                                    // Close full screen - return to hidden state
-                                    photoAlbumOffset = hiddenOffset
-                                    isPhotoAlbumFullScreen = false
-                                    showPhotoAlbumGlimpse = false
-                                } else {
-                                    // Open full screen
-                                    photoAlbumOffset = fullScreenOffset
-                                    isPhotoAlbumFullScreen = true
-                                    showPhotoAlbumGlimpse = false
+                            VStack {
+                                Text("Photo Album")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.black)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color.yellow)
+                            .clipShape(
+                                RoundedCorners(topLeading: 30, topTrailing: 30, bottomLeading: 0, bottomTrailing: 0)
+                            )
+                            .onTapGesture {
+                                withAnimation(.spring) {
+                                    showPhotoAlbum = true
                                 }
                             }
                         }
-                    )
-                    .frame(height: screenHeight)
-                    .offset(y: calculatePhotoAlbumOffset(
-                        screenHeight: screenHeight,
-                        glimpseHeight: glimpseHeight,
-                        fullScreenOffset: fullScreenOffset,
-                        hiddenOffset: hiddenOffset,
-                        glimpseOffset: glimpseOffset
-                    ))
-                    .animation(.easeInOut, value: showPhotoAlbumGlimpse)
+                    }
+                    .ignoresSafeArea(.container, edges: .bottom)
                 }
-                .ignoresSafeArea()
             }
         }
+        .sheet(isPresented: $showPhotoAlbum, content: {
+            PhotoAlbumView(photoManager: photoManager, onTap: {
+                withAnimation(.spring) {
+                    showPhotoAlbum = false
+                }
+            })
+            .presentationDetents([.large])
+        })
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(isPresented: $showOnboarding)
         }

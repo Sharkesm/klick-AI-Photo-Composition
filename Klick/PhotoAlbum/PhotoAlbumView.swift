@@ -13,9 +13,6 @@ struct PhotoAlbumView: View {
         GridItem(.flexible(), spacing: 8)
     ]
     
-    
-    var glipseRevealStarted: Bool
-    @Binding var isFullScreen: Bool
     @ObservedObject var photoManager: PhotoManager
 
     let onTap: () -> Void
@@ -26,14 +23,64 @@ struct PhotoAlbumView: View {
     @State private var showDeleteAlert = false
     
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                VStack(spacing: 0) {
+        ZStack {
+            VStack(spacing: 0) {
+                // Top header view
+                VStack {
+                    RoundedRectangle(cornerRadius: 50)
+                        .frame(width: 45, height: 6)
+                        .foregroundStyle(Color.black)
+                    
                     // Top section with "Slide to view" text or close button
-                    VStack {
-                        if isFullScreen {
-                            HStack {
-                                Button(action: {
+                    HStack {
+                        Spacer()
+                        // Delete button (only show when in selection mode and photos are selected)
+                        if isSelectionMode && !selectedPhotos.isEmpty {
+                            Button(action: {
+                                showDeleteAlert = true
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 16, weight: .medium))
+                                    Text("\(selectedPhotos.count)")
+                                        .font(.system(size: 16, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color.red)
+                                .clipShape(Capsule())
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 16)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            
+                // Photo grid section
+                if photoManager.photoCount == 0 {
+                    AnimatedIntroView {
+                        onTap()
+                    }
+                } else if photoManager.isLoading {
+                    // Loading state for lazy loading
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Loading photos...")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.black.opacity(0.7))
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, 60)
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            // Add photo canvas at the beginning - only show when not in selection mode
+                            if !isSelectionMode {
+                                AddPhotoCanvasView {
+                                    // Close the photo album to go back to camera
                                     withAnimation(.easeOut) {
                                         clearSelectedPhoto()
                                     }
@@ -41,194 +88,89 @@ struct PhotoAlbumView: View {
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                                         onTap()
                                     }
-                                }, label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "chevron.down")
-                                            .font(.system(size: 16, weight: .medium))
-                                    }
-                                    .foregroundColor(.black)
-                                })
-                                .padding(10)
-                                .background(Color.black.opacity(0.15))
-                                .clipShape(Capsule())
-                                
-                                Spacer()
-                                
-                                // Delete button (only show when in selection mode and photos are selected)
-                                if isSelectionMode && !selectedPhotos.isEmpty {
-                                    Button(action: {
-                                        showDeleteAlert = true
-                                    }) {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "trash")
-                                                .font(.system(size: 16, weight: .medium))
-                                            Text("\(selectedPhotos.count)")
-                                                .font(.system(size: 16, weight: .medium))
-                                        }
-                                        .foregroundColor(.white)
-                                        .padding(.vertical, 8)
-                                        .padding(.horizontal, 12)
-                                        .background(Color.red)
-                                        .clipShape(Capsule())
+                                }
+                            }
+                            
+                            // Sort photos by creation date in descending order (latest first)
+                            ForEach(photoManager.capturedPhotos) { photo in
+                                PhotoThumbnailView(
+                                    photo: photo,
+                                    isSelectionMode: isSelectionMode,
+                                    isSelected: selectedPhotos.contains(photo.id)
+                                ) {
+                                    if isSelectionMode {
+                                        togglePhotoSelection(photo)
+                                    } else {
+                                        print("🔍 Selecting photo: \(photo.id)")
+                                        selectedPhoto = photo
+                                        print("✅ Selected photo set to: \(photo.id)")
                                     }
                                 }
                             }
-                            .frame(height: 20)
-                            .padding(.top, 60)
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 20)
-                        } else {
-                            VStack(spacing: 4) {
-                                Text("Tap to view")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(.black)
-                                
-                                if photoManager.photoCount > 0 && glipseRevealStarted {
-                                    Text("\(photoManager.photoCount) photos")
-                                        .font(.system(size: 12, weight: .regular))
-                                        .foregroundColor(.black.opacity(0.7))
-                                }
-                            }
-                            .padding(.top, 10)
-                            Spacer()
                         }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+        }
+        .overlay(alignment: .bottom, content: {
+            // Floating bottom bar with Select button - positioned as overlay
+            if photoManager.photoCount > 0 && !photoManager.isLoading {
+                HStack(spacing: 16) {
+                    Spacer()
+                    
+                    // Select/Cancel button
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isSelectionMode.toggle()
+                            if !isSelectionMode {
+                                selectedPhotos.removeAll()
+                            }
+                        }
+                    }) {
+                        ZStack(alignment: .center) {
+                            if isSelectionMode {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 16, weight: .medium))
+                            }
+                            
+                            if !isSelectionMode {
+                                Text("Select")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                        }
+                        .foregroundColor(.black)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 20)
+                        .background(Color.white.opacity(0.9))
+                        .clipShape(Capsule())
                     }
                     
-                    // Photo grid section
-                    if photoManager.photoCount == 0 {
-                        AnimatedIntroView {
-                            onTap()
-                        }
-                    } else if photoManager.isLoading {
-                        // Loading state for lazy loading
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.2)
-                            Text("Loading photos...")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.black.opacity(0.7))
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.top, 60)
-                    } else {
-                        ScrollView {
-                            LazyVGrid(columns: columns, spacing: 12) {
-                                // Add photo canvas at the beginning - only show when not in selection mode
-                                if !isSelectionMode {
-                                    AddPhotoCanvasView {
-                                        // Close the photo album to go back to camera
-                                        withAnimation(.easeOut) {
-                                            clearSelectedPhoto()
-                                        }
-                                        
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                            onTap()
-                                        }
-                                    }
-                                }
-                                
-                                // Sort photos by creation date in descending order (latest first)
-                                ForEach(photoManager.capturedPhotos) { photo in
-                                    PhotoThumbnailView(
-                                        photo: photo,
-                                        isSelectionMode: isSelectionMode,
-                                        isSelected: selectedPhotos.contains(photo.id)
-                                    ) {
-                                        if isSelectionMode {
-                                            togglePhotoSelection(photo)
-                                        } else {
-                                            print("🔍 Selecting photo: \(photo.id)")
-                                            selectedPhoto = photo
-                                            print("✅ Selected photo set to: \(photo.id)")
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, isFullScreen && photoManager.photoCount > 0 && !photoManager.isLoading ? 100 : 20) // Bottom padding for floating button
-                        }
-                    }
+                    Spacer()
                 }
-                
-                // Floating bottom bar with Select button - positioned as overlay
-                if isFullScreen && photoManager.photoCount > 0 && !photoManager.isLoading {
-                    VStack {
-                        Spacer()
-                        
-                        HStack(spacing: 16) {
-                            Spacer()
-                            
-                            // Select/Cancel button
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isSelectionMode.toggle()
-                                    if !isSelectionMode {
-                                        selectedPhotos.removeAll()
-                                    }
-                                }
-                            }) {
-                                HStack(spacing: 8) {
-                                    if isSelectionMode {
-                                        Image(systemName: "xmark")
-                                            .font(.system(size: 16, weight: .medium))
-                                    } else {
-                                        Text("Select")
-                                            .font(.system(size: 16, weight: .semibold))
-                                    }
-                                }
-                                .foregroundColor(.black)
-                                .padding(.vertical, 12)
-                                .padding(.horizontal, 20)
-                                .background(Color.white.opacity(0.9))
-                                .clipShape(Capsule())
-                            }
-                            
-                            Spacer()
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 40) // Safe area padding
-                    }
-                }
+                .padding(.bottom, 40) // Safe area padding
             }
-            .background(Color.yellow)
-            .clipShape(
-                RoundedCorners(topLeading: 30, topTrailing: 30, bottomLeading: 0, bottomTrailing: 0)
-            )
-            .onTapGesture {
-                if !isFullScreen {
-                    // Trigger lazy loading when photo album is about to be opened
-                    photoManager.loadPhotosIfNeeded()
-                    onTap()
-                }
+        })
+        .background(Color.yellow)
+        .sheet(item: $selectedPhoto, onDismiss: {
+            print("📱 Sheet dismissed, clearing selectedPhoto")
+        }) { photo in
+            PhotoDetailView(photo: photo, photoManager: photoManager, isPresented: .constant(true)) {
+                // Dismiss callback
+                selectedPhoto = nil
             }
-            .sheet(item: $selectedPhoto, onDismiss: {
-                print("📱 Sheet dismissed, clearing selectedPhoto")
-            }) { photo in
-                PhotoDetailView(photo: photo, photoManager: photoManager, isPresented: .constant(true)) {
-                    // Dismiss callback
-                    selectedPhoto = nil
-                }
+        }
+        .alert("Delete Photos", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                deleteSelectedPhotos()
             }
-            .alert("Delete Photos", isPresented: $showDeleteAlert) {
-                Button("Delete", role: .destructive) {
-                    deleteSelectedPhotos()
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("Are you sure you want to delete \(selectedPhotos.count) photo\(selectedPhotos.count == 1 ? "" : "s")? This action cannot be undone.")
-            }
-            .onAppear {
-                // Trigger lazy loading when view appears in full screen mode
-                if isFullScreen {
-                    photoManager.loadPhotosIfNeeded()
-                }
-            }
-            .onChange(of: isFullScreen) { newValue in
-                // Trigger lazy loading when transitioning to full screen
-                if newValue {
-                    photoManager.loadPhotosIfNeeded()
-                }
-            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to delete \(selectedPhotos.count) photo\(selectedPhotos.count == 1 ? "" : "s")? This action cannot be undone.")
+        }
+        .onAppear {
+            // Trigger lazy loading when view appears in full screen mode
+            photoManager.loadPhotosIfNeeded()
         }
     }
     
