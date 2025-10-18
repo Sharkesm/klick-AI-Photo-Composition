@@ -53,6 +53,10 @@ struct ContentView: View {
     @State private var processedImage: UIImage?
     @State private var isProcessingImage = false
     
+    private var shouldShowPhotoAlbum: Bool {
+        return hasCameraPermission && !cameraLoading && photoAlbumSnapshot
+    }
+    
     var body: some View {
         ZStack {
             // Black background
@@ -63,7 +67,7 @@ struct ContentView: View {
             if hasCameraPermission {
                 GeometryReader { geometry in
                     let screenHeight = geometry.size.height
-                    let height = screenHeight - 50
+                    let height = shouldShowPhotoAlbum ? screenHeight - 50 : screenHeight
                     
                     VStack {
                         ZStack {
@@ -196,7 +200,9 @@ struct ContentView: View {
                             .padding(.bottom, 20)
                         }
                         
-                        Spacer()
+                        if shouldShowPhotoAlbum {
+                            Spacer()
+                        }
                     }
                 }
             }
