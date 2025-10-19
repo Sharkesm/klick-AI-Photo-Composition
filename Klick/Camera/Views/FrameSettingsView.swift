@@ -17,7 +17,7 @@ struct FrameSettingsView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "viewfinder")
                             .font(.system(size: 32))
-                            .foregroundColor(.blue)
+                            .foregroundColor(.yellow)
                         
                         Text("Frame Settings")
                             .font(.title2.weight(.semibold))
@@ -146,7 +146,7 @@ struct FrameSettingsView: View {
                     MadeWithLoveView(location: "🇹🇿")
                 }
             }
-            .background(Color.black)
+            .background(Color(hue: 232/255, saturation: 20/255, brightness: 18/255))
             .sheet(isPresented: $showOnboarding) {
                 OnboardingView(isPresented: $showOnboarding)
             }
@@ -159,6 +159,7 @@ struct SettingRow: View {
     let title: String
     let description: String
     @Binding var isEnabled: Bool
+    var hideSwitchControl: Bool = false
     let accentColor: Color
     
     var body: some View {
@@ -186,10 +187,12 @@ struct SettingRow: View {
                     
                     Spacer()
                     
-                    // Toggle aligned with title
-                    Toggle("", isOn: $isEnabled)
-                        .tint(.green)
-                        .toggleStyle(SwitchToggleStyle())
+                    if !hideSwitchControl {
+                        // Toggle aligned with title
+                        Toggle("", isOn: $isEnabled)
+                            .tint(.green)
+                            .toggleStyle(SwitchToggleStyle())
+                    }
                 }
                 
                 // Description (unaffected by toggle)
