@@ -88,11 +88,19 @@ struct CameraView: UIViewRepresentable {
 ## ✅ Before Making Changes
 
 1. **Check feature scope**: `.cursor/rules/feature-governance.mdc` → Evaluate if feature fits
-2. **Check docs**: `Documentation/0_INDEX.md` → Find relevant guide
-3. **Review architecture**: `.cursor/rules/architecture.mdc`
-4. **Check state management**: `.cursor/rules/state-management.mdc`
-5. **Consider performance**: `.cursor/rules/performance.mdc`
-6. **Test on device**: Camera requires physical iPhone 12+
+2. **Assess documentation impact**: `.cursor/rules/documentation-sync.mdc` → Identify which docs will need updates
+3. **Check docs**: `Documentation/0_INDEX.md` → Find relevant guide
+4. **Review architecture**: `.cursor/rules/architecture.mdc`
+5. **Check state management**: `.cursor/rules/state-management.mdc`
+6. **Consider performance**: `.cursor/rules/performance.mdc`
+7. **Test on device**: Camera requires physical iPhone 12+
+
+## ✅ After Making Changes (If Docs Updated)
+
+1. **Verify documentation changes**: Review primary and secondary documentation updates
+2. **Update cross-references**: Verify links and line numbers still accurate
+3. **Update timestamps**: Mark "Last Updated" dates in modified docs
+4. **Check for broken links**: Ensure all references are still valid
 
 ## 🚨 Critical Rules
 
