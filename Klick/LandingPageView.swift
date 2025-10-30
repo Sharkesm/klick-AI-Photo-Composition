@@ -2,6 +2,8 @@ import SwiftUI
 
 struct LandingPageView: View {
     @AppStorage("onboardingIntroduction") var onboardingIntroduction: Bool = false
+    @AppStorage("onboardingFlowCompleted") var onboardingFlowCompleted: Bool = false
+    @AppStorage("permissionGranted") var permissionGranted: Bool = false
     
     @State private var scrollOffset1: CGFloat = 0
     @State private var scrollOffset2: CGFloat = 0
@@ -18,6 +20,8 @@ struct LandingPageView: View {
     // Navigation and transition states
     @State private var isTransitioning = false
     @State private var showRows = true
+    @State private var showOnboardingFlow = false
+    @State private var showPermissionFlow = false
     
     // Array of image names from the Introduction folder
     private let introductionImages = [
@@ -39,8 +43,29 @@ struct LandingPageView: View {
             if !onboardingIntroduction {
                 // Landing page content
                 landingPageContent
+            } else if !onboardingFlowCompleted {
+                // Show onboarding flow
+                OnboardFlowView(isPresented: $showOnboardingFlow)
+                    .onAppear {
+                        showOnboardingFlow = true
+                    }
+                    .onChange(of: showOnboardingFlow) { newValue in
+                        if !newValue {
+                            // User completed or skipped onboarding
+                            onboardingFlowCompleted = true
+                        }
+                    }
+            } else if !permissionGranted {
+                // Show permission flow
+                PermissionFlowView(
+                    isPresented: $showPermissionFlow,
+                    permissionGranted: $permissionGranted
+                )
+                    .onAppear {
+                        showPermissionFlow = true
+                    }
             } else {
-                // Show ContentView directly
+                // Show ContentView after permissions are granted
                 ContentView()
             }
         }

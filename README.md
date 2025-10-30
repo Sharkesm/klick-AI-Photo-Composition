@@ -98,6 +98,90 @@ Klick provides instant composition guidance while you frame photos, helping you 
 - Cloud storage integration
 - Photo sharing capabilities
 
+## 📚 Documentation
+
+Klick features comprehensive, well-organized documentation to support development and scaling:
+
+### 🎯 Quick Links
+- **[Documentation Index](./Documentation/0_INDEX.md)** - Master navigation hub
+- **[Tech Stack](./Documentation/TECH_STACK.md)** - Complete technology reference
+- **[Developer Guide](./Documentation/4_Development/DEVELOPER_GUIDE.md)** - Development workflow
+- **[Architecture Overview](./Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md)** - System design
+
+### 📖 Documentation Structure
+
+```
+Documentation/
+├── 0_INDEX.md                     # Master navigation and quick find guide
+├── TECH_STACK.md                  # Complete technology reference
+│
+├── 1_Product/                     # Product documentation
+│   ├── PRODUCT_OVERVIEW.md        # Vision and mission
+│   └── FEATURE_CATALOG.md         # Complete feature inventory
+│
+├── 2_Architecture/                # Architecture & design
+│   ├── ARCHITECTURE_OVERVIEW.md   # System architecture
+│   ├── COMPONENT_MAP.md           # Component relationships
+│   ├── STATE_MANAGEMENT.md        # State patterns
+│   └── DATA_FLOW.md               # Data flow diagrams
+│
+├── 3_Application_Flows/           # End-to-end user flows
+│   ├── FLOWS_INDEX.md             # Flow navigation hub
+│   ├── FLOW_PHOTO_CAPTURE.md      # Photo capture flow
+│   ├── FLOW_COMPOSITION.md        # Composition analysis
+│   └── [More flows...]
+│
+├── 4_Development/                 # Development guides
+│   ├── DEVELOPER_GUIDE.md         # Complete dev guide
+│   ├── CODE_STANDARDS.md          # Coding conventions
+│   ├── TESTING_GUIDE.md           # Testing strategy
+│   └── API_REFERENCE.md           # Public APIs
+│
+├── 5_Features/                    # Feature-specific docs
+│   ├── CAMERA_SYSTEM.md           # Camera implementation
+│   ├── COMPOSITION_ANALYSIS.md    # Composition services
+│   ├── PHOTO_MANAGEMENT.md        # Photo storage
+│   ├── FILTER_SYSTEM.md           # LUT filters
+│   └── BLUR_EFFECTS.md            # Background blur
+│
+├── 6_Performance/                 # Performance documentation
+│   ├── PERFORMANCE_OVERVIEW.md    # Performance summary
+│   ├── MEMORY_OPTIMIZATION.md     # Memory strategies
+│   ├── BLUR_OPTIMIZATION.md       # Blur performance
+│   └── IMAGE_PROCESSING.md        # Concurrent processing
+│
+├── 7_Troubleshooting/            # Debug & troubleshooting
+│   ├── COMMON_ISSUES.md           # FAQ and solutions
+│   ├── DEBUGGING_GUIDE.md         # Debug workflows
+│   └── PERFORMANCE_PROFILING.md   # Profiling techniques
+│
+└── 8_Reference/                   # Reference materials
+    ├── GLOSSARY.md                # Technical terms
+    ├── RESOURCES.md               # External resources
+    └── DECISION_RECORDS.md        # Architecture decisions
+```
+
+### 🚀 Getting Started
+
+**For New Developers**:
+1. Start with [Documentation Index](./Documentation/0_INDEX.md)
+2. Review [Tech Stack](./Documentation/TECH_STACK.md)
+3. Follow [Developer Guide](./Documentation/4_Development/DEVELOPER_GUIDE.md)
+
+**For Feature Development**:
+1. Read [Architecture Overview](./Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md)
+2. Check [Application Flows](./Documentation/3_Application_Flows/FLOWS_INDEX.md)
+3. Review relevant feature docs in [5_Features/](./Documentation/5_Features/)
+
+**For Cursor AI Context**:
+The documentation is optimized for AI-assisted development with:
+- Semantic search-friendly structure
+- Complete code references with line numbers
+- Component relationship maps
+- End-to-end flow documentation
+
+---
+
 ## 📄 License
 
 This project is developed for educational purposes.

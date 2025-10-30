@@ -357,6 +357,8 @@ struct ContentView: View {
     }
     
     private func requestCameraPermission() {
+        // Permission should already be granted from PermissionFlowView
+        // This function now just checks status and shows onboarding modal
         let currentStatus = AVCaptureDevice.authorizationStatus(for: .video)
         permissionStatus = currentStatus
         
@@ -369,41 +371,27 @@ struct ContentView: View {
             // Camera loading will be handled by the camera view callback
             cameraLoading = true
             
+            // Show onboarding modal after camera loads
             guard !hasShowedIntroductionGuide else { return }
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 withAnimation(.easeIn) {
                     hasShowedIntroductionGuide = true
                     showOnboarding = true
                 }
             }
+            
         case .notDetermined:
-            print("❓ Camera permission not determined, requesting...")
-            AVCaptureDevice.requestAccess(for: .video) { granted in
-                DispatchQueue.main.async {
-                    print("📱 Camera permission request result: \(granted)")
-                    self.permissionStatus = granted ? .authorized : .denied
-                    self.hasCameraPermission = granted
-                    if granted {
-                        // Camera loading will be handled by the camera view callback
-                        self.cameraLoading = true
-                        print("🎬 Camera loading set to true")
-                        
-                        guard !hasShowedIntroductionGuide else { return }
-                        
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation(.easeIn) {
-                                hasShowedIntroductionGuide = true
-                                showOnboarding = true
-                            }
-                        }
-                    }
-                }
-            }
+            // This should not happen if flow is correct, but handle it anyway
+            print("⚠️ Permission not determined - user may have skipped flow")
+            hasCameraPermission = false
+            cameraLoading = false
+            
         case .denied, .restricted:
             print("❌ Camera permission denied or restricted")
             hasCameraPermission = false
             cameraLoading = false
+            
         @unknown default:
             print("❓ Unknown camera permission status")
             hasCameraPermission = false
