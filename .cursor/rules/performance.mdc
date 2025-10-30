@@ -1,0 +1,402 @@
+---
+description: Performance optimization rules - thread management, frame throttling (30→10 FPS), memory patterns, caching strategies, and UI responsiveness
+alwaysApply: false
+tags: [performance, threading, optimization, memory, caching]
+relatedDocs:
+  - Documentation/6_Performance/MEMORY_OPTIMIZATION.md
+  - Documentation/6_Performance/BLUR_OPTIMIZATION.md
+  - Documentation/6_Performance/IMAGE_PROCESSING.md
+version: 1.0
+lastUpdated: 2025-10-30
+---
+
+# Performance & Threading Rules
+
+**Reference**: `Documentation/6_Performance/PERFORMANCE_OVERVIEW.md`
+
+## 🧵 Threading Model
+
+```
+Main Thread:
+├─ All SwiftUI state updates
+├─ UI rendering
+└─ User interaction
+
+Background (.userInitiated):
+├─ Frame processing
+├─ Vision framework requests
+└─ Composition analysis
+
+Background (.background):
+├─ Camera session setup
+└─ Heavy image processing
+```
+
+## 🎯 Core Performance Rules
+
+### Rule 1: Frame Throttling (ALWAYS)
+
+**Problem**: Processing 30 FPS causes UI lag
+
+**Solution**: Process every 3rd frame
+
+```swift
+// ✅ GOOD - Throttle frames
+private var frameCount = 0
+
+func captureOutput(...) {
+    frameCount += 1
+    guard frameCount % 3 == 0 else { return }  // Only every 3rd frame
+    
+    // Process frame
+}
+
+// ❌ BAD - Process every frame
+func captureOutput(...) {
+    processFrame()  // 30 FPS! Too much CPU!
+}
+```
+
+**Where**: `CameraView.swift:124-127`
+
+**Result**: Smooth 30fps preview, 10fps analysis
+
+### Rule 2: Lazy Initialization
+
+**Problem**: Camera needs time to stabilize
+
+**Solution**: Wait 1 second before processing
+
+```swift
+// ✅ GOOD - Wait for stability
+let currentTime = CACurrentMediaTime()
+guard currentTime - cameraStartTime > 1.0 else { return }
+
+// ❌ BAD - Process immediately
+// Start processing right away... causes unstable results
+```
+
+**Where**: `CameraView.swift:135-138`
+
+**Result**: Stable detection, no false positives
+
+### Rule 3: Background Processing (CRITICAL)
+
+**Problem**: Vision framework blocks UI
+
+**Solution**: Process on background queue
+
+```swift
+// ✅ GOOD - Background processing
+DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+    guard let self = self else { return }
+    
+    // Heavy Vision processing
+    let faceRequest = VNDetectFaceRectanglesRequest { request, error in
+        let result = self.analyzeDetection(request.results)
+        
+        // Update UI on main thread
+        DispatchQueue.main.async {
+            self.parent.feedbackMessage = result
+        }
+    }
+    
+    try? VNImageRequestHandler(cvPixelBuffer: pixelBuffer)
+        .perform([faceRequest])
+}
+
+// ❌ BAD - Main thread processing (UI FREEZE!)
+let faceRequest = VNDetectFaceRectanglesRequest { ... }
+try? handler.perform([faceRequest])  // Blocks UI!
+```
+
+**Where**: Used throughout `CameraView.swift`, `BackgroundBlurManager.swift`
+
+**Result**: Smooth UI during heavy processing
+
+### Rule 4: Weak References (ALWAYS)
+
+**Problem**: Retain cycles in async closures cause memory leaks
+
+**Solution**: Use `[weak self]`
+
+```swift
+// ✅ GOOD - Weak reference
+DispatchQueue.global().async { [weak self] in
+    guard let self = self else { return }
+    // Safe to use self
+    self.processData()
+}
+
+// ❌ BAD - Strong reference (MEMORY LEAK!)
+DispatchQueue.global().async {
+    self.processData()  // Retain cycle!
+}
+```
+
+**Where**: All async closures in project
+
+**Result**: No memory leaks, proper cleanup
+
+### Rule 5: Main Thread UI Updates (CRITICAL)
+
+**Problem**: SwiftUI crashes if updated from background thread
+
+**Solution**: Always dispatch to main
+
+```swift
+// ✅ GOOD - Main thread update
+DispatchQueue.main.async {
+    self.feedbackMessage = result
+    self.showFeedback = true
+}
+
+// ❌ BAD - Background thread (CRASH!)
+// Still on background thread:
+self.feedbackMessage = result  // CRASH!
+```
+
+**Rule of thumb**: Any SwiftUI state change MUST be on main thread
+
+**Result**: Stable app, no crashes
+
+## 🚀 Optimization Patterns from Klick
+
+### Pattern 1: Debounced Updates
+
+**Use**: Slider changes, rapid user input
+
+```swift
+private var workItem: DispatchWorkItem?
+
+func handleSliderChange(value: Float) {
+    // Cancel previous work
+    workItem?.cancel()
+    
+    // Schedule new work
+    let newWorkItem = DispatchWorkItem { [weak self] in
+        guard let self = self else { return }
+        self.applyBlur(intensity: value)
+    }
+    workItem = newWorkItem
+    
+    // Execute after delay (150ms debounce)
+    DispatchQueue.main.asyncAfter(
+        deadline: .now() + 0.15,
+        execute: newWorkItem
+    )
+}
+```
+
+**Where**: `ImagePreviewView.swift:180-210`
+
+**Result**: Smooth slider interaction, reduced processing
+
+### Pattern 2: Session-Based Caching
+
+**Use**: Preview generation, blur effects
+
+```swift
+// ✅ GOOD - Session-based cache
+private var currentSessionId: String?
+private let maskCache = NSCache<NSString, CIImage>()
+
+func startEditingSession(for image: UIImage) {
+    let sessionId = generateSessionId(image)
+    
+    // Clear old session if different
+    if currentSessionId != sessionId {
+        clearSessionCaches()
+    }
+    
+    currentSessionId = sessionId
+}
+
+func generateMask() -> CIImage? {
+    let cacheKey = "\(currentSessionId!)_mask" as NSString
+    
+    // Check cache
+    if let cached = maskCache.object(forKey: cacheKey) {
+        return cached  // Fast!
+    }
+    
+    // Generate and cache
+    let mask = expensiveSegmentation()
+    maskCache.setObject(mask, forKey: cacheKey, cost: memoryCost)
+    return mask
+}
+
+func endEditingSession() {
+    clearSessionCaches()  // Clean up
+    currentSessionId = nil
+}
+```
+
+**Where**: `BackgroundBlurManager.swift`
+
+**Result**: 10-16x faster, 60% less memory
+
+### Pattern 3: Preview Resolution Processing
+
+**Use**: Real-time updates (sliders, live preview)
+
+```swift
+// ✅ GOOD - Separate preview and final resolution
+func generateBlurPreview(intensity: Float) -> UIImage? {
+    // Use small resolution for preview
+    let previewSize = CGSize(width: 400, height: 600)
+    return applyBlur(size: previewSize, intensity: intensity)
+}
+
+func generateFinalImage(intensity: Float) -> UIImage? {
+    // Use full resolution for final render
+    let fullSize = originalImage.size
+    return applyBlur(size: fullSize, intensity: intensity)
+}
+
+// ❌ BAD - Always full resolution
+func applyBlur(intensity: Float) -> UIImage? {
+    return applyBlur(size: originalImage.size, intensity: intensity)
+    // Too slow for real-time updates!
+}
+```
+
+**Where**: `BackgroundBlurManager.swift:generateBlurPreview()`
+
+**Result**: 10-16x faster preview generation
+
+### Pattern 4: Autoreleasepool for Memory
+
+**Use**: Heavy Core Image processing loops
+
+```swift
+// ✅ GOOD - Autoreleasepool wrapper
+func processImages(_ images: [UIImage]) -> [UIImage] {
+    return images.map { image in
+        autoreleasepool { () -> UIImage? in
+            // Heavy Core Image work
+            let ciImage = CIImage(image: image)
+            let blurred = applyBlur(to: ciImage)
+            let result = context.createCGImage(blurred, from: extent)
+            
+            return UIImage(cgImage: result!)
+        } // Temporary objects released immediately
+    }
+}
+
+// ❌ BAD - No autoreleasepool (memory accumulation)
+func processImages(_ images: [UIImage]) -> [UIImage] {
+    return images.map { image in
+        // Core Image temps accumulate... memory spike!
+        let ciImage = CIImage(image: image)
+        let blurred = applyBlur(to: ciImage)
+        return UIImage(cgImage: context.createCGImage(blurred, from: extent)!)
+    }
+}
+```
+
+**Where**: `BackgroundBlurManager.swift`
+
+**Result**: 60% memory reduction
+
+## 📊 Performance Targets
+
+| Operation | Target | Current | Status |
+|-----------|--------|---------|--------|
+| Frame processing | 10 FPS | 10 FPS | ✅ |
+| Vision detection | < 150ms | 50-150ms | ✅ |
+| Blur preview | < 50ms | 20-50ms | ✅ |
+| Blur final | < 300ms | 200-300ms | ✅ |
+| Memory peak | < 100MB | 50-80MB | ✅ |
+
+## 🚨 Critical Performance Rules
+
+### ALWAYS:
+
+- ✅ Throttle frame processing (every 3rd frame)
+- ✅ Use background queues for heavy work
+- ✅ Update UI on main thread (`DispatchQueue.main.async`)
+- ✅ Use `[weak self]` in async closures
+- ✅ Cache expensive computations
+- ✅ Use preview resolution for real-time updates
+- ✅ Clean up caches when done (session-based)
+
+### NEVER:
+
+- ❌ Process every camera frame (30fps is too much!)
+- ❌ Block main thread with heavy work
+- ❌ Update SwiftUI state on background threads
+- ❌ Skip weak references in closures
+- ❌ Recompute when you can cache
+- ❌ Use full resolution for real-time previews
+- ❌ Let caches grow unbounded
+
+## 🔍 Performance Checklist
+
+When adding new features:
+
+**Threading**:
+1. **[ ]** Heavy processing on background queue?
+2. **[ ]** UI updates dispatched to main thread?
+3. **[ ]** Using `[weak self]` in closures?
+
+**Optimization**:
+4. **[ ]** Can results be cached?
+5. **[ ]** Using appropriate resolution (preview vs final)?
+6. **[ ]** Cache has size limits?
+7. **[ ]** Cleaning up when done?
+
+**Testing**:
+8. **[ ]** Tested on physical device?
+9. **[ ]** Checked Instruments for memory leaks?
+10. **[ ]** Verified smooth 30fps UI?
+
+## 💡 Quick Performance Fixes
+
+### Issue: UI feels laggy
+
+```swift
+// Check: Are you processing on main thread?
+// Fix: Move to background queue
+DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+    let result = heavyWork()
+    DispatchQueue.main.async {
+        self?.updateUI(result)
+    }
+}
+```
+
+### Issue: Memory warnings
+
+```swift
+// Check: Are caches growing unbounded?
+// Fix: Add cache limits
+maskCache.countLimit = 2
+maskCache.totalCostLimit = 8 * 1024 * 1024  // 8MB
+
+// Fix: Clear when done
+func endSession() {
+    maskCache.removeAllObjects()
+}
+```
+
+### Issue: Real-time updates too slow
+
+```swift
+// Check: Using full resolution?
+// Fix: Use preview resolution
+let previewSize = CGSize(width: 400, height: 600)
+let preview = generatePreview(size: previewSize)  // Much faster!
+```
+
+## 📚 Detailed Performance Documentation
+
+- **Memory**: `Documentation/6_Performance/MEMORY_OPTIMIZATION.md`
+- **Blur**: `Documentation/6_Performance/BLUR_OPTIMIZATION.md`
+- **Processing**: `Documentation/6_Performance/IMAGE_PROCESSING.md`
+- **Preview**: `Documentation/6_Performance/PREVIEW_OPTIMIZATION.md`
+
+---
+
+**Rule of thumb**: If it takes > 16ms (1 frame), move it off main thread
+

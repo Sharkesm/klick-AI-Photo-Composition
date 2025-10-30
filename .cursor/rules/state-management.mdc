@@ -1,0 +1,417 @@
+---
+description: SwiftUI state management rules - proper usage of @State, @StateObject, @ObservedObject, @Published, and @Binding with practical examples
+alwaysApply: false
+tags: [swiftui, state, reactive, observableobject, binding]
+relatedDocs:
+  - Documentation/2_Architecture/STATE_MANAGEMENT.md
+  - Documentation/2_Architecture/DATA_FLOW.md
+version: 1.0
+lastUpdated: 2025-10-30
+---
+# SwiftUI State Management Rules
+
+**Reference**: `Documentation/2_Architecture/STATE_MANAGEMENT.md`
+
+## 🎯 Property Wrapper Quick Reference
+
+| Wrapper | Use When | Scope | Example |
+|---------|----------|-------|---------|
+| `@State` | Local view state | Single view | `@State private var isVisible = false` |
+| `@StateObject` | View owns object | View lifecycle | `@StateObject private var manager = Manager()` |
+| `@ObservedObject` | View observes object | Parent owns | `@ObservedObject var manager: Manager` |
+| `@Published` | Observable property | Inside ObservableObject | `@Published var value = ""` |
+| `@Binding` | Two-way binding | Parent ↔ Child | `@Binding var isEnabled: Bool` |
+
+## 📋 Rules by Property Wrapper
+
+### @State - Local View State
+
+**When**: Simple, private state within a single view
+
+```swift
+// ✅ GOOD - Local UI state
+struct MyView: View {
+    @State private var showSheet = false
+    @State private var textInput = ""
+    @State private var selectedIndex = 0
+    
+    var body: some View {
+        Button("Show") { showSheet.toggle() }
+    }
+}
+
+// ❌ BAD - Complex object in @State
+struct MyView: View {
+    @State private var manager = ComplexManager()  // NO! Use @StateObject
+}
+```
+
+**Rules**:
+- ✅ Use `private` access control
+- ✅ Simple value types (Bool, String, Int)
+- ❌ Never for ObservableObjects
+- ❌ Don't pass @State directly (use $binding)
+
+### @StateObject - View Owns ObservableObject
+
+**When**: View creates and owns the lifecycle
+
+```swift
+// ✅ GOOD - View owns manager
+struct ContentView: View {
+    @StateObject private var compositionManager = CompositionManager()
+    
+    var body: some View {
+        CameraView(manager: compositionManager)
+    }
+}
+
+// ❌ BAD - Using @ObservedObject to create
+struct ContentView: View {
+    @ObservedObject var manager = Manager()  // NO! Use @StateObject
+}
+```
+
+**Rules**:
+- ✅ View creates the object
+- ✅ Object persists across view updates
+- ✅ Use for managers, coordinators
+- ❌ Don't use @ObservedObject to create objects
+
+**From Klick** (`ContentView.swift:12`):
+
+```swift
+@StateObject private var compositionManager = CompositionManager()
+```
+
+### @ObservedObject - View Observes (Doesn't Own)
+
+**When**: Object is passed from parent
+
+```swift
+// ✅ GOOD - Passed from parent
+struct ChildView: View {
+    @ObservedObject var manager: CompositionManager
+    
+    var body: some View {
+        Text(manager.currentType.rawValue)
+    }
+}
+
+// Parent passes it
+struct ParentView: View {
+    @StateObject private var manager = CompositionManager()
+    
+    var body: some View {
+        ChildView(manager: manager)  // Pass to child
+    }
+}
+```
+
+**Rules**:
+- ✅ Object is passed from parent
+- ✅ Parent manages lifecycle
+- ❌ Don't create objects with @ObservedObject
+
+**From Klick** (`CameraView.swift:68`):
+
+```swift
+@ObservedObject var compositionManager: CompositionManager
+```
+
+### @Published - Observable Properties
+
+**When**: Inside ObservableObject, triggers UI updates
+
+```swift
+// ✅ GOOD - Observable properties
+class CompositionManager: ObservableObject {
+    @Published var currentType: CompositionType = .ruleOfThirds
+    @Published var isEnabled = true
+    @Published var lastResult: CompositionResult?
+    
+    func switchType(_ type: CompositionType) {
+        currentType = type  // Automatically triggers UI update
+    }
+}
+
+// ❌ BAD - All properties published
+class Manager: ObservableObject {
+    @Published var tempValue = 0  // Doesn't need to trigger UI
+    @Published var cache: [String: UIImage] = [:]  // Too expensive
+}
+```
+
+**Rules**:
+- ✅ Only for properties that affect UI
+- ✅ Inside ObservableObject classes
+- ❌ Don't publish everything
+- ❌ Avoid expensive computed properties
+
+**From Klick** (`CompositionManager.swift:11-15`):
+
+```swift
+@Published var currentCompositionType: CompositionType = .ruleOfThirds
+@Published var isEnabled = true
+@Published var lastResult: CompositionResult?
+```
+
+### @Binding - Two-Way Data Binding
+
+**When**: Child needs to modify parent's state
+
+```swift
+// ✅ GOOD - Two-way binding
+// Parent
+struct ParentView: View {
+    @State private var isEnabled = true
+    
+    var body: some View {
+        SettingsView(isEnabled: $isEnabled)  // Pass with $
+    }
+}
+
+// Child
+struct SettingsView: View {
+    @Binding var isEnabled: Bool
+    
+    var body: some View {
+        Toggle("Enable", isOn: $isEnabled)  // Can read & write
+    }
+}
+```
+
+**Rules**:
+- ✅ Pass with `$` prefix from parent
+- ✅ Child can read and write
+- ✅ Use for simple state sharing
+- ❌ Don't use for complex objects (use @ObservedObject)
+
+**From Klick** (`CameraView.swift:57-62`):
+
+```swift
+@Binding var triggerCapture: Bool
+@Binding var isFacialRecognitionEnabled: Bool
+```
+
+## 🔄 Common State Flow Patterns
+
+### Pattern 1: Parent → Child (Read-Only)
+
+```swift
+// Parent owns state
+struct ParentView: View {
+    @State private var value = "Hello"
+    
+    var body: some View {
+        ChildView(text: value)  // Pass as property
+    }
+}
+
+// Child reads only
+struct ChildView: View {
+    let text: String
+    var body: some View { Text(text) }
+}
+```
+
+### Pattern 2: Parent ↔ Child (Two-Way)
+
+```swift
+// Parent owns state
+struct ParentView: View {
+    @State private var value = ""
+    
+    var body: some View {
+        ChildView(text: $value)  // Pass as binding
+    }
+}
+
+// Child can modify
+struct ChildView: View {
+    @Binding var text: String
+    var body: some View {
+        TextField("Enter", text: $text)
+    }
+}
+```
+
+### Pattern 3: Shared ObservableObject
+
+```swift
+// Parent owns manager
+struct ParentView: View {
+    @StateObject private var manager = Manager()
+    
+    var body: some View {
+        ChildView(manager: manager)
+    }
+}
+
+// Child observes
+struct ChildView: View {
+    @ObservedObject var manager: Manager
+    var body: some View {
+        Text(manager.value)  // Auto-updates
+    }
+}
+```
+
+## 🚨 Common Mistakes & Fixes
+
+### ❌ Creating object with @ObservedObject
+
+```swift
+// BAD
+struct MyView: View {
+    @ObservedObject var manager = Manager()  // NO! Recreates on every render
+}
+
+// GOOD
+struct MyView: View {
+    @StateObject private var manager = Manager()  // YES! Persists
+}
+```
+
+### ❌ Updating state on background thread
+
+```swift
+// BAD
+DispatchQueue.global().async {
+    self.feedbackMessage = "Updated"  // NO! Crashes
+}
+
+// GOOD
+DispatchQueue.global().async {
+    let result = heavyComputation()
+    DispatchQueue.main.async {
+        self.feedbackMessage = result  // YES! Main thread
+    }
+}
+```
+
+### ❌ Passing @State directly
+
+```swift
+// BAD
+ChildView(value: myState)  // NO! Passes value, not binding
+
+// GOOD
+ChildView(value: $myState)  // YES! Passes binding
+```
+
+### ❌ Using @State for complex objects
+
+```swift
+// BAD
+@State private var imageProcessor = ImageProcessor()  // NO!
+
+// GOOD
+@StateObject private var imageProcessor = ImageProcessor()  // YES!
+```
+
+## ✅ Best Practices from Klick
+
+### ContentView.swift Pattern:
+
+```swift
+struct ContentView: View {
+    // Managers - Use @StateObject
+    @StateObject private var compositionManager = CompositionManager()
+    
+    // Local UI state - Use @State
+    @State private var showSettings = false
+    @State private var feedbackMessage: String?
+    @State private var hasCameraPermission = false
+    @State private var cameraLoading = true
+    
+    var body: some View {
+        ZStack {
+            // Pass manager to children
+            CameraView(compositionManager: compositionManager)
+            
+            // Pass state as bindings
+            if showSettings {
+                FrameSettingsView(
+                    isPresented: $showSettings,
+                    isFacialRecognitionEnabled: $isFacialRecognitionEnabled
+                )
+            }
+        }
+    }
+}
+```
+
+### PhotoManager.swift Pattern:
+
+```swift
+class PhotoManager: ObservableObject {
+    static let shared = PhotoManager()
+    
+    // Observable state - Use @Published
+    @Published var photos: [PhotoItem] = []
+    
+    // Internal state - Don't publish
+    private let directory: URL
+    private let fileManager = FileManager.default
+    
+    func savePhoto(_ image: UIImage) {
+        let photo = PhotoItem(...)
+        photos.insert(photo, at: 0)  // Triggers UI update
+    }
+}
+```
+
+### CameraView.swift Pattern:
+
+```swift
+struct CameraView: UIViewRepresentable {
+    // Observed from parent - Use @ObservedObject
+    @ObservedObject var compositionManager: CompositionManager
+    
+    // Two-way bindings - Use @Binding
+    @Binding var triggerCapture: Bool
+    @Binding var isFacialRecognitionEnabled: Bool
+    
+    class Coordinator {
+        var parent: CameraView
+        
+        func captureOutput(...) {
+            // Access parent's bindings
+            if parent.isFacialRecognitionEnabled {
+                // Process
+            }
+        }
+    }
+}
+```
+
+## 📊 State Decision Tree
+
+```
+Need to store data?
+├─ Simple value (Bool, String, Int)?
+│  └─ Use @State private var
+├─ Complex object (ObservableObject)?
+│  ├─ This view creates it?
+│  │  └─ Use @StateObject private var
+│  └─ Passed from parent?
+│     └─ Use @ObservedObject var
+└─ Need two-way binding to parent?
+   └─ Use @Binding var (parent passes with $)
+```
+
+## 🎯 Quick Checklist
+
+When adding state:
+
+1. **[ ]** Is it a simple value? → `@State`
+2. **[ ]** Is it an ObservableObject I create? → `@StateObject`
+3. **[ ]** Is it an ObservableObject passed to me? → `@ObservedObject`
+4. **[ ]** Do I need to modify parent's state? → `@Binding`
+5. **[ ]** Am I inside an ObservableObject? → `@Published`
+
+---
+
+**For complete state management guide**: See `Documentation/2_Architecture/STATE_MANAGEMENT.md`
+**For data flow patterns**: See `Documentation/2_Architecture/DATA_FLOW.md`

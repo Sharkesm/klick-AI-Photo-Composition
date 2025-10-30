@@ -1,0 +1,124 @@
+---
+description: Klick iOS camera app overview - project structure, documentation index, file locations, and essential development guidelines
+alwaysApply: true
+version: 1.0
+lastUpdated: 2025-10-30
+---
+
+# Klick Project Rules
+
+## 🎯 Project Overview
+
+- **Platform**: iOS 16.0+, iPhone 12+
+- **Language**: Swift 5.9
+- **Architecture**: MVVM + Service Layer
+- **Key Frameworks**: SwiftUI, UIKit, AVFoundation, Vision, Core Image, Metal
+
+## 📚 Documentation First - ALWAYS START HERE
+
+**Master Index**: `Documentation/0_INDEX.md`
+
+### Quick Doc Lookup:
+
+**Core References**:
+- **Tech Stack**: `Documentation/TECH_STACK.md` - All frameworks & versions
+- **Architecture**: `Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md`
+- **Components**: `Documentation/2_Architecture/COMPONENT_MAP.md`
+- **State Patterns**: `Documentation/2_Architecture/STATE_MANAGEMENT.md`
+- **Data Flow**: `Documentation/2_Architecture/DATA_FLOW.md`
+
+**Feature-Specific**:
+- Camera: `Documentation/5_Features/CAMERA_SYSTEM.md`
+- Composition: `Documentation/5_Features/COMPOSITION_ANALYSIS.md`
+- Filters: `Documentation/5_Features/FILTER_SYSTEM.md`
+- Photos: `Documentation/5_Features/PHOTO_MANAGEMENT.md`
+
+**Performance**:
+- Memory: `Documentation/6_Performance/MEMORY_OPTIMIZATION.md`
+- Blur: `Documentation/6_Performance/BLUR_OPTIMIZATION.md`
+- Processing: `Documentation/6_Performance/IMAGE_PROCESSING.md`
+
+## 🏗️ Core Patterns
+
+### 1. MVVM + Service Layer
+
+```
+View (SwiftUI) ←→ ViewModel (ObservableObject) ←→ Service
+```
+
+**Example**:
+- View: `ContentView.swift`
+- ViewModel: `CompositionManager.swift`
+- Service: `CompositionService.swift` (protocol)
+
+### 2. Protocol-Oriented Design
+
+**Pattern**: Define protocols for extensibility
+
+```swift
+protocol CompositionService {
+    var name: String { get }
+    func evaluate(...) -> CompositionResult
+}
+```
+
+### 3. SwiftUI + UIKit Bridge
+
+**Pattern**: `UIViewRepresentable` + `Coordinator` for camera
+
+```swift
+struct CameraView: UIViewRepresentable {
+    class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate { }
+}
+```
+
+## 🎯 Key File Locations
+
+**Main App**:
+- Entry: `Klick/KlickApp.swift`
+- Main: `Klick/Camera/Screen/ContentView.swift`
+- Camera: `Klick/Camera/Views/CameraView.swift`
+
+**Managers** (Singletons):
+- Photos: `Klick/PhotoManager.swift`
+- Composition: `Klick/CompositionManager.swift`
+- Filters: `Klick/Services/FilterManager.swift`
+- Blur: `Klick/BackgroundBlurManager.swift`
+
+## ✅ Before Making Changes
+
+1. **Check feature scope**: `.cursor/rules/feature-governance.mdc` → Evaluate if feature fits
+2. **Check docs**: `Documentation/0_INDEX.md` → Find relevant guide
+3. **Review architecture**: `.cursor/rules/architecture.mdc`
+4. **Check state management**: `.cursor/rules/state-management.mdc`
+5. **Consider performance**: `.cursor/rules/performance.mdc`
+6. **Test on device**: Camera requires physical iPhone 12+
+
+## 🚨 Critical Rules
+
+### ALWAYS:
+- Use `[weak self]` in async closures
+- Update UI on main thread via `DispatchQueue.main.async`
+- Follow SwiftUI state patterns (@State, @StateObject, @Binding)
+- Preserve frame throttling (every 3rd frame)
+- Test camera features on physical device
+
+### NEVER:
+- Block main thread with heavy processing
+- Create ObservableObjects with `@ObservedObject` (use `@StateObject`)
+- Update SwiftUI state on background threads
+- Skip frame throttling in camera processing
+- Break existing performance optimizations
+
+## 📊 Project Metrics
+
+- **Target**: iOS 16.0+, iPhone 12+
+- **Frame Processing**: 10 FPS (throttled from 30 FPS)
+- **Performance**: 60% memory reduction, 10-16x blur speedup
+- **Architecture**: MVVM + Service Layer, Protocol-Oriented
+
+---
+
+**For detailed rules**: Check `.cursor/rules/` directory
+**For comprehensive docs**: Start at `Documentation/0_INDEX.md`
+

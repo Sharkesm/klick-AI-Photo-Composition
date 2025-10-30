@@ -1,0 +1,364 @@
+---
+description: Architecture implementation rules - MVVM pattern, protocol-oriented services, SwiftUI-UIKit bridges, and feature organization
+alwaysApply: false
+tags: [architecture, mvvm, protocols, patterns]
+relatedDocs: 
+  - Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md
+  - Documentation/2_Architecture/COMPONENT_MAP.md
+version: 1.0
+lastUpdated: 2025-10-30
+---
+
+# Architecture Patterns
+
+**Reference**: `Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md`
+
+## 🏗️ MVVM + Service Layer Pattern
+
+### Structure:
+
+```
+View (SwiftUI) ←→ ViewModel (ObservableObject) ←→ Service Layer
+```
+
+### When to Use:
+
+**Views** - UI only, no business logic
+
+```swift
+// ✅ GOOD - View is dumb
+struct ContentView: View {
+    @StateObject private var manager = CompositionManager()
+    
+    var body: some View {
+        CameraView(manager: manager)
+        Text(manager.feedbackMessage)
+    }
+}
+
+// ❌ BAD - Business logic in view
+struct ContentView: View {
+    func analyzeComposition() {
+        // Complex analysis logic here... NO!
+    }
+}
+```
+
+**ViewModels** - Business logic coordinator
+
+```swift
+// ✅ GOOD - Coordinates services
+class CompositionManager: ObservableObject {
+    @Published var currentType: CompositionType
+    private let service = RuleOfThirdsService()
+    
+    func evaluate(...) -> CompositionResult {
+        return service.evaluate(...)
+    }
+}
+```
+
+**Services** - Reusable business logic
+
+```swift
+// ✅ GOOD - Protocol-based service
+protocol CompositionService {
+    func evaluate(...) -> CompositionResult
+}
+
+class RuleOfThirdsService: CompositionService {
+    func evaluate(...) -> CompositionResult {
+        // Analysis logic
+    }
+}
+```
+
+## 🎯 Protocol-Oriented Design
+
+### Pattern: Extensibility through protocols
+
+**Example from project** (`CompositionService.swift`):
+
+```swift
+// Protocol definition
+protocol CompositionService {
+    var name: String { get }
+    func evaluate(
+        observation: VNDetectedObjectObservation,
+        frameSize: CGSize,
+        pixelBuffer: CVPixelBuffer?
+    ) -> CompositionResult
+}
+
+// Implementations
+class RuleOfThirdsService: CompositionService { }
+class CenterFramingService: CompositionService { }
+```
+
+### When adding new features:
+
+**Step 1**: Define protocol
+
+```swift
+protocol FilterService {
+    func apply(to image: UIImage) -> UIImage
+}
+```
+
+**Step 2**: Implement
+
+```swift
+class LUTFilterService: FilterService {
+    func apply(to image: UIImage) -> UIImage {
+        // Implementation
+    }
+}
+```
+
+**Step 3**: Register in manager
+
+```swift
+class FilterManager {
+    private let services: [FilterService] = [
+        LUTFilterService(),
+        // Add new services here
+    ]
+}
+```
+
+## 🌉 SwiftUI + UIKit Bridge Pattern
+
+**When**: Integrating UIKit components (e.g., Camera)
+
+**Pattern** (`CameraView.swift`):
+
+```swift
+struct CameraView: UIViewRepresentable {
+    // SwiftUI → UIKit bridge
+    
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        context.coordinator.setupCamera(for: view)
+        return view
+    }
+    
+    func updateUIView(_ uiView: UIView, context: Context) {
+        // Handle SwiftUI state changes
+        context.coordinator.updateSettings()
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    // Coordinator handles delegates
+    class Coordinator: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+        var parent: CameraView
+        
+        func captureOutput(...) {
+            // Handle camera frames
+        }
+    }
+}
+```
+
+### Rules for UIKit bridges:
+
+1. **Put logic in Coordinator**, not UIViewRepresentable
+2. **Coordinator owns delegates**, manages lifecycle
+3. **Use `parent` reference** to access SwiftUI state
+4. **Update UI in `updateUIView()`**, not Coordinator
+
+## 🗂️ File Organization
+
+### Structure:
+
+```
+Feature/
+├── Screen/          # Main screens (ContentView)
+├── Views/           # Reusable views (CameraView)
+├── Components/      # Small UI components (Button)
+└── [Manager].swift  # Business logic (if needed)
+```
+
+### Naming Conventions:
+
+- **Screens**: `ContentView.swift`, `ImagePreviewView.swift`
+- **Managers**: `CompositionManager.swift`, `PhotoManager.swift`
+- **Services**: `RuleOfThirdsService.swift`, `FilterService.swift`
+
+## 🔄 Singleton Pattern
+
+**When to use**: App-wide shared state/resources
+
+**Pattern**:
+
+```swift
+class PhotoManager: ObservableObject {
+    static let shared = PhotoManager()
+    
+    @Published var photos: [PhotoItem] = []
+    
+    private init() {
+        // Initialize
+    }
+}
+```
+
+**Used in**:
+- `PhotoManager.shared` - Photo storage
+- `FilterManager.shared` - Filter application
+- `BackgroundBlurManager.shared` - Blur effects
+
+## ✅ Checklist: Adding New Features
+
+### New Composition Rule:
+
+1. ✅ Create class implementing `CompositionService`
+2. ✅ Add to `CompositionManager.availableServices`
+3. ✅ Add to `CompositionType` enum
+4. ✅ Update `CompositionPickerView`
+
+**Reference**: `Documentation/5_Features/COMPOSITION_ANALYSIS.md`
+
+### New Filter:
+
+1. ✅ Add .CUBE file to `Klick/Luts/`
+2. ✅ Add to `FilterManager` list
+3. ✅ UI updates automatically
+
+**Reference**: `Documentation/5_Features/FILTER_SYSTEM.md`
+
+### New Manager:
+
+1. ✅ Conform to `ObservableObject`
+2. ✅ Use `@Published` for observable state
+3. ✅ Consider singleton pattern
+4. ✅ Document in `COMPONENT_MAP.md`
+
+## 🚨 Common Mistakes
+
+### ❌ BAD: Business logic in View
+
+```swift
+struct MyView: View {
+    func processImage() {
+        // Complex image processing... NO!
+    }
+}
+```
+
+### ✅ GOOD: Logic in Service/Manager
+
+```swift
+struct MyView: View {
+    @StateObject private var manager = ImageManager()
+    
+    var body: some View {
+        Button("Process") {
+            manager.processImage()  // Delegates to manager
+        }
+    }
+}
+```
+
+### ❌ BAD: Creating ObservableObject in View without @StateObject
+
+```swift
+struct MyView: View {
+    let manager = Manager()  // NO! Will recreate on every render
+}
+```
+
+### ✅ GOOD: Using @StateObject
+
+```swift
+struct MyView: View {
+    @StateObject private var manager = Manager()  // YES! Persists
+}
+```
+
+## 📋 Real Examples from Klick
+
+### Composition System:
+
+**Manager**: `CompositionManager.swift`
+
+```swift
+class CompositionManager: ObservableObject {
+    @Published var currentCompositionType: CompositionType = .ruleOfThirds
+    
+    private let ruleOfThirdsService = RuleOfThirdsService()
+    private let centerFramingService = CenterFramingService()
+    
+    func evaluate(...) -> CompositionResult {
+        return currentService.evaluate(...)
+    }
+}
+```
+
+**Service**: `CompositionService.swift`
+
+```swift
+protocol CompositionService {
+    var name: String { get }
+    func evaluate(...) -> CompositionResult
+}
+
+class RuleOfThirdsService: CompositionService {
+    let name = "Rule of Thirds"
+    
+    func evaluate(...) -> CompositionResult {
+        // Grid-based analysis
+    }
+}
+```
+
+**View**: `ContentView.swift`
+
+```swift
+struct ContentView: View {
+    @StateObject private var compositionManager = CompositionManager()
+    
+    var body: some View {
+        CameraView(compositionManager: compositionManager)
+    }
+}
+```
+
+### Photo Management:
+
+**Manager**: `PhotoManager.swift` (Singleton + ObservableObject)
+
+```swift
+class PhotoManager: ObservableObject {
+    static let shared = PhotoManager()
+    
+    @Published var photos: [PhotoItem] = []
+    
+    func savePhoto(_ image: UIImage) {
+        // Save logic
+        photos.insert(newPhoto, at: 0)  // Auto-updates UI
+    }
+}
+```
+
+**View**: `PhotoAlbumView.swift`
+
+```swift
+struct PhotoAlbumView: View {
+    @ObservedObject var manager = PhotoManager.shared
+    
+    var body: some View {
+        ForEach(manager.photos) { photo in
+            // Display photos - auto-updates when array changes
+        }
+    }
+}
+```
+
+---
+
+**For complete architecture details**: See `Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md`
+**For component relationships**: See `Documentation/2_Architecture/COMPONENT_MAP.md`
+

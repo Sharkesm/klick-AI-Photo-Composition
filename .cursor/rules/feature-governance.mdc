@@ -1,0 +1,543 @@
+---
+description: Feature governance framework - scope control, decision criteria, product vision alignment, and change approval process to prevent feature creep
+alwaysApply: true
+tags: [governance, scope, product-vision, decision-framework, constraints]
+relatedDocs:
+  - Documentation/1_Product/PRODUCT_OVERVIEW.md
+  - Documentation/1_Product/FEATURE_CATALOG.md
+  - Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md
+version: 1.0
+lastUpdated: 2025-10-30
+---
+
+# Feature Governance & Scope Control
+
+**Critical Rule**: This rule MUST be consulted before implementing ANY new feature, functionality, or significant change to Klick.
+
+**Reference**: `Documentation/1_Product/FEATURE_GOVERNANCE.md`
+
+---
+
+## 🎯 Product Vision & Mission
+
+### Core Mission (Immutable)
+
+**Klick's Purpose**:
+> Transform how beginner and intermediate photographers learn composition techniques through real-time, interactive guidance.
+
+### What Klick IS:
+- ✅ Real-time camera composition assistant
+- ✅ Photography education tool
+- ✅ Interactive learning platform for composition
+- ✅ Live feedback system for framing decisions
+
+### What Klick IS NOT:
+- ❌ Generic object detection app
+- ❌ Food/product identification tool
+- ❌ Social media platform
+- ❌ Photo sharing service
+- ❌ General-purpose AI camera
+- ❌ Augmented reality app
+
+---
+
+## 📋 Feature Evaluation Framework
+
+**MANDATORY**: All proposed features MUST pass this evaluation before implementation.
+
+### Evaluation Criteria (Minimum 70/100 to proceed)
+
+| Criterion | Weight | Evaluation Questions |
+|-----------|--------|---------------------|
+| **Vision Alignment** | 35% | Does it teach composition? Help photographers learn? Serve educational goals? |
+| **User Value** | 30% | Does target user need this? Solves real problem? Improves learning experience? |
+| **Technical Fit** | 15% | Fits existing architecture? Reuses current systems? Reasonable complexity? |
+| **ROI** | 10% | Development time justified? Better than roadmap alternatives? |
+| **Brand Clarity** | 10% | Maintains focused product identity? Doesn't confuse value proposition? |
+
+### Scoring Guidelines
+
+**Vision Alignment (35 points)**:
+- 30-35 pts: Directly teaches composition technique
+- 20-29 pts: Enhances composition learning experience
+- 10-19 pts: Tangentially related to photography
+- 0-9 pts: Unrelated to composition education
+
+**User Value (30 points)**:
+- 25-30 pts: Critical need for target users
+- 15-24 pts: Significant improvement to workflow
+- 5-14 pts: Nice to have, minor benefit
+- 0-4 pts: No clear user need
+
+**Technical Fit (15 points)**:
+- 12-15 pts: Extends existing patterns perfectly
+- 8-11 pts: Fits with minor modifications
+- 4-7 pts: Requires new abstractions
+- 0-3 pts: Breaks current architecture
+
+**ROI (10 points)**:
+- 8-10 pts: High value, low effort
+- 5-7 pts: Balanced value/effort
+- 2-4 pts: Low value or high effort
+- 0-1 pts: Poor value/effort ratio
+
+**Brand Clarity (10 points)**:
+- 8-10 pts: Strengthens brand identity
+- 5-7 pts: Neutral impact on brand
+- 2-4 pts: Slightly confusing
+- 0-1 pts: Dilutes or confuses brand
+
+---
+
+## ✅ In-Scope Features
+
+### Composition Analysis (Core Domain)
+
+**Always In Scope**:
+- ✅ New composition rules (Golden Ratio, Leading Lines, Depth of Field)
+- ✅ Enhanced composition feedback and guidance
+- ✅ Composition scoring improvements
+- ✅ Educational content about composition
+- ✅ Visual overlays for composition techniques
+
+**Example**: Adding Golden Ratio composition service
+```
+Vision Alignment: 35/35 - Directly teaches composition ✅
+User Value: 28/30 - Photographers want this technique ✅
+Technical Fit: 14/15 - Uses CompositionService protocol ✅
+ROI: 9/10 - High value, fits roadmap ✅
+Brand Clarity: 10/10 - Core competency ✅
+TOTAL: 96/100 → APPROVED ✅
+```
+
+### Photography Enhancement (Adjacent Domain)
+
+**Carefully Evaluate**:
+- ⚠️ Advanced camera controls (exposure, ISO, shutter speed)
+- ⚠️ RAW image capture and processing
+- ⚠️ Photography-specific filters and effects
+- ⚠️ Lighting condition analysis
+- ⚠️ Color theory guidance
+
+**Criteria**: Must enhance composition learning, not just add camera features.
+
+### User Experience (Supporting Domain)
+
+**In Scope**:
+- ✅ Performance optimizations
+- ✅ Better onboarding for composition concepts
+- ✅ Improved feedback mechanisms
+- ✅ Accessibility improvements
+- ✅ Better photo management for learning review
+
+---
+
+## ❌ Out-of-Scope Features
+
+### Absolutely Prohibited (Automatic Rejection)
+
+**Object Recognition/Classification** (unless composition-related):
+- ❌ Hotdog detection
+- ❌ Food identification
+- ❌ Product recognition
+- ❌ General object classification
+- ❌ Text/OCR recognition
+- ❌ Barcode/QR scanning
+
+**Social/Sharing Features**:
+- ❌ Social media integration
+- ❌ Photo sharing platforms
+- ❌ User profiles and following
+- ❌ Comments and likes
+- ❌ Community features
+
+**Unrelated Functionality**:
+- ❌ Calendar integration
+- ❌ Location tracking/tagging
+- ❌ Weather information
+- ❌ Shopping/e-commerce
+- ❌ Games or entertainment
+
+**Example: Hotdog Detection**
+```
+Vision Alignment: 1/35 - Doesn't teach composition ❌
+User Value: 1/30 - Photographers don't need this ❌
+Technical Fit: 3/15 - Requires different architecture ❌
+ROI: 2/10 - Poor return on investment ❌
+Brand Clarity: 1/10 - Confuses product identity ❌
+TOTAL: 8/100 → REJECTED ❌
+```
+
+---
+
+## 🚦 Decision Process
+
+### Step 1: Initial Assessment
+
+**Before ANY implementation**, answer:
+
+1. **What problem does this solve?**
+   - Must be specific and related to composition learning
+
+2. **Who is this for?**
+   - Must be for beginner/intermediate photographers
+
+3. **How does it teach composition?**
+   - If answer is unclear → STOP
+
+4. **What's the alternative?**
+   - Is there a roadmap feature that's better?
+
+### Step 2: Framework Evaluation
+
+Complete the evaluation framework:
+- Score each criterion honestly
+- Calculate weighted total
+- **< 70 points**: REJECT immediately
+- **70-84 points**: Needs justification
+- **85+ points**: Strong candidate
+
+### Step 3: Architecture Review
+
+**Check technical alignment**:
+- ✅ Extends existing protocols (CompositionService, etc.)
+- ✅ Follows MVVM + Service Layer pattern
+- ✅ Reuses current Vision/AVFoundation pipeline
+- ✅ Maintains performance characteristics
+
+**Red flags**:
+- ❌ Requires new major dependencies
+- ❌ Breaks existing patterns
+- ❌ Impacts real-time performance
+- ❌ Adds significant complexity
+
+### Step 4: Documentation Check
+
+**Before implementation**:
+1. Read relevant docs in `Documentation/`
+2. Check if similar feature exists
+3. Review `FEATURE_CATALOG.md` for roadmap
+4. Verify architectural fit in `ARCHITECTURE_OVERVIEW.md`
+
+### Step 5: Decision & Documentation
+
+**If approved**:
+- Document decision rationale
+- Update `FEATURE_CATALOG.md`
+- Plan documentation updates
+- Follow implementation patterns
+
+**If rejected**:
+- Document why it doesn't fit
+- Suggest alternatives if applicable
+- Consider for spin-off project
+
+---
+
+## 🎯 Approved Roadmap Features
+
+**Reference**: `Documentation/1_Product/FEATURE_CATALOG.md`
+
+### High Priority (Core Mission)
+
+**Composition Techniques** (Vision Score: 95+):
+- Golden Ratio analysis
+- Leading Lines detection
+- Diagonal composition
+- Frame-within-frame detection
+- Negative space analysis
+
+**Educational Enhancements** (Vision Score: 85+):
+- Interactive composition tutorials
+- Before/after examples
+- Composition challenge mode
+- Progress tracking for learning
+
+**Performance** (Vision Score: 80+):
+- Battery optimization
+- Memory management improvements
+- Faster detection algorithms
+
+### Medium Priority (Enhancement)
+
+**Advanced Camera** (Vision Score: 75+):
+- Focus plane visualization
+- Exposure zone analysis
+- Histogram for exposure balance
+
+**Photo Review** (Vision Score: 70+):
+- Composition analysis of saved photos
+- Learning from past captures
+- Portfolio composition insights
+
+### Low Priority / Future
+
+**Experimental** (Requires re-evaluation):
+- AR composition overlays
+- Depth-based composition guidance
+- Multi-subject composition handling
+
+---
+
+## 🚨 Change Control Process
+
+### For Major Features (> 2 days work)
+
+**MUST**:
+1. Complete evaluation framework (score ≥70)
+2. Write feature proposal with:
+   - Problem statement
+   - User value proposition
+   - Technical approach
+   - Evaluation scores
+   - Alternative considerations
+3. Review against architecture docs
+4. Get explicit approval before implementation
+
+### For Minor Changes (< 2 days work)
+
+**SHOULD**:
+1. Quick vision alignment check
+2. Verify doesn't break existing patterns
+3. Document reasoning in commit
+
+### For Refactoring
+
+**Allowed without evaluation**:
+- Performance optimizations (maintaining functionality)
+- Bug fixes
+- Code quality improvements
+- Documentation updates
+- Test coverage improvements
+
+**Red line**: Don't add new features disguised as refactoring
+
+---
+
+## 🎓 Real Examples
+
+### ✅ APPROVED: Symmetry Composition Service
+
+**Proposal**: Add symmetry analysis for composition feedback
+
+**Evaluation**:
+```
+Vision Alignment: 35/35 - Core composition technique ✅
+User Value: 28/30 - Symmetry is fundamental concept ✅
+Technical Fit: 15/15 - Perfect CompositionService fit ✅
+ROI: 9/10 - 3-4 days, high value ✅
+Brand Clarity: 10/10 - Strengthens core mission ✅
+TOTAL: 97/100 → APPROVED ✅
+```
+
+**Implementation**: `CompositionService.swift` - SymmetryService class
+
+### ❌ REJECTED: Social Media Sharing
+
+**Proposal**: Add ability to share photos to Instagram/Facebook
+
+**Evaluation**:
+```
+Vision Alignment: 5/35 - Doesn't teach composition ❌
+User Value: 15/30 - Users can already do this ❌
+Technical Fit: 10/15 - Needs new SDKs ❌
+ROI: 3/10 - High effort, low unique value ❌
+Brand Clarity: 2/10 - Makes us look like social app ❌
+TOTAL: 35/100 → REJECTED ❌
+```
+
+**Reasoning**: Dilutes focus, users can share via Photos app
+
+### ❌ REJECTED: Hotdog Detection
+
+**Proposal**: Identify hotdogs in food photos
+
+**Evaluation**:
+```
+Vision Alignment: 1/35 - Zero composition teaching ❌
+User Value: 1/30 - Not photographer need ❌
+Technical Fit: 3/15 - Requires ML classification ❌
+ROI: 2/10 - 10+ days for no user value ❌
+Brand Clarity: 1/10 - Completely off-brand ❌
+TOTAL: 8/100 → REJECTED ❌
+```
+
+**Reasoning**: Wrong product, wrong users, wrong mission
+
+### ⚠️ CONDITIONAL: Food Photography Mode
+
+**Proposal**: Specialized composition rules for food photography
+
+**Evaluation**:
+```
+Vision Alignment: 25/35 - Teaches food composition ⚠️
+User Value: 20/30 - Niche but valuable subset ⚠️
+Technical Fit: 14/15 - Uses existing patterns ✅
+ROI: 6/10 - Major feature, specialized audience ⚠️
+Brand Clarity: 7/10 - Expands scope significantly ⚠️
+TOTAL: 72/100 → CONDITIONAL ⚠️
+```
+
+**Decision**: Not for v1.0. Consider for v2.0 with:
+- Full set of food composition rules (overhead, 45°, etc.)
+- Educational content specific to food photography
+- Enough market validation for niche
+
+---
+
+## 🛡️ Guardrails & Constraints
+
+### Immutable Constraints
+
+**NEVER compromise on**:
+1. **Core Mission**: Must teach composition
+2. **Target User**: Beginner/intermediate photographers
+3. **Real-time Performance**: 10 FPS minimum, 30 FPS preview
+4. **Architecture Patterns**: MVVM + Service Layer
+5. **Code Quality**: Performance, memory, threading rules
+
+### Warning Signs (Feature Creep Indicators)
+
+**Stop immediately if**:
+- ❌ "While we're at it, let's also add..."
+- ❌ "This is similar to [unrelated app]..."
+- ❌ "It would be cool if..."
+- ❌ "Everyone has this feature..."
+- ❌ "Just a small addition..."
+
+**Ask instead**:
+- ✅ "Does this teach composition?"
+- ✅ "Will photographers learn from this?"
+- ✅ "Is this on our roadmap?"
+- ✅ "Does this strengthen our mission?"
+
+### Scope Expansion Rules
+
+**To expand scope beyond composition learning**:
+
+1. **Requires**: Product vision update in `PRODUCT_OVERVIEW.md`
+2. **Requires**: Explicit approval with documented reasoning
+3. **Requires**: Re-evaluation of ALL out-of-scope examples
+4. **Requires**: Brand impact assessment
+
+**Default**: When in doubt, say NO. Focused products win.
+
+---
+
+## 📊 Governance Metrics
+
+### Feature Pipeline Health
+
+**Green** (Healthy):
+- 90%+ of features score >85 on evaluation
+- No features below 70 implemented
+- Clear roadmap alignment
+
+**Yellow** (Warning):
+- 70-89% features score >85
+- 1-2 borderline features implemented
+- Some scope drift
+
+**Red** (Unhealthy):
+- <70% features score >85
+- Multiple low-scoring features
+- Significant scope drift from mission
+
+### Review Frequency
+
+**Quarterly**:
+- Review all implemented features
+- Assess mission alignment
+- Check for feature creep
+- Update roadmap priorities
+
+**Per Feature**:
+- Complete evaluation framework
+- Document decision
+- Update feature catalog
+
+---
+
+## 🎯 Quick Decision Tree
+
+```
+New Feature Proposed
+    ↓
+Does it teach composition?
+    ↓
+NO → REJECT (95% of cases)
+YES → Continue
+    ↓
+Is target user photographer learning composition?
+    ↓
+NO → REJECT
+YES → Continue
+    ↓
+Complete Evaluation Framework
+    ↓
+Score < 70 → REJECT
+Score 70-84 → JUSTIFY
+Score 85+ → APPROVE
+    ↓
+Check Architecture Fit
+    ↓
+Breaks patterns → REJECT
+Fits patterns → Continue
+    ↓
+Review Roadmap
+    ↓
+Better alternative exists → DEFER
+On roadmap → APPROVE
+Not on roadmap → JUSTIFY
+    ↓
+IMPLEMENT
+```
+
+---
+
+## 📚 Related Documentation
+
+- **Product Vision**: `Documentation/1_Product/PRODUCT_OVERVIEW.md`
+- **Feature Catalog**: `Documentation/1_Product/FEATURE_CATALOG.md`
+- **Architecture**: `Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md`
+- **Component Map**: `Documentation/2_Architecture/COMPONENT_MAP.md`
+
+---
+
+## 🔑 Key Principles
+
+### Focus is a Competitive Advantage
+
+- **Good products**: Do one thing exceptionally well
+- **Bad products**: Do many things adequately
+- **Klick's thing**: Teach composition through real-time feedback
+
+### When to Say No
+
+**Say NO to**:
+- Features that don't teach composition
+- Features users can get elsewhere
+- Features that dilute brand identity
+- Features not on roadmap without strong justification
+
+**Say YES to**:
+- Composition techniques (core mission)
+- Learning experience improvements
+- Performance optimizations
+- Better feedback mechanisms
+
+### The "Hotdog Test"
+
+**Question**: "Does this feature pass the hotdog test?"
+
+**If someone asks**: "Why does a composition camera app detect hotdogs?"
+**And you can't give a compelling composition-teaching answer**
+**Then**: Feature fails, reject immediately
+
+---
+
+**Remember**: Every feature has a cost. Every addition is a commitment. Every "yes" is a hundred "no's". Stay focused on teaching composition.
+
+**Default Answer**: NO
+
+**Right Answer**: "Does it teach composition?"
