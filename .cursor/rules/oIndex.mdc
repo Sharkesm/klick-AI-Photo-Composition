@@ -1,7 +1,7 @@
 ---
 description: Klick iOS camera app overview - project structure, documentation index, file locations, and essential development guidelines
 alwaysApply: true
-version: 1.0
+version: 1.1
 lastUpdated: 2025-10-30
 ---
 
@@ -85,15 +85,41 @@ struct CameraView: UIViewRepresentable {
 - Filters: `Klick/Services/FilterManager.swift`
 - Blur: `Klick/BackgroundBlurManager.swift`
 
-## ✅ Before Making Changes
+═══════════════════════════════════════════════════════════════
+🛑 BEFORE MAKING ANY CODE CHANGES - MANDATORY CHECKS
+═══════════════════════════════════════════════════════════════
+
+## 🚨 STOP: Documentation Impact Assessment (REQUIRED)
+
+**CRITICAL**: Before writing ANY code or making edits, assess documentation impact:
+
+┌─────────────────────────────────────────────────────────────┐
+│ 🔍 DOCUMENTATION IMPACT ASSESSMENT (DO THIS FIRST)          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│ Will this change affect documentation?                       │
+│                                                              │
+│ ✅ YES → Present code plan + doc impact to user FIRST      │
+│          Use template from documentation-sync.mdc           │
+│          ⏸️  WAIT for user decision before ANY code edits   │
+│                                                              │
+│ ❌ NO  → Proceed with code changes                         │
+│          (minor tweaks, small bug fixes, etc.)              │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+**Reference**: `.cursor/rules/documentation-sync.mdc` for assessment template
+
+## ✅ Additional Pre-Flight Checks
 
 1. **Check feature scope**: `.cursor/rules/feature-governance.mdc` → Evaluate if feature fits
-2. **Assess documentation impact**: `.cursor/rules/documentation-sync.mdc` → Identify which docs will need updates
-3. **Check docs**: `Documentation/0_INDEX.md` → Find relevant guide
-4. **Review architecture**: `.cursor/rules/architecture.mdc`
-5. **Check state management**: `.cursor/rules/state-management.mdc`
-6. **Consider performance**: `.cursor/rules/performance.mdc`
-7. **Test on device**: Camera requires physical iPhone 12+
+2. **Check docs**: `Documentation/0_INDEX.md` → Find relevant technical guide
+3. **Review architecture**: `.cursor/rules/architecture.mdc` → Follow MVVM patterns
+4. **Check state management**: `.cursor/rules/state-management.mdc` → SwiftUI state patterns
+5. **Consider performance**: `.cursor/rules/performance.mdc` → Threading & optimization rules
+6. **Test on device**: Camera requires physical iPhone 12+
+
+═══════════════════════════════════════════════════════════════
 
 ## ✅ After Making Changes (If Docs Updated)
 

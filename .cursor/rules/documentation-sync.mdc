@@ -5,7 +5,7 @@ tags: [documentation, sync, updates, maintenance, proactive]
 relatedDocs:
   - Documentation/0_INDEX.md
   - Documentation/2_Architecture/COMPONENT_MAP.md
-version: 2.0
+version: 2.1
 lastUpdated: 2025-10-30
 ---
 
@@ -14,6 +14,51 @@ lastUpdated: 2025-10-30
 **Purpose**: Ensure documentation stays in sync with code changes by **proactively assessing** documentation impact BEFORE making changes and giving users control over the update scope.
 
 **Reference**: `Documentation/0_INDEX.md` for complete documentation structure
+
+---
+
+## 🎯 Quick Decision Tree
+
+```
+┌──────────────────────────────────────────────────────┐
+│                 USER REQUEST RECEIVED                 │
+└──────────────────┬───────────────────────────────────┘
+                   │
+                   ▼
+          Is it a code change? ────NO───→ Proceed normally
+                   │ YES
+                   ▼
+            🛑 STOP HERE 🛑
+                   │
+                   ▼
+       Will it affect documentation?
+                   │
+         ┌─────────┴─────────┐
+         │                   │
+        YES                 NO
+         │                   │
+         │                   └──→ Proceed with code
+         │                        (minor UI tweaks,
+         │                         small bug fixes)
+         ▼
+  📋 Use Assessment Template Below
+         │
+         ▼
+  Present: Code Plan + Doc Impact
+         │
+         ▼
+  ⏸️  WAIT for User Decision
+  (DO NOT MAKE ANY CODE CHANGES YET)
+         │
+    ┌────┴────┬─────────────┬──────────┐
+    │         │             │          │
+Together  Separately     Skip      Cancel
+    │         │             │          │
+    ▼         ▼             ▼          ▼
+ Code +    Code only,   Code only,  Don't
+  Docs     user does    no docs    proceed
+           docs later
+```
 
 ---
 
@@ -28,7 +73,15 @@ lastUpdated: 2025-10-30
 3. **Offer choice** - Let them decide scope: Together / Separately / Skip
 4. **Execute accordingly** - Respect their decision
 
-### Response Template
+---
+
+## 📋 REQUIRED RESPONSE TEMPLATE
+
+**USE THIS EXACT FORMAT when documentation is affected:**
+
+┌─────────────────────────────────────────────────────────────┐
+│ 🔄 CODE + DOCUMENTATION IMPACT ASSESSMENT                    │
+└─────────────────────────────────────────────────────────────┘
 
 ```markdown
 I'll [describe code changes]:
@@ -42,8 +95,20 @@ I'll [describe code changes]:
 └─ [Doc file path] (lines X-Y)
    [What needs updating and why]
 
-Should I update documentation as part of this task? [Together/Separately/Skip]
+Should I update documentation as part of this task?
+- **Together**: I'll update docs with code changes now
+- **Separately**: I'll make code changes, you handle docs later
+- **Skip**: Make code changes only, no doc updates
+
+⏸️  WAITING FOR YOUR DECISION - No code changes will be made until you respond.
 ```
+
+┌─────────────────────────────────────────────────────────────┐
+│ ⚠️  CRITICAL: DO NOT proceed with code changes until user   │
+│    responds with their choice (Together/Separately/Skip)     │
+└─────────────────────────────────────────────────────────────┘
+
+---
 
 ### Key Principles
 
