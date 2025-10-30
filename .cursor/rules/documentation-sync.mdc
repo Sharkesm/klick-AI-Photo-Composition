@@ -1,0 +1,695 @@
+---
+description: Documentation sync rule - proactively assesses documentation impact BEFORE code changes, gives users control over scope, and maintains doc accuracy
+alwaysApply: false
+tags: [documentation, sync, updates, maintenance, proactive]
+relatedDocs:
+  - Documentation/0_INDEX.md
+  - Documentation/2_Architecture/COMPONENT_MAP.md
+version: 2.0
+lastUpdated: 2025-10-30
+---
+
+# Documentation Sync Rule
+
+**Purpose**: Ensure documentation stays in sync with code changes by **proactively assessing** documentation impact BEFORE making changes and giving users control over the update scope.
+
+**Reference**: `Documentation/0_INDEX.md` for complete documentation structure
+
+---
+
+## ⚡ Proactive Workflow (CRITICAL)
+
+### Assess Documentation Impact BEFORE Code Changes
+
+**When user requests a change:**
+
+1. **Analyze impact** - Will this change affect any documentation?
+2. **Inform user upfront** - Tell them which docs will need updates
+3. **Offer choice** - Let them decide scope: Together / Separately / Skip
+4. **Execute accordingly** - Respect their decision
+
+### Response Template
+
+```markdown
+I'll [describe code changes]:
+- [Change 1]
+- [Change 2]
+- [Change 3]
+
+📝 Documentation impact:
+├─ [Doc file path] (line X)
+│  [What needs updating and why]
+└─ [Doc file path] (lines X-Y)
+   [What needs updating and why]
+
+Should I update documentation as part of this task? [Together/Separately/Skip]
+```
+
+### Key Principles
+
+✅ **DO**: Assess docs BEFORE making code changes (like TODOs - plan upfront)
+✅ **DO**: Include doc assessment in initial response to user
+✅ **DO**: Give user explicit choice about scope
+✅ **DO**: Default to including docs unless user defers
+
+❌ **DON'T**: Make code changes then ask about docs (too late)
+❌ **DON'T**: Assume user wants docs updated (ask first)
+❌ **DON'T**: Skip assessment because "it might not need docs"
+
+### Real Example: Proactive Assessment
+
+**User Request**: "Remove the animation on the Welcome screen"
+
+**❌ BAD (Reactive - Old Approach)**:
+```
+[AI makes code changes immediately]
+[AI completes all code changes]
+[AI then asks]: "Should we update the documentation?"
+→ User has to make decision after work is done
+→ Inefficient, documentation feels like afterthought
+```
+
+**✅ GOOD (Proactive - New Approach)**:
+```
+I'll remove all animations from LandingPageView.swift:
+- Scrolling image rows animation
+- Sequential text/icon fade-ins
+- Button pulsing animation
+- Transition fade effects
+
+📝 Documentation impact:
+├─ Documentation/1_Product/FEATURE_CATALOG.md (line 11)
+│  "Animated Landing Page" → "Static Landing Page"
+└─ Documentation/1_Product/PRODUCT_OVERVIEW.md (lines 45, 155-156)
+   References to "Onboarding Animation" → "Landing Page"
+
+Should I update documentation as part of this task? [Together/Separately/Skip]
+→ User makes informed decision upfront
+→ Efficient, documentation is part of the plan
+```
+
+---
+
+## 🎯 When to Trigger Documentation Assessment
+
+### Trigger on Significant Changes
+
+**Always Prompt** when:
+- ✅ Performance optimization (>20% improvement)
+- ✅ Architecture pattern changes
+- ✅ New feature implementation
+- ✅ Manager/Service file modifications (>50 lines)
+- ✅ Protocol changes or additions
+- ✅ Breaking changes to public APIs
+
+**Don't Prompt** when:
+- ❌ Minor UI tweaks (<30 lines)
+- ❌ Small bug fixes
+- ❌ Comment-only changes
+- ❌ Test file updates
+- ❌ Documentation-only changes
+
+---
+
+## 📊 Core File → Documentation Mapping
+
+### Camera System
+
+**File**: `Klick/Camera/Views/CameraView.swift`
+
+**Primary Documentation**:
+- `Documentation/5_Features/CAMERA_SYSTEM.md` - Camera implementation
+- `Documentation/2_Architecture/COMPONENT_MAP.md` - CameraView section (lines 138-195)
+
+**Update When**:
+- Frame processing logic changes
+- Threading model modifications
+- AVFoundation setup changes
+- Vision framework integration updates
+
+**Example**:
+```swift
+// BEFORE: Processing every frame
+func captureOutput(_ output: AVCaptureOutput, ...) {
+    processFrame(pixelBuffer)
+}
+
+// AFTER: Frame throttling added
+func captureOutput(_ output: AVCaptureOutput, ...) {
+    guard frameCount % 3 == 0 else { return }  // ← New optimization
+    processFrame(pixelBuffer)
+}
+
+→ UPDATE: Documentation/6_Performance/IMAGE_PROCESSING.md
+  Reason: New frame throttling strategy
+  Section: "Frame Processing Pipeline"
+```
+
+---
+
+### Composition System
+
+**File**: `Klick/CompositionService.swift`
+
+**Primary Documentation**:
+- `Documentation/5_Features/COMPOSITION_ANALYSIS.md` - Service architecture
+- `Documentation/2_Architecture/COMPONENT_MAP.md` - CompositionService section (lines 250-300)
+
+**Update When**:
+- New composition service added
+- Protocol definition changes
+- Evaluation algorithm improvements
+- Scoring methodology updates
+
+**Example**:
+```swift
+// NEW SERVICE ADDED
+class GoldenRatioService: CompositionService {
+    let name = "Golden Ratio"
+    
+    func evaluate(...) -> CompositionResult {
+        // Golden ratio implementation
+    }
+}
+
+→ UPDATE: Documentation/5_Features/COMPOSITION_ANALYSIS.md
+  Add: GoldenRatioService section
+  Update: Available services list
+  Add: Usage example and scoring method
+
+→ UPDATE: Documentation/2_Architecture/COMPONENT_MAP.md
+  Add: GoldenRatioService to service list
+  Update: CompositionType enum
+
+→ UPDATE: .cursor/rules/architecture.mdc
+  Add: GoldenRatioService as example
+```
+
+---
+
+### Performance Optimizations
+
+**File**: `Klick/BackgroundBlurManager.swift`
+
+**Primary Documentation**:
+- `Documentation/6_Performance/BLUR_OPTIMIZATION.md` - Blur performance
+- `Documentation/5_Features/BLUR_EFFECTS.md` - Blur implementation
+
+**Secondary Documentation**:
+- `Documentation/6_Performance/IMAGE_PROCESSING.md` - Processing pipeline
+- `Documentation/2_Architecture/COMPONENT_MAP.md` - BlurManager section
+
+**Update When**:
+- Processing speed improvements
+- Memory usage reductions
+- Caching strategy changes
+- Algorithm modifications
+
+**Example**:
+```swift
+// OPTIMIZATION: GPU acceleration added
+private let context: CIContext = {
+    if let metalDevice = MTLCreateSystemDefaultDevice() {
+        return CIContext(mtlDevice: metalDevice, options: [
+            .cacheIntermediates: true,  // ← New optimization
+            .useSoftwareRenderer: false  // ← GPU acceleration
+        ])
+    }
+    return CIContext()
+}()
+
+→ UPDATE: Documentation/6_Performance/BLUR_OPTIMIZATION.md
+  Update: Metal-accelerated context section
+  Add: New performance benchmarks (before/after)
+  Update: Memory usage metrics
+  
+→ UPDATE: .cursor/rules/performance.mdc
+  Add: Metal optimization as best practice
+  Update: GPU acceleration guidelines
+```
+
+---
+
+### Photo Management
+
+**File**: `Klick/PhotoManager.swift`
+
+**Primary Documentation**:
+- `Documentation/5_Features/PHOTO_MANAGEMENT.md` - Photo system
+- `Documentation/2_Architecture/COMPONENT_MAP.md` - PhotoManager section (lines 328-368)
+
+**Update When**:
+- Storage strategy changes
+- New photo operations added
+- File format changes
+- Photo library integration updates
+
+**Example**:
+```swift
+// NEW FEATURE: Batch delete
+func deletePhotos(_ photoItems: [PhotoItem]) {
+    for item in photoItems {
+        try? FileManager.default.removeItem(at: item.url)
+    }
+    photos.removeAll { photoItems.contains($0) }
+}
+
+→ UPDATE: Documentation/5_Features/PHOTO_MANAGEMENT.md
+  Add: Batch operations section
+  Update: PhotoManager API reference
+  Add: Usage examples
+
+→ UPDATE: Documentation/3_Application_Flows/FLOW_PHOTO_MANAGEMENT.md
+  Add: Batch delete flow diagram
+  Update: User interaction patterns
+```
+
+---
+
+### Filter System
+
+**File**: `Klick/Services/FilterManager.swift`
+
+**Primary Documentation**:
+- `Documentation/5_Features/FILTER_SYSTEM.md` - Filter implementation
+
+**Update When**:
+- New LUT filter added
+- Filter categories changed
+- Performance improvements
+- Caching strategy updates
+
+**Example**:
+```swift
+// NEW FILTER CATEGORY
+enum FilterCategory {
+    case glow
+    case cine
+    case aesthetic
+    case vintage  // ← New category added
+}
+
+→ UPDATE: Documentation/5_Features/FILTER_SYSTEM.md
+  Add: Vintage filter category section
+  Update: Filter catalog
+  Add: Example filters in category
+```
+
+---
+
+## 📋 Documentation Update Prompt Template
+
+### Standard Prompt Format
+
+```markdown
+📝 Documentation Update Recommended
+
+File Changed: [File path]
+Change Type: [Performance/Architecture/Feature/Bug Fix]
+Lines Changed: [Number]
+Significance: [High/Medium/Low]
+
+Detected Keywords: [optimization, new feature, refactor, etc.]
+
+Primary Documentation Affected:
+├─ [Doc file path]
+│  Reason: [Why this doc needs update]
+│  Suggested sections: [Specific sections]
+│  Lines to review: [Line numbers if known]
+
+Secondary Documentation Affected:
+├─ [Doc file path]
+│  Reason: [Cross-reference or related content]
+│  Suggested sections: [Specific sections]
+
+Recommended Actions:
+1. [Specific action]
+2. [Specific action]
+3. [Specific action]
+
+Update documentation now? [Y/n]
+Defer until later? [y/N]
+Skip this time? [y/N]
+```
+
+---
+
+## 🎯 Real Examples from Klick
+
+### Example 1: Performance Optimization
+
+**Scenario**: Blur processing optimized from 300ms → 30ms
+
+**File Changed**: `Klick/BackgroundBlurManager.swift` (85 lines)
+
+**Prompt**:
+```markdown
+📝 Documentation Update Recommended
+
+File Changed: Klick/BackgroundBlurManager.swift
+Change Type: Performance Optimization
+Lines Changed: 85
+Significance: High
+
+Detected Keywords: "10x faster", "preview resolution", "caching"
+
+Primary Documentation Affected:
+├─ Documentation/6_Performance/BLUR_OPTIMIZATION.md
+│  Reason: Performance metrics outdated
+│  Suggested sections: 
+│    - Benchmark Results (lines 45-78)
+│    - Optimization Strategies (lines 120-145)
+│    - Memory Usage (lines 180-200)
+│  Update with: New timings (300ms → 30ms)
+
+├─ Documentation/5_Features/BLUR_EFFECTS.md
+│  Reason: Processing approach changed
+│  Suggested sections:
+│    - Preview Processing (lines 89-102)
+│    - Resolution Strategy (lines 150-165)
+
+Secondary Documentation Affected:
+├─ Documentation/6_Performance/IMAGE_PROCESSING.md
+│  Reason: References blur in concurrent processing
+│  Suggested sections: Concurrent Processing (lines 78-95)
+
+├─ .cursor/rules/performance.mdc
+│  Reason: New best practices emerged
+│  Suggested sections: Resolution Optimization (lines 150-180)
+
+Recommended Actions:
+1. Update BLUR_OPTIMIZATION.md with new benchmarks
+2. Document preview resolution strategy (400×600)
+3. Add session-based caching explanation
+4. Update memory footprint metrics (60% reduction)
+5. Add lessons learned section
+
+Update documentation now? [Y/n]
+```
+
+---
+
+### Example 2: New Feature Addition
+
+**Scenario**: Golden Ratio composition service added
+
+**File Changed**: `Klick/CompositionService.swift` (120 lines added)
+
+**Prompt**:
+```markdown
+📝 Documentation Update Recommended
+
+File Changed: Klick/CompositionService.swift
+Change Type: New Feature
+Lines Changed: 120 (added)
+Significance: High
+
+Detected Keywords: "GoldenRatioService", "new composition", "fibonacci"
+
+Primary Documentation Affected:
+├─ Documentation/5_Features/COMPOSITION_ANALYSIS.md
+│  Reason: New service implementation
+│  Suggested sections:
+│    - Available Services (add GoldenRatioService)
+│    - Service Implementations (add new section)
+│    - Usage Examples (add Golden Ratio example)
+
+├─ Documentation/2_Architecture/COMPONENT_MAP.md
+│  Reason: Component relationships changed
+│  Suggested sections:
+│    - CompositionService Protocol (lines 250-300)
+│    - Service Implementations (update list)
+
+Secondary Documentation Affected:
+├─ Documentation/1_Product/FEATURE_CATALOG.md
+│  Reason: Roadmap feature completed
+│  Suggested sections: 
+│    - Implemented Features (move from roadmap)
+│    - Composition Techniques (add Golden Ratio)
+
+├─ .cursor/rules/architecture.mdc
+│  Reason: New service example
+│  Suggested sections: Protocol-Oriented Design examples
+
+Recommended Actions:
+1. Add GoldenRatioService documentation section
+2. Document Fibonacci spiral calculation
+3. Add usage example with code
+4. Update CompositionType enum documentation
+5. Update feature catalog (roadmap → implemented)
+6. Add educational content about Golden Ratio
+
+Update documentation now? [Y/n]
+```
+
+---
+
+### Example 3: Architecture Refactor
+
+**Scenario**: Camera threading model improved
+
+**File Changed**: `Klick/Camera/Views/CameraView.swift` (65 lines)
+
+**Prompt**:
+```markdown
+📝 Documentation Update Recommended
+
+File Changed: Klick/Camera/Views/CameraView.swift
+Change Type: Architecture Change
+Lines Changed: 65
+Significance: High
+
+Detected Keywords: "threading", "DispatchQueue", "async", "background"
+
+Primary Documentation Affected:
+├─ Documentation/5_Features/CAMERA_SYSTEM.md
+│  Reason: Threading model changed
+│  Suggested sections:
+│    - Threading Architecture (major update)
+│    - Frame Processing Pipeline
+│    - Performance Characteristics
+
+├─ Documentation/2_Architecture/ARCHITECTURE_OVERVIEW.md
+│  Reason: Threading model is architectural pattern
+│  Suggested sections:
+│    - Threading Model (lines 525-575)
+│    - Performance Architecture
+
+Secondary Documentation Affected:
+├─ Documentation/6_Performance/IMAGE_PROCESSING.md
+│  Reason: Processing pipeline affected
+│  Suggested sections: Concurrent Processing Strategy
+
+├─ .cursor/rules/performance.mdc
+│  Reason: New threading best practices
+│  Suggested sections: Threading Guidelines
+
+Recommended Actions:
+1. Update threading model documentation
+2. Add new thread hierarchy diagram
+3. Document queue priority changes
+4. Update performance characteristics
+5. Add code examples for new pattern
+
+Update documentation now? [Y/n]
+```
+
+---
+
+## 🔍 Change Detection Criteria
+
+### High Priority (Always Prompt)
+
+**Performance Claims**:
+- Keywords: "faster", "optimization", "performance", "memory", "cache"
+- Benchmark numbers in code/comments
+- Algorithm changes in core processing
+
+**Architecture Changes**:
+- Protocol modifications
+- New patterns introduced
+- Threading model changes
+- State management updates
+
+**New Features**:
+- New services/managers
+- New composition rules
+- New UI components
+- New capabilities
+
+### Medium Priority (Prompt if Doc Mentioned)
+
+**Bug Fixes**:
+- If existing documentation affected
+- If behavior changed significantly
+- If public API modified
+
+**Refactoring**:
+- If architectural pattern changed
+- If component relationships modified
+- If performance characteristics affected
+
+### Low Priority (No Prompt)
+
+**Minor Changes**:
+- UI polish (<30 lines)
+- Comment updates
+- Code formatting
+- Variable renaming (internal)
+
+---
+
+## ✅ Documentation Update Checklist
+
+### When Updating Documentation
+
+**For Performance Changes**:
+- [ ] Update benchmark numbers (before/after)
+- [ ] Document optimization approach
+- [ ] Update memory usage metrics
+- [ ] Add lessons learned
+- [ ] Update performance rule if applicable
+
+**For Architecture Changes**:
+- [ ] Update architecture diagrams
+- [ ] Document new patterns
+- [ ] Update component map
+- [ ] Update related flows
+- [ ] Update architecture rule examples
+
+**For New Features**:
+- [ ] Add feature documentation section
+- [ ] Update feature catalog
+- [ ] Add usage examples
+- [ ] Update component map
+- [ ] Update application flows
+- [ ] Move from roadmap to implemented
+
+**For All Changes**:
+- [ ] Check cross-references
+- [ ] Update line number references
+- [ ] Verify code examples still accurate
+- [ ] Update "Last Updated" dates
+- [ ] Check for broken links
+
+---
+
+## 📊 Core File Mapping Reference
+
+### Quick Lookup Table
+
+| File | Primary Docs | Update Trigger |
+|------|-------------|----------------|
+| `CameraView.swift` | CAMERA_SYSTEM.md, COMPONENT_MAP.md | Frame processing, threading |
+| `CompositionService.swift` | COMPOSITION_ANALYSIS.md | New services, protocol changes |
+| `CompositionManager.swift` | COMPOSITION_ANALYSIS.md, COMPONENT_MAP.md | Service management changes |
+| `BackgroundBlurManager.swift` | BLUR_OPTIMIZATION.md, BLUR_EFFECTS.md | Performance, algorithm changes |
+| `PhotoManager.swift` | PHOTO_MANAGEMENT.md | Storage, new operations |
+| `FilterManager.swift` | FILTER_SYSTEM.md | New filters, categories |
+| `ContentView.swift` | ARCHITECTURE_OVERVIEW.md, STATE_MANAGEMENT.md | State management changes |
+
+---
+
+## 🎓 Best Practices
+
+### Do's
+
+✅ **Update immediately** after significant changes  
+✅ **Document reasoning** behind optimization decisions  
+✅ **Include benchmarks** for performance claims  
+✅ **Update cross-references** when component relationships change  
+✅ **Preserve context** by documenting "why" not just "what"  
+✅ **Use specific line numbers** when referencing code  
+
+### Don'ts
+
+❌ **Don't defer** documentation for "later"  
+❌ **Don't skip** cross-reference updates  
+❌ **Don't copy-paste** outdated examples  
+❌ **Don't forget** to update "Last Updated" dates  
+❌ **Don't assume** documentation is self-evident  
+❌ **Don't leave** broken references or links  
+
+---
+
+## 🔄 Proactive Update Workflow
+
+### Step 1: Analyze User Request (BEFORE Code Changes)
+- User requests a change
+- Identify which files will be modified
+- Assess if change meets documentation trigger criteria
+
+### Step 2: Map Documentation Impact
+- Look up affected files in mapping table
+- Identify primary and secondary docs
+- Determine specific sections that need updates
+- Assess significance (High/Medium/Low)
+
+### Step 3: Inform User & Get Decision
+- Present code changes plan
+- Show documentation impact clearly
+- Offer choices: Together / Separately / Skip
+- Wait for user decision
+- **DO NOT proceed to code changes until user decides**
+
+### Step 4: Execute Based on Decision
+
+**If "Together":**
+- Make code changes
+- Update documentation in same batch
+- Verify cross-references
+- Update timestamps
+
+**If "Separately":**
+- Make code changes only
+- Note documentation needs updating
+- User will handle docs separately
+
+**If "Skip":**
+- Make code changes only
+- No documentation updates
+
+### Step 5: Validate (If Docs Updated)
+- Check for broken references
+- Verify consistency across docs
+- Ensure examples still accurate
+- Confirm timestamps updated
+
+---
+
+## 📚 Related Documentation
+
+### Core Documentation Structure
+- **Index**: `Documentation/0_INDEX.md` - Master navigation
+- **Tech Stack**: `Documentation/TECH_STACK.md` - All frameworks
+- **Architecture**: `Documentation/2_Architecture/` - System design
+- **Features**: `Documentation/5_Features/` - Feature-specific docs
+- **Performance**: `Documentation/6_Performance/` - Optimization guides
+
+### Documentation Rules
+- **This Rule**: `.cursor/rules/documentation-sync.mdc`
+- **Architecture**: `.cursor/rules/architecture.mdc`
+- **Performance**: `.cursor/rules/performance.mdc`
+- **Main Index**: `.cursor/rules/oIndex.mdc`
+
+---
+
+## 🎯 Key Principles
+
+> "Documentation that's out of sync is worse than no documentation. It misleads and creates technical debt."
+
+> "Proactive assessment beats reactive updates. Plan documentation with code, not after code."
+
+**Goals**: 
+1. Keep documentation as a trusted source of truth
+2. Give users control over documentation scope
+3. Make documentation planning part of the initial task assessment
+4. Treat documentation like TODOs: plan upfront, not retroactively
+
+---
+
+**Remember**: 
+- ✅ Assess documentation impact BEFORE making code changes
+- ✅ Give users explicit choice about scope (Together/Separately/Skip)
+- ✅ Documentation planning is part of good task planning
+- ❌ Don't make code changes then ask about docs as an afterthought
