@@ -46,6 +46,7 @@ struct OnboardingFlowView: View {
                 OnboardingHeader(
                     progress: currentScreen.progress,
                     showBackButton: currentScreen != .welcome,
+                    showSkipButton: shouldShowSkipButton(),
                     onBack: handleBack,
                     onSkip: handleSkip
                 )
@@ -115,8 +116,20 @@ struct OnboardingFlowView: View {
     }
     
     private func handleSkip() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            isPresented = false
+        // Skip takes user directly to Pro Upsell screen
+        navigationDirection = .forward
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            currentScreen = .proUpsell
+        }
+    }
+    
+    private func shouldShowSkipButton() -> Bool {
+        // Show skip button only on screens 1-5 (before Pro Upsell)
+        switch currentScreen {
+        case .welcome, .composition, .posing, .editing, .achievement:
+            return true
+        case .proUpsell, .personalization:
+            return false
         }
     }
     
@@ -138,6 +151,7 @@ struct OnboardingFlowView: View {
 struct OnboardingHeader: View {
     let progress: CGFloat
     let showBackButton: Bool
+    let showSkipButton: Bool
     let onBack: () -> Void
     let onSkip: () -> Void
     
@@ -174,12 +188,18 @@ struct OnboardingHeader: View {
             }
             .frame(height: 4)
             
-            // Skip button
-            Button(action: onSkip) {
-                Text("Skip")
-                    .font(.system(size: 16, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.7))
-                    .frame(minWidth: 44)
+            // Skip button (conditionally shown)
+            if showSkipButton {
+                Button(action: onSkip) {
+                    Text("Skip")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(minWidth: 44)
+                }
+            } else {
+                // Spacer to maintain layout when skip button is hidden
+                Spacer()
+                    .frame(width: 44)
             }
         }
         .frame(height: 40)
@@ -265,18 +285,20 @@ struct OnboardingScreen1: View {
         }
         .padding(.horizontal, 24)
         .onAppear {
-            // Sequential animations
-            withAnimation(.easeOut(duration: 0.6)) {
-                showHeadline = true
+            // Sequential animations with initial delay for smooth presentation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    showHeadline = true
+                }
             }
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 withAnimation(.easeOut(duration: 0.6)) {
                     showDescription = true
                 }
             }
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 withAnimation(.spring(response: 0.7, dampingFraction: 0.8)) {
                     showImage = true
                 }
@@ -577,17 +599,22 @@ struct OnboardingScreen5_Achievement: View {
                 HStack(spacing: 8) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color(red: 13/255, green: 10/255, blue: 11/255))
+                        .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.0))
                     
                     Text("User Success Rate")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color(red: 13/255, green: 10/255, blue: 11/255))
+                        .foregroundColor(Color.white)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+                .cornerRadius(16)
                 .background(
-                    Capsule()
-                        .fill(Color(red: 124/255, green: 181/255, blue: 24/255))
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white, lineWidth: 1)
+                        )
                 )
                 .opacity(showStats ? 1 : 0)
                 .scaleEffect(showStats ? 1 : 0.9)
