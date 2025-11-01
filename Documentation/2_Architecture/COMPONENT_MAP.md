@@ -13,27 +13,40 @@
 │                      (KlickApp.swift)                                │
 └────────────────────────────────┬────────────────────────────────────┘
                                  │
-                                 ├─ Onboarding Path
+                                 │ First Launch
                                  │
-         ┌───────────────────────┴────────────────────────┐
-         │                                                 │
-         ▼                                                 ▼
-┌────────────────────┐                         ┌─────────────────────┐
-│  OnboardFlowView   │                         │ PermissionFlowView  │
-│  (Onboarding)      │                         │  (Permissions)      │
-└────────┬───────────┘                         └──────────┬──────────┘
-         │                                                 │
-         └────────────────┬────────────────────────────────┘
+                                 ▼
+         ┌────────────────────────────────────────┐
+         │         LandingPageView                │
+         │     (Animated Gallery Intro)           │
+         └────────────────┬───────────────────────┘
                           │
-                          ├─ Main App Path
+                          │ "Let's go"
                           │
                           ▼
          ┌────────────────────────────────────────┐
-         │         LandingPageView                │
-         │     (Animated Introduction)            │
+         │      OnboardingFlowView                │
+         │   (7-Screen Narrative Flow)            │
+         │  ┌──────────────────────────────────┐  │
+         │  │ 1. Welcome                       │  │
+         │  │ 2. Composition                   │  │
+         │  │ 3. Posing                        │  │
+         │  │ 4. Editing                       │  │
+         │  │ 5. Achievement                   │  │
+         │  │ 6. Pro Upsell ← Skip jumps here │  │
+         │  │ 7. Personalization (Required)   │  │
+         │  └──────────────────────────────────┘  │
          └────────────────┬───────────────────────┘
                           │
-                          │ Circular Transition
+                          │ Complete
+                          │
+                          ▼
+         ┌────────────────────────────────────────┐
+         │       PermissionFlowView               │
+         │  (Camera + Photo Library Access)       │
+         └────────────────┬───────────────────────┘
+                          │
+                          │ Permissions Granted
                           │
                           ▼
          ┌────────────────────────────────────────┐
@@ -67,10 +80,18 @@ App Entry Points:
 └── AppDelegate.swift (App delegate)
 
 Onboarding Flow:
-├── OnboardFlowView.swift (Onboarding coordinator)
-├── PermissionFlowView.swift (Permission requests)
-├── OnboardingView.swift (Educational screens)
-└── LandingPageView.swift (Animated intro)
+├── LandingPageView.swift (Animated intro - entry point)
+├── OnboardingFlowView.swift (7-screen narrative onboarding)
+│   ├── OnboardingScreen1 (Welcome)
+│   ├── OnboardingScreen2 (Composition)
+│   ├── OnboardingScreen3 (Posing)
+│   ├── OnboardingScreen4 (Editing)
+│   ├── OnboardingScreen5_Achievement (Social proof)
+│   ├── OnboardingScreen6_ProUpsell (Monetization)
+│   └── OnboardingScreen7_Personalization (Goal selection)
+├── PermissionFlowView.swift (Camera/photo permissions)
+├── OnboardFlowView.swift (Legacy onboarding - deprecated)
+└── OnboardingView.swift (Educational screens)
 
 Main App Flow:
 ├── ContentView.swift (Main camera screen)

@@ -14,12 +14,72 @@ Comprehensive reference for all Klick features, including implementation details
 **Key Features**:
 - Dual-row scrolling photo animation (15-second cycles)
 - Sequential text and icon animations
-- Circular reveal transition to camera interface
+- Circular reveal transition to onboarding or camera
 - 10 curated photography samples from assets
+- State management using `@AppStorage` for persistence
 
 **Code Reference**: [`LandingPageView.swift`](Klick/LandingPageView.swift)
 
-**User Flow**: Launch → Animated gallery → "Let's go" → Camera
+**User Flow**: Launch → Animated gallery → "Let's go" → Onboarding Flow
+
+### Multi-Screen Onboarding Flow
+**Purpose**: 7-screen narrative onboarding introducing app value, features, and personalization.
+
+**Key Features**:
+- **Progressive Disclosure**: Screens introduce composition, posing, editing, and achievements
+- **Smart Skip Logic**: Skip button on intro screens (1-5) jumps to Pro Upsell, hidden on critical screens (6-7)
+- **Sequential Animations**: Staggered content reveal (headline → description → hero image/features)
+- **Asymmetric Transitions**: Directional slide animations based on navigation (forward/backward)
+- **Pro Upsell Integration**: Conversion-focused screen with premium feature showcase
+- **Goal Personalization**: Users select creative goals (stored in `@AppStorage`)
+- **Consistent CTAs**: "Continue" button across all intro screens for predictable UX
+
+**Code Reference**: [`OnboardingFlowView.swift`](Klick/OnboardingFlowView.swift)
+
+**Screen Structure**:
+1. **Welcome** - "Capture people, beautifully" (Hero image, value proposition)
+2. **Composition** - "Frame like a pro" (Smart composition guides)
+3. **Posing** - "Bring out your best side" (Expression tips and real-time feedback)
+4. **Editing** - "Edit smarter, not harder" (Studio-quality filters and tools)
+5. **Achievement** - "89% of users see improvement" (Social proof with success rate badge)
+6. **Pro Upsell** - "Unlock your creative edge" (Premium features, two-CTA decision point)
+7. **Personalization** - "What brings you here?" (Goal selection: selfies, pro shots, aesthetic feed, composition learning)
+
+**Navigation Pattern**:
+```
+Screen 1-5: [← Back] [Progress Bar] [Skip →]
+Screen 6: [← Back] [Progress Bar] (No skip - two CTAs)
+Screen 7: [← Back] [Progress Bar] (No skip - required goal selection)
+```
+
+**Skip Behavior**:
+- Screens 1-5: Skip → Jump to Pro Upsell (Screen 6)
+- Screen 6: No skip button (use "Upgrade to Pro" or "Maybe later")
+- Screen 7: No skip button (must select goal to continue)
+
+**State Persistence**:
+```swift
+@AppStorage("onboardingIntroduction") var onboardingIntroduction: Bool
+@AppStorage("onboardingFlowCompleted") var onboardingFlowCompleted: Bool
+@AppStorage("hasSeenProUpsell") var hasSeenProUpsell: Bool
+@AppStorage("userCreativeGoal") var userCreativeGoal: String
+```
+
+**Design Specifications**:
+- **Hero Images**: 340pt height, 20pt corner radius, subtle shadows
+- **Typography**: SF Rounded for headlines (32pt bold), 16pt regular for descriptions
+- **Animations**: 0.6s easeOut for text, 0.7s spring for images
+- **Colors**: White text on black background, golden yellow (1.0, 0.8, 0.0) for accents
+- **Badge Design**: Success rate badge with lime green (124, 181, 24) background
+
+**User Flow**: 
+```
+Landing Page → Welcome → Composition → Posing → Editing → Achievement → Pro Upsell → Personalization → Camera
+                ↓
+           (Skip Path)
+                ↓
+         Pro Upsell → Personalization → Camera
+```
 
 ---
 

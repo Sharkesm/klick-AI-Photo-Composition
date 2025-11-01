@@ -268,7 +268,7 @@ struct OnboardingScreen1: View {
             
             // Continue button (no animation)
             Button(action: onContinue) {
-                Text("Let's get started")
+                Text("Continue")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
@@ -362,7 +362,7 @@ struct OnboardingScreen2: View {
             
             // Continue button (no animation)
             Button(action: onContinue) {
-                Text("Show me how")
+                Text("Continue")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
@@ -454,7 +454,7 @@ struct OnboardingScreen3: View {
             
             // Continue button (no animation)
             Button(action: onContinue) {
-                Text("Let's pose")
+                Text("Continue")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
@@ -544,7 +544,7 @@ struct OnboardingScreen4: View {
             
             // Continue button (no animation)
             Button(action: onContinue) {
-                Text("Try editing magic")
+                Text("Continue")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
@@ -1121,3 +1121,4 @@ struct GoalOptionButton: View {
     OnboardingFlowView(isPresented: .constant(true))
         .preferredColorScheme(.dark)
 }
+
