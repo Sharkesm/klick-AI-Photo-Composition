@@ -559,14 +559,179 @@ struct OnboardingScreen4: View {
 struct OnboardingScreen5: View {
     let onUpgrade: () -> Void
     let onMaybeLater: () -> Void
+    @State private var showHeader = false
+    @State private var showFeature1 = false
+    @State private var showFeature2 = false
+    @State private var showFeature3 = false
+    @State private var showFeature4 = false
+    
+    // Pro features list
+    private let proFeatures = [
+        (icon: "sparkles", text: "Exclusive premium filters"),
+        (icon: "wand.and.stars", text: "Advanced editing tools"),
+        (icon: "bolt.fill", text: "Early feature releases"),
+        (icon: "eye.slash.fill", text: "No ads, no limits")
+    ]
     
     var body: some View {
-        VStack {
-            Text("Screen 5: Pro Upsell")
-                .foregroundColor(.white)
-            Button("Upgrade", action: onUpgrade)
-            Button("Maybe Later", action: onMaybeLater)
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer()
+                .frame(height: 32)
+            
+            // Header group (Headline + Description together)
+            VStack(alignment: .leading, spacing: 16) {
+                // Headline
+                Text("Unlock your creative edge.")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Subtext
+                Text("Go Pro to access exclusive features and unlock your full potential.")
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .opacity(showHeader ? 1 : 0)
+            .offset(y: showHeader ? 0 : 15)
+            
+            Spacer()
+                .frame(height: 40)
+            
+            // Pro features list - each feature animates individually
+            VStack(alignment: .leading, spacing: 20) {
+                // Feature 1
+                ProFeatureRow(
+                    icon: proFeatures[0].icon,
+                    text: proFeatures[0].text,
+                    isVisible: showFeature1
+                )
+                
+                // Feature 2
+                ProFeatureRow(
+                    icon: proFeatures[1].icon,
+                    text: proFeatures[1].text,
+                    isVisible: showFeature2
+                )
+                
+                // Feature 3
+                ProFeatureRow(
+                    icon: proFeatures[2].icon,
+                    text: proFeatures[2].text,
+                    isVisible: showFeature3
+                )
+                
+                // Feature 4
+                ProFeatureRow(
+                    icon: proFeatures[3].icon,
+                    text: proFeatures[3].text,
+                    isVisible: showFeature4
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Spacer()
+            
+            // Primary button - Upgrade to Pro
+            Button(action: onUpgrade) {
+                HStack(spacing: 8) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.black)
+                    
+                    Text("Upgrade to Pro")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundColor(.black)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 30)
+                        .fill(Color.white)
+                )
+                .shadow(color: .white.opacity(0.2), radius: 15, x: 0, y: 8)
+            }
+            
+            Spacer()
+                .frame(height: 12)
+            
+            // Secondary button - Maybe Later
+            Button(action: onMaybeLater) {
+                Text("Maybe later")
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.6))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            
+            Spacer()
+                .frame(height: 40)
         }
+        .padding(.horizontal, 24)
+        .onAppear {
+            // Sequential animations
+            // 1. Show header (headline + description together)
+            withAnimation(.easeOut(duration: 0.6)) {
+                showHeader = true
+            }
+            
+            // 2. Show features one by one
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showFeature1 = true
+                }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showFeature2 = true
+                }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showFeature3 = true
+                }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showFeature4 = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Pro Feature Row Component
+
+struct ProFeatureRow: View {
+    let icon: String
+    let text: String
+    let isVisible: Bool
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.0))
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                )
+            
+            // Feature text
+            Text(text)
+                .font(.system(size: 16, weight: .medium, design: .rounded))
+                .foregroundColor(.white)
+            
+            Spacer()
+        }
+        .opacity(isVisible ? 1 : 0)
+        .offset(x: isVisible ? 0 : -20)
     }
 }
 
