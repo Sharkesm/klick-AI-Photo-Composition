@@ -26,8 +26,9 @@ struct OnboardingFlowView: View {
         case composition = 2
         case posing = 3
         case editing = 4
-        case proUpsell = 5
-        case personalization = 6
+        case achievement = 5
+        case proUpsell = 6
+        case personalization = 7
         
         var progress: CGFloat {
             CGFloat(self.rawValue) / CGFloat(OnboardingScreen.allCases.count)
@@ -62,13 +63,15 @@ struct OnboardingFlowView: View {
                             OnboardingScreen3(onContinue: moveToNext)
                         case .editing:
                             OnboardingScreen4(onContinue: moveToNext)
+                        case .achievement:
+                            OnboardingScreen5_Achievement(onContinue: moveToNext)
                         case .proUpsell:
-                            OnboardingScreen5(
+                            OnboardingScreen6_ProUpsell(
                                 onUpgrade: handleProUpgrade,
                                 onMaybeLater: moveToNext
                             )
                         case .personalization:
-                            OnboardingScreen6(
+                            OnboardingScreen7_Personalization(
                                 selectedGoal: $userCreativeGoal,
                                 onContinue: handleComplete
                             )
@@ -556,7 +559,118 @@ struct OnboardingScreen4: View {
     }
 }
 
-struct OnboardingScreen5: View {
+// MARK: - Screen 5: Achievement/Social Proof
+
+struct OnboardingScreen5_Achievement: View {
+    let onContinue: () -> Void
+    @State private var showHeadline = false
+    @State private var showDescription = false
+    @State private var showStats = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer()
+            
+            // Content group (centered vertically)
+            VStack(alignment: .leading, spacing: 0) {
+                // Stat badge - Updated colors
+                HStack(spacing: 8) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(red: 13/255, green: 10/255, blue: 11/255))
+                    
+                    Text("User Success Rate")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color(red: 13/255, green: 10/255, blue: 11/255))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color(red: 124/255, green: 181/255, blue: 24/255))
+                )
+                .opacity(showStats ? 1 : 0)
+                .scaleEffect(showStats ? 1 : 0.9)
+                
+                Spacer()
+                    .frame(height: 24)
+                
+                // Headline with percentage
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("89%")
+                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(red: 1.0, green: 0.8, blue: 0.0))
+                        
+                        Text("of users")
+                            .font(.system(size: 24, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text("see a huge difference after their first 3 photos.")
+                        .font(.system(size: 24, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(3)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .opacity(showHeadline ? 1 : 0)
+                .offset(y: showHeadline ? 0 : 15)
+                
+                Spacer()
+                    .frame(height: 24)
+                
+                // Description
+                Text("With our smart composition guide, your photos instantly look more balanced, expressive, and natural — no studio lighting needed.")
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .lineLimit(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .opacity(showDescription ? 1 : 0)
+                    .offset(y: showDescription ? 0 : 15)
+            }
+            
+            Spacer()
+            
+            // Continue button
+            Button(action: onContinue) {
+                Text("Continue")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 30)
+                            .fill(Color.white)
+                    )
+                    .shadow(color: .white.opacity(0.2), radius: 15, x: 0, y: 8)
+            }
+            
+            Spacer()
+                .frame(height: 40)
+        }
+        .padding(.horizontal, 24)
+        .onAppear {
+            // Sequential animations
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1)) {
+                showStats = true
+            }
+            
+            withAnimation(.easeOut(duration: 0.6).delay(0.3)) {
+                showHeadline = true
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    showDescription = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Screen 6: Pro Upsell (formerly Screen 5)
+
+struct OnboardingScreen6_ProUpsell: View {
     let onUpgrade: () -> Void
     let onMaybeLater: () -> Void
     @State private var showHeader = false
@@ -735,16 +849,242 @@ struct ProFeatureRow: View {
     }
 }
 
-struct OnboardingScreen6: View {
+// MARK: - Screen 7: Personalization (formerly Screen 6)
+
+struct OnboardingScreen7_Personalization: View {
     @Binding var selectedGoal: String
     let onContinue: () -> Void
+    @State private var showHeader = false
+    @State private var showOption1 = false
+    @State private var showOption2 = false
+    @State private var showOption3 = false
+    @State private var showOption4 = false
+    @State private var localSelection: String = "" // Local state, not persisted
+    
+    // Creative goals with subtexts
+    private let goals = [
+        (id: "self-portraits", icon: "camera.fill", text: "Better Self-Portraits", subtext: "Smarter selfies made simple"),
+        (id: "pro-shots", icon: "wand.and.stars", text: "Pro-Looking Shots", subtext: "Shoot like a pro, no gear needed"),
+        (id: "aesthetic-feed", icon: "sparkles", text: "Aesthetic Feed", subtext: "Stand out with your style"),
+        (id: "learn-composition", icon: "square.grid.3x3", text: "Learn Composition", subtext: "Level up your framing skills")
+    ]
     
     var body: some View {
-        VStack {
-            Text("Screen 6: Personalization")
-                .foregroundColor(.white)
-            Button("Continue", action: onContinue)
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer()
+                .frame(height: 32)
+            
+            // Header group (Headline + Description together)
+            VStack(alignment: .leading, spacing: 16) {
+                // Headline
+                Text("Let's get to know you 👋 What brings you here?")
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                // Subtext
+                Text("This helps us understand your goals and build better experiences for you.")
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .opacity(showHeader ? 1 : 0)
+            .offset(y: showHeader ? 0 : 15)
+            
+            Spacer()
+                .frame(height: 40)
+            
+            // Goal options
+            VStack(spacing: 12) {
+                // Option 1
+                GoalOptionButton(
+                    icon: goals[0].icon,
+                    text: goals[0].text,
+                    subtext: goals[0].subtext,
+                    isSelected: localSelection == goals[0].id,
+                    isVisible: showOption1,
+                    action: {
+                        HapticFeedback.selection.generate()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            localSelection = goals[0].id
+                        }
+                    }
+                )
+                
+                // Option 2
+                GoalOptionButton(
+                    icon: goals[1].icon,
+                    text: goals[1].text,
+                    subtext: goals[1].subtext,
+                    isSelected: localSelection == goals[1].id,
+                    isVisible: showOption2,
+                    action: {
+                        HapticFeedback.selection.generate()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            localSelection = goals[1].id
+                        }
+                    }
+                )
+                
+                // Option 3
+                GoalOptionButton(
+                    icon: goals[2].icon,
+                    text: goals[2].text,
+                    subtext: goals[2].subtext,
+                    isSelected: localSelection == goals[2].id,
+                    isVisible: showOption3,
+                    action: {
+                        HapticFeedback.selection.generate()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            localSelection = goals[2].id
+                        }
+                    }
+                )
+                
+                // Option 4
+                GoalOptionButton(
+                    icon: goals[3].icon,
+                    text: goals[3].text,
+                    subtext: goals[3].subtext,
+                    isSelected: localSelection == goals[3].id,
+                    isVisible: showOption4,
+                    action: {
+                        HapticFeedback.selection.generate()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            localSelection = goals[3].id
+                        }
+                    }
+                )
+            }
+            
+            Spacer()
+            
+            // Continue button
+            Button(action: {
+                // Save selection to AppStorage when continuing
+                selectedGoal = localSelection
+                onContinue()
+            }) {
+                Text("Continue")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 30)
+                            .fill(localSelection.isEmpty ? Color.white.opacity(0.3) : Color.white)
+                    )
+                    .shadow(color: localSelection.isEmpty ? .clear : .white.opacity(0.2), radius: 15, x: 0, y: 8)
+            }
+            .disabled(localSelection.isEmpty)
+            
+            Spacer()
+                .frame(height: 40)
         }
+        .padding(.horizontal, 24)
+        .onAppear {
+            // Sequential animations
+            // 1. Show header
+            withAnimation(.easeOut(duration: 0.6)) {
+                showHeader = true
+            }
+            
+            // 2. Show options one by one
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showOption1 = true
+                }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showOption2 = true
+                }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showOption3 = true
+                }
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showOption4 = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Goal Option Button Component
+
+struct GoalOptionButton: View {
+    let icon: String
+    let text: String
+    let subtext: String
+    let isSelected: Bool
+    let isVisible: Bool
+    let action: () -> Void
+    
+    // Golden yellow color for selection
+    private let selectedColor = Color(red: 1.0, green: 0.8, blue: 0.0)
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                // Icon
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(isSelected ? .black : .white)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(isSelected ? Color.black.opacity(0.15) : Color.white.opacity(0.1))
+                    )
+                
+                // Text content
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(text)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(isSelected ? .black : .white)
+                    
+                    Text(subtext)
+                        .font(.system(size: 13, weight: .regular, design: .rounded))
+                        .foregroundColor(isSelected ? .black.opacity(0.7) : .white.opacity(0.6))
+                }
+                
+                Spacer()
+                
+                // Selection indicator (radio button)
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.black : Color.white.opacity(0.3), lineWidth: 2)
+                        .frame(width: 24, height: 24)
+                    
+                    if isSelected {
+                        Circle()
+                            .fill(Color.black)
+                            .frame(width: 12, height: 12)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isSelected ? selectedColor : Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(isSelected ? selectedColor.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .shadow(color: isSelected ? selectedColor.opacity(0.3) : .clear, radius: 10, x: 0, y: 4)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .opacity(isVisible ? 1 : 0)
+        .offset(y: isVisible ? 0 : 15)
     }
 }
 
@@ -754,4 +1094,3 @@ struct OnboardingScreen6: View {
     OnboardingFlowView(isPresented: .constant(true))
         .preferredColorScheme(.dark)
 }
-
