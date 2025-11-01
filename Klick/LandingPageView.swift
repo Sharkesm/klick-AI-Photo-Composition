@@ -36,7 +36,7 @@ struct LandingPageView: View {
                 landingPageContent
             } else if !onboardingFlowCompleted {
                 // Show onboarding flow
-                OnboardFlowView(isPresented: $showOnboardingFlow)
+                OnboardingFlowView(isPresented: $showOnboardingFlow)
                     .onAppear {
                         showOnboardingFlow = true
                     }
