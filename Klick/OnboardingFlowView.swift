@@ -321,7 +321,7 @@ struct OnboardingScreen2: View {
                 .frame(height: 32)
             
             // Headline
-            Text("Frame like a pro.")
+            Text("We'll guide your every frame — live.")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -332,28 +332,29 @@ struct OnboardingScreen2: View {
                 .frame(height: 16)
             
             // Subtext
-            Text("Get smart composition guides that help you capture balance, light, and the perfect angle — every time.")
-                .font(.system(size: 16, weight: .regular, design: .rounded))
-                .foregroundColor(.white.opacity(0.75))
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .opacity(showDescription ? 1 : 0)
-                .offset(y: showDescription ? 0 : 15)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Think: Move left. Perfect symmetry!")
+                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.85))
+                    .lineLimit(2)
+                
+                Text("You focus on the moment; we'll handle the rest.")
+                    .font(.system(size: 16, weight: .regular, design: .rounded))
+                    .foregroundColor(.white.opacity(0.7))
+                    .lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .opacity(showDescription ? 1 : 0)
+            .offset(y: showDescription ? 0 : 15)
             
             Spacer()
                 .frame(height: 40)
             
-            // Hero image
-            Image("Rectangle_3")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            // Interactive composition demo
+            CompositionDemoView()
                 .frame(maxWidth: .infinity)
                 .frame(height: 340)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
                 .opacity(showImage ? 1 : 0)
                 .scaleEffect(showImage ? 1 : 0.96)
@@ -435,18 +436,10 @@ struct OnboardingScreen3: View {
             Spacer()
                 .frame(height: 40)
             
-            // Hero image
-            Image("Rectangle_7")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            // Interactive pose demo
+            PoseDemoView()
                 .frame(maxWidth: .infinity)
                 .frame(height: 340)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
                 .opacity(showImage ? 1 : 0)
                 .scaleEffect(showImage ? 1 : 0.96)
             
@@ -526,16 +519,12 @@ struct OnboardingScreen4: View {
                 .frame(height: 40)
             
             // Hero image
-            Image("Rectangle_10")
+            Image("Rectangle_15")
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .frame(height: 340)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
                 .opacity(showImage ? 1 : 0)
                 .scaleEffect(showImage ? 1 : 0.96)
