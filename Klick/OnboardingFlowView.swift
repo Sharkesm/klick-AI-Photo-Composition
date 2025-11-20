@@ -252,7 +252,7 @@ struct OnboardingScreen1: View {
             // Portrait carousel with composition overlays
             PortraitCarouselView()
                 .frame(maxWidth: .infinity)
-                .frame(height: 400)
+                .frame(height: 360)
                 .opacity(showImage ? 1 : 0)
                 .scaleEffect(showImage ? 1 : 0.96)
             
@@ -345,7 +345,7 @@ struct OnboardingScreen2: View {
             // Interactive composition demo
             CompositionDemoView()
                 .frame(maxWidth: .infinity)
-                .frame(height: 340)
+                .frame(height: 360)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
                 .opacity(showImage ? 1 : 0)
@@ -428,12 +428,16 @@ struct OnboardingScreen3: View {
             Spacer()
                 .frame(height: 40)
             
-            // Interactive pose demo
-            PoseDemoView()
-                .frame(maxWidth: .infinity)
-                .frame(height: 340)
-                .opacity(showImage ? 1 : 0)
-                .scaleEffect(showImage ? 1 : 0.96)
+            // Interactive pose comparison slider
+            ImageComparisonSlider(
+                beforeImageName: "pose_before",
+                afterImageName: "pose_after",
+                initialSliderPosition: 50
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 360)
+            .opacity(showImage ? 1 : 0)
+            .scaleEffect(showImage ? 1 : 0.96)
             
             Spacer()
             
