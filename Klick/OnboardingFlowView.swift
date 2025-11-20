@@ -249,18 +249,10 @@ struct OnboardingScreen1: View {
             Spacer()
                 .frame(height: 40)
             
-            // Hero image
-            Image("Rectangle_1")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
+            // Portrait carousel with composition overlays
+            PortraitCarouselView()
                 .frame(maxWidth: .infinity)
-                .frame(height: 340)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+                .frame(height: 400)
                 .opacity(showImage ? 1 : 0)
                 .scaleEffect(showImage ? 1 : 0.96)
             

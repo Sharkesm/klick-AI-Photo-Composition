@@ -1,0 +1,7 @@
+{
+    "worktree.cleanup.enabled": false,
+    "worktree.cleanup.intervalHours": 24,
+    "worktree.cleanup.retentionDays": 14,
+    "worktree.cleanup.maxSizeGB": 0,
+    "git.showCursorWorktrees": true
+  }
