@@ -13,14 +13,14 @@ struct ImageComparisonSlider: View {
     // Props
     let beforeImageName: String
     let afterImageName: String
-    var initialSliderPosition: CGFloat = 50.0
+    var initialSliderPosition: CGFloat = 15.0
     
     // State
     @State private var sliderPosition: CGFloat
     @State private var isDragging: Bool = false
     
     // Init
-    init(beforeImageName: String, afterImageName: String, initialSliderPosition: CGFloat = 50.0) {
+    init(beforeImageName: String, afterImageName: String, initialSliderPosition: CGFloat = 15.0) {
         self.beforeImageName = beforeImageName
         self.afterImageName = afterImageName
         self._sliderPosition = State(initialValue: initialSliderPosition)
@@ -37,8 +37,6 @@ struct ImageComparisonSlider: View {
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
-                        .opacity(ComparisonSliderConfig.beforeImageOpacity)
-                        .blur(radius: ComparisonSliderConfig.beforeImageBlur)
                         .accessibilityLabel("Original image before enhancement")
                     
                     // Layer 2: After Image (Masked/Clipped)
@@ -185,29 +183,19 @@ struct ImageComparisonSlider: View {
     // MARK: - Computed Properties
     
     /// Calculate opacity for "Before" label based on slider position
-    /// More visible when slider is on the left (showing more before image)
+    /// Visible when slider is at center or showing more before image (sliderPosition <= 50%)
     private var beforeLabelOpacity: Double {
-        // When sliderPosition < 50%, show "Before" label
-        // Fade in as we move left, fade out as we move right
-        if sliderPosition < 50 {
-            // Map 0-50% slider position to 0-1 opacity
-            return Double(1 - (sliderPosition / 50))
-        } else {
-            return 0
-        }
+        // At center (50%) or left of center: show "Before" label
+        // Right of center: hide "Before" label
+        return sliderPosition <= 50 ? 1.0 : 0.0
     }
     
     /// Calculate opacity for "After" label based on slider position
-    /// More visible when slider is on the right (showing more after image)
+    /// Visible when slider is at center or showing more after image (sliderPosition >= 50%)
     private var afterLabelOpacity: Double {
-        // When sliderPosition > 50%, show "After" label
-        // Fade in as we move right, fade out as we move left
-        if sliderPosition > 50 {
-            // Map 50-100% slider position to 0-1 opacity
-            return Double((sliderPosition - 50) / 50)
-        } else {
-            return 0
-        }
+        // At center (50%) or right of center: show "After" label
+        // Left of center: hide "After" label
+        return sliderPosition >= 50 ? 1.0 : 0.0
     }
     
     // MARK: - Helper Functions

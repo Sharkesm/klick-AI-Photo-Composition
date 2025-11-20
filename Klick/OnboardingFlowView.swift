@@ -432,10 +432,10 @@ struct OnboardingScreen3: View {
             ImageComparisonSlider(
                 beforeImageName: "pose_before",
                 afterImageName: "pose_after",
-                initialSliderPosition: 50
+                initialSliderPosition: 20.0
             )
             .frame(maxWidth: .infinity)
-            .frame(height: 360)
+            .frame(height: 380)
             .opacity(showImage ? 1 : 0)
             .scaleEffect(showImage ? 1 : 0.96)
             
