@@ -39,7 +39,7 @@ struct CompositionDemoView: View {
             ZStack {
                 // Background Image Layer
                 ZStack {
-                    Image(.rectangle14)
+                    Image(.perspective4)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geometry.size.width, height: geometry.size.height)

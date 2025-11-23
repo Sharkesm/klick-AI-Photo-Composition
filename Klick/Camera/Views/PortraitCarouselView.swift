@@ -92,37 +92,6 @@ struct PortraitCarouselView: View {
                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-            
-            // Toggle button (outside image container, at bottom)
-            Button(action: {
-                HapticFeedback.selection.generate()
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    overlaysEnabled.toggle()
-                }
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: overlaysEnabled ? "eye.fill" : "eye.slash.fill")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-                    
-                    Text(overlaysEnabled ? "Hide Guides" : "Show Guides")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                        )
-                )
-                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .padding(.top, 12)
         }
         .onAppear {
             // Initialize overlay and icon immediately
