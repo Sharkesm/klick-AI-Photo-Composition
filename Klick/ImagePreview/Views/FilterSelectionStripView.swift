@@ -23,7 +23,7 @@ struct FilterSelectionStripView: View {
                     action: { onFilterSelected(nil) }
                 )
 
-                ForEach(FilterManager.shared.filters(for: selectedPack)) { filter in
+                ForEach(FilterManager.shared.filters(for: selectedPack), id: \.id) { filter in
                     FilterButton(
                         filter: filter,
                         previewImage: filterPreviews[filter.id] ?? originalImage,

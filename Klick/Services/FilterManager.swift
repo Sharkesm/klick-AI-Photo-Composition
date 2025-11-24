@@ -444,8 +444,9 @@ class FilterManager {
         return finalResult
     }
 
-    func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 70, height: 125)) -> UIImage? {
+    func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 70, height: 93)) -> UIImage? {
         // Create a smaller version for preview
+        // Size matches 3:4 aspect ratio (70 * 4/3 ≈ 93) for portrait photos
         let previewImage = image.resized(to: size) ?? image
         return applyFilter(filter, to: previewImage, adjustments: .balanced, useCache: true)
     }

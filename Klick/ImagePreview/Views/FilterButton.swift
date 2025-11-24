@@ -12,6 +12,13 @@ struct FilterButton: View {
     let isSelected: Bool
     let action: () -> Void
 
+    // Calculate frame height based on 3:4 aspect ratio (portrait photos)
+    private var frameHeight: CGFloat {
+        let width: CGFloat = 70
+        // 3:4 aspect ratio: height = width * (4/3)
+        return width * (4.0 / 3.0) // ≈ 93.33, rounded to 93
+    }
+    
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .bottom) {
@@ -19,12 +26,12 @@ struct FilterButton: View {
                     Image(uiImage: preview)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: 70, height: 80)
+                        .frame(width: 70, height: frameHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color.gray.opacity(0.3))
-                        .frame(width: 70, height: 80)
+                        .frame(width: 70, height: frameHeight)
                         .overlay(
                             Image(systemName: "photo")
                                 .foregroundColor(.gray)
@@ -59,9 +66,10 @@ struct FilterButton: View {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.yellow, lineWidth: 3)
-                        .frame(width: 70, height: 80)
+                        .frame(width: 70, height: frameHeight)
                 }
             }
         }
+        .frame(width: 70, height: frameHeight)
     }
 }
