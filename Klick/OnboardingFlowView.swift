@@ -514,16 +514,30 @@ struct OnboardingScreen4: View {
             Spacer()
                 .frame(height: 40)
             
-            // Hero image
-            Image("Rectangle_15")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(maxWidth: .infinity)
-                .frame(height: 340)
+            // Hero image - centered horizontally, sized by aspect ratio
+            HStack {
+                Spacer()
+                
+                GeometryReader { geometry in
+                    Image("Rectangle_15")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                }
+                .aspectRatio(3/4, contentMode: .fit)
+                .frame(height: 360)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
                 .opacity(showImage ? 1 : 0)
                 .scaleEffect(showImage ? 1 : 0.96)
+                
+                Spacer()
+            }
             
             Spacer()
             
