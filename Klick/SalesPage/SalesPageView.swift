@@ -18,6 +18,7 @@ struct SalesPageView: View {
     @State private var currentPlan: Package?
     @State private var selectedPackage: Package?
     @State private var isPurchasing: Bool = false
+    @State private var showSuccessPage: Bool = false
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -38,6 +39,11 @@ struct SalesPageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .background(Color.black)
+        .fullScreenCover(isPresented: $showSuccessPage) {
+            SuccessSalesPageView(onComplete: {
+                dismiss()
+            })
+        }
         .onAppear {
             /// Fetch subscription offerings
             currentOffering = purchaseService.offerings?.current
@@ -254,9 +260,9 @@ extension SalesPageView {
         }
 
         if purchaseStatus == .subscribed {
-        print("SUCCESS - Subscribed")
-            // Dismiss the paywall on successful subscription
-        dismiss()
+            print("SUCCESS - Subscribed")
+            // Show success page on successful subscription
+            showSuccessPage = true
         }
     }
     
@@ -268,7 +274,7 @@ extension SalesPageView {
             
         if purchaseStatus == .subscribed {
             print("SUCCESS - Purchases restored")
-            dismiss()
+            showSuccessPage = true
         } else if purchaseStatus == .notSubscribed {
             print("INFO - No purchases to restore")
                 // TODO: Show alert to user
