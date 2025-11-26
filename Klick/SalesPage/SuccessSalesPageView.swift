@@ -30,6 +30,11 @@ struct SuccessSalesPageView: View {
     @State private var glowScale3: CGFloat = 1.0
     @State private var glowRotation: Double = 0
     
+    // Shape morphing states
+    @State private var shape1Corner: CGFloat = 50
+    @State private var shape2Corner: CGFloat = 50
+    @State private var shape3Corner: CGFloat = 50
+    
     var body: some View {
         ZStack {
             // Background
@@ -38,19 +43,11 @@ struct SuccessSalesPageView: View {
             
             // Confetti Animation - Full Screen Coverage
             if showConfetti {
-                ZStack {
-                    // Top confetti (falling down)
-                    DotLottieAnimation(fileName: "confetti", config: AnimationConfig(autoplay: true, loop: false))
-                        .view()
-                        .ignoresSafeArea()
-                    
-                    // Bottom confetti (shooting up) - mirrored
-                    DotLottieAnimation(fileName: "confetti", config: AnimationConfig(autoplay: true, loop: false))
-                        .view()
-                        .rotationEffect(.degrees(180))
-                        .scaleEffect(x: -1, y: 1) // Flip horizontally for variation
-                        .ignoresSafeArea()
-                }
+                // Top confetti (falling down)
+                DotLottieAnimation(fileName: "confetti", config: AnimationConfig(autoplay: true, loop: false))
+                    .view()
+                    .frame(maxHeight: .infinity)
+                    .ignoresSafeArea()
             }
             
             VStack(spacing: 40) {
@@ -60,12 +57,12 @@ struct SuccessSalesPageView: View {
                 logoView
                 
                 Spacer()
-                    .frame(height: 50)
+                    .frame(height: 30)
                 
                 // Success Messages
-                VStack(spacing: 24) {
-                    Text("Thank you for subscribing!")
-                        .font(.system(size: 24, weight: .semibold, design: .rounded))
+                VStack(spacing: 20) {
+                    Text("Thank you for subscribing! 🎉")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .opacity(showFirstText ? 1 : 0)
@@ -73,16 +70,16 @@ struct SuccessSalesPageView: View {
                         .animation(.easeOut(duration: 0.8), value: showFirstText)
                     
                     Text("All the filters, all the styles, all the blur, all the nerdy camera magic — it's yours now.")
-                        .font(.system(size: 18, weight: .regular, design: .rounded))
-                        .foregroundColor(.white)
+                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .opacity(showSecondText ? 1 : 0)
                         .offset(y: showSecondText ? 0 : 20)
                         .animation(.easeOut(duration: 0.8), value: showSecondText)
                     
                     Text("Go make your photos question their own existence.")
-                        .font(.system(size: 18, weight: .light, design: .rounded))
-                        .foregroundColor(.white)
+                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .opacity(showThirdText ? 1 : 0)
                         .offset(y: showThirdText ? 0 : 20)
@@ -108,75 +105,76 @@ struct SuccessSalesPageView: View {
     private var logoView: some View {
         VStack(alignment: .center, spacing: 12) {
             ZStack {
-                // Dreamy morphing rainbow glow background
+                // Dreamy morphing colorful glow background
                 ZStack {
-                    // First glow blob - Pink/Purple
-                    Circle()
+                    // First glow blob - Deep Magenta/Purple (morphing shape)
+                    RoundedRectangle(cornerRadius: shape1Corner)
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color(red: 1.0, green: 0.4, blue: 0.8).opacity(0.6),
-                                    Color(red: 0.6, green: 0.3, blue: 1.0).opacity(0.4),
+                                    Color(red: 0.8, green: 0.2, blue: 0.8).opacity(0.7),  // Deep magenta
+                                    Color(red: 0.5, green: 0.2, blue: 0.9).opacity(0.5),  // Rich purple
                                     Color.clear
                                 ],
                                 center: .center,
                                 startRadius: 0,
-                                endRadius: 50
+                                endRadius: 60
                             )
                         )
                         .frame(width: 100, height: 100)
                         .offset(glowOffset1)
                         .scaleEffect(glowScale1)
-                        .blur(radius: 30)
+                        .blur(radius: 40)
                     
-                    // Second glow blob - Cyan/Blue
-                    Circle()
+                    // Second glow blob - Electric Blue/Cyan (morphing shape)
+                    RoundedRectangle(cornerRadius: shape2Corner)
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color(red: 0.4, green: 0.8, blue: 1.0).opacity(0.6),
-                                    Color(red: 0.2, green: 0.6, blue: 1.0).opacity(0.4),
+                                    Color(red: 0.1, green: 0.6, blue: 1.0).opacity(0.7),  // Electric blue
+                                    Color(red: 0.2, green: 0.8, blue: 0.9).opacity(0.5),  // Bright cyan
                                     Color.clear
                                 ],
                                 center: .center,
                                 startRadius: 0,
-                                endRadius: 50
+                                endRadius: 60
                             )
                         )
-                        .frame(width: 100, height: 100)
+                        .frame(width: 110, height: 110)
                         .offset(glowOffset2)
                         .scaleEffect(glowScale2)
-                        .blur(radius: 30)
+                        .blur(radius: 40)
                     
-                    // Third glow blob - Yellow/Orange
-                    Circle()
+                    // Third glow blob - Rose/Coral Pink (morphing shape)
+                    RoundedRectangle(cornerRadius: shape3Corner)
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color(red: 1.0, green: 0.9, blue: 0.4).opacity(0.5),
-                                    Color(red: 1.0, green: 0.6, blue: 0.4).opacity(0.3),
+                                    Color(red: 1.0, green: 0.3, blue: 0.5).opacity(0.6),  // Rose pink
+                                    Color(red: 1.0, green: 0.5, blue: 0.4).opacity(0.5),  // Coral
                                     Color.clear
                                 ],
                                 center: .center,
                                 startRadius: 0,
-                                endRadius: 50
+                                endRadius: 60
                             )
                         )
                         .frame(width: 100, height: 100)
                         .offset(glowOffset3)
                         .scaleEffect(glowScale3)
-                        .blur(radius: 30)
+                        .blur(radius: 40)
                 }
                 .rotationEffect(.degrees(glowRotation))
                 .opacity(glowOpacity)
                 
-                // Logo on top
+                // Logo on top with colorful glow
                 Image(.appLogo)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 100, height: 100)
                     .clipShape(RoundedRectangle(cornerRadius: 25))
-                    .shadow(color: .white.opacity(0.2), radius: 12, x: 0, y: 6)
+                    .shadow(color: Color(red: 0.8, green: 0.2, blue: 0.8).opacity(0.3), radius: 15, x: 0, y: 8) // Magenta glow
+                    .shadow(color: Color(red: 0.1, green: 0.6, blue: 1.0).opacity(0.2), radius: 20, x: -5, y: 5) // Blue accent
             }
             .scaleEffect(logoScale)
             
@@ -270,26 +268,41 @@ struct SuccessSalesPageView: View {
     }
     
     private func startGlowMorphing() {
-        // Continuous morphing animation for glow blob 1 (Pink/Purple)
-        withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-            glowOffset1 = CGSize(width: 15, height: -12)
-            glowScale1 = 1.4
-        }
-        
-        // Continuous morphing animation for glow blob 2 (Cyan/Blue) - different timing
-        withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
-            glowOffset2 = CGSize(width: -18, height: 8)
-            glowScale2 = 1.5
-        }
-        
-        // Continuous morphing animation for glow blob 3 (Yellow/Orange) - different timing
+        // Glow blob 1 - Position and scale morphing
         withAnimation(.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
-            glowOffset3 = CGSize(width: 12, height: 15)
-            glowScale3 = 1.3
+            glowOffset1 = CGSize(width: 20, height: -15)
+            glowScale1 = 1.5
         }
         
-        // Slow rotation of entire glow system (20 second cycle)
-        withAnimation(.linear(duration: 20.0).repeatForever(autoreverses: false)) {
+        // Glow blob 1 - Shape morphing (circle to rounded square)
+        withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+            shape1Corner = 15 // Becomes more square-like
+        }
+        
+        // Glow blob 2 - Position and scale morphing
+        withAnimation(.easeInOut(duration: 4.5).repeatForever(autoreverses: true)) {
+            glowOffset2 = CGSize(width: -22, height: 12)
+            glowScale2 = 1.6
+        }
+        
+        // Glow blob 2 - Shape morphing (circle to soft rounded)
+        withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+            shape2Corner = 25 // Becomes softer
+        }
+        
+        // Glow blob 3 - Position and scale morphing
+        withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+            glowOffset3 = CGSize(width: 15, height: 18)
+            glowScale3 = 1.4
+        }
+        
+        // Glow blob 3 - Shape morphing (circle to rounded square)
+        withAnimation(.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
+            shape3Corner = 20 // Becomes more geometric
+        }
+        
+        // Slow rotation of entire glow system (25 second cycle)
+        withAnimation(.linear(duration: 25.0).repeatForever(autoreverses: false)) {
             glowRotation = 360
         }
     }
