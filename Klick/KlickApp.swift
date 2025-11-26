@@ -6,11 +6,16 @@
 //
 
 import SwiftUI
+import RevenueCat
 
 @main
 struct KlickApp: App {
     // Register the AppDelegate for SwiftUI App
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
+    init() {
+        PurchaseService.configure()
+     }
     
     var body: some Scene {
         WindowGroup {

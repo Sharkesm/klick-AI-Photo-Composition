@@ -6,8 +6,16 @@
 //
 
 import SwiftUI
+import RevenueCat
 
 struct SalesPageView: View {
+    
+    private var purchaseService: PurchaseService = .main
+    
+    @State private var currentOffering: Offering?
+    @State private var currentPlan: Package?
+    @State private var isPurchasing: Bool = false
+    
     var body: some View {
         ZStack(alignment: .top) {
             coverImageView
@@ -27,9 +35,12 @@ struct SalesPageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .background(Color.black)
-        
+        .onAppear {
+            /// Fetch subscription offerings
+            currentOffering = purchaseService.offerings?.current
+            currentPlan = purchaseService.currentPlan
+        }
     }
-    
     
     private var coverImageView: some View {
         ZStack(alignment: .bottom) {
@@ -179,6 +190,24 @@ struct SalesPageView: View {
     }
 }
 
+extension SalesPageView {
+    private func processSubscription(for package: Package) async {
+        /// - Set purchasing state as true before initiating a subscription purchase
+        isPurchasing = true
+        
+        let purchaseStatus = await purchaseService.purchase(package: package)
+        isPurchasing = false
+        
+        guard purchaseStatus != .interrupted else {
+            /// Failed to subscribed and experienced an interruption
+            print("FAILED - Subscription purchase interrupted")
+            return
+        }
+
+        print("SUCCESS - Subscribed")
+        // TODO: Show success page
+    }
+}
 
 struct SubscriptionOfferButton: View {
     var content: Content

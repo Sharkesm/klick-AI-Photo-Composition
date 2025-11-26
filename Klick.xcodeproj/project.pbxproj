@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		116063612ED6FEDE00F8ACBE /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 116063602ED6FEDE00F8ACBE /* RevenueCat */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		11E45EBE2E224E8700B252F3 /* Klick.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Klick.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -36,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				116063612ED6FEDE00F8ACBE /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +83,7 @@
 			);
 			name = Klick;
 			packageProductDependencies = (
+				116063602ED6FEDE00F8ACBE /* RevenueCat */,
 			);
 			productName = Klick;
 			productReference = 11E45EBE2E224E8700B252F3 /* Klick.app */;
@@ -108,6 +114,7 @@
 			mainGroup = 11E45EB52E224E8700B252F3;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				1160635F2ED6FEDE00F8ACBE /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 11E45EBF2E224E8700B252F3 /* Products */;
@@ -367,6 +374,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		1160635F2ED6FEDE00F8ACBE /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.49.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		116063602ED6FEDE00F8ACBE /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1160635F2ED6FEDE00F8ACBE /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 11E45EB62E224E8700B252F3 /* Project object */;
 }
