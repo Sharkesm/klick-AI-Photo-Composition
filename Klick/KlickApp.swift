@@ -15,7 +15,11 @@ struct KlickApp: App {
     
     init() {
         PurchaseService.configure()
-     }
+        
+        Task {
+            await PurchaseService.main.refreshSubscriptionStatus()
+        }
+    }
     
     var body: some Scene {
         WindowGroup {

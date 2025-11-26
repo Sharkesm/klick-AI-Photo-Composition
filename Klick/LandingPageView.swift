@@ -1,9 +1,14 @@
 import SwiftUI
 
 struct LandingPageView: View {
+    // TEST MODE: Set to true to always show onboarding
+    private let testMode = true
+    
     @AppStorage("onboardingIntroduction") var onboardingIntroduction: Bool = false
     @AppStorage("onboardingFlowCompleted") var onboardingFlowCompleted: Bool = false
     @AppStorage("permissionGranted") var permissionGranted: Bool = false
+    @AppStorage("hasSeenProUpsell") var hasSeenProUpsell: Bool = false
+    @AppStorage("userCreativeGoal") var userCreativeGoal: String = ""
     
     @State private var scrollOffset1: CGFloat = 0
     @State private var scrollOffset2: CGFloat = 0
@@ -58,6 +63,12 @@ struct LandingPageView: View {
             } else {
                 // Show ContentView after permissions are granted
                 ContentView()
+            }
+        }
+        .onAppear {
+            // Reset all onboarding states in test mode on app launch
+            if testMode {
+                resetOnboardingStates()
             }
         }
     }
@@ -190,6 +201,14 @@ struct LandingPageView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             onboardingIntroduction = true
         }
+    }
+    
+    private func resetOnboardingStates() {
+        onboardingIntroduction = false
+        onboardingFlowCompleted = false
+        permissionGranted = false
+        hasSeenProUpsell = false
+        userCreativeGoal = ""
     }
     
     private func startScrollingAnimations() {

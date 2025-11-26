@@ -15,6 +15,8 @@ class PurchaseService: ObservableObject {
     @Published var isSubscribed: Bool = false
     @Published var offerings: Offerings?
     
+    @Published var entitlement: Entitlements = .pro
+    
     var currentPlan: Package? {
         offerings?.current?.availablePackages.filter({ $0.packageType == .annual }).first
     }
@@ -30,6 +32,7 @@ class PurchaseService: ObservableObject {
     }
     
     enum Entitlements: String {
+        case pro = "Klick Pro"
         case premium = "Klick Premium"
     }
     
@@ -46,11 +49,12 @@ class PurchaseService: ObservableObject {
     
     func refreshSubscriptionStatus() async {
         guard let customer = try? await Purchases.shared.customerInfo() else {
+            print("\(#function) - Failed to fetch customer info")
             return
         }
         
         /// Refreshes subscription status by checking customer owned entitlements
-        let didPurchase = customer.entitlements.all[Entitlements.premium.rawValue]?.isActive ?? false
+        let didPurchase = customer.entitlements.all[entitlement.rawValue]?.isActive ?? false
         let status: PurchaseStatus = didPurchase ? .subscribed : .notSubscribed
         await handlePurchaseStatusUpdates(status)
         
@@ -63,10 +67,12 @@ class PurchaseService: ObservableObject {
         let offerings: Offerings? = await withCheckedContinuation { continuation in
             Purchases.shared.getOfferings { offerings, error in
                 if let offerings = offerings {
+                    print("\(#function) - Fetched offerings: \(offerings)")
                     continuation.resume(returning: offerings)
                     return
                 }
                 
+                print("\(#function) - Failed to fetch offerings: \(error?.localizedDescription ?? "No error description")")
                 continuation.resume(returning: nil)
             }
         }
@@ -81,7 +87,7 @@ class PurchaseService: ObservableObject {
     func purchase(package: Package) async -> PurchaseStatus {
         let status: PurchaseStatus = await withCheckedContinuation { continuation in
             Purchases.shared.purchase(package: package) { transaction, customer, error, userCancelled in
-                let didPurchase = customer?.entitlements.all[Entitlements.premium.rawValue]?.isActive ?? false
+                let didPurchase = customer?.entitlements.all[self.entitlement.rawValue]?.isActive ?? false
                 
                 DispatchQueue.main.async { [unowned self] in
                     self.isSubscribed = didPurchase
@@ -112,7 +118,7 @@ class PurchaseService: ObservableObject {
                     continuation.resume(returning: .interrupted)
 //                    SVLogger.main.log(message: "Error restoring purchases", info: error.localizedDescription, logLevel: .error)
                 } else {
-                    let didPurchase = transactions?.entitlements.all[Entitlements.premium.rawValue]?.isActive ?? false
+                    let didPurchase = transactions?.entitlements.all[self.entitlement.rawValue]?.isActive ?? false
                     continuation.resume(returning: didPurchase ? .subscribed : .notSubscribed)
 //                    SVLogger.main.log(message: "Successfully restored purchases", logLevel: .success)
                 }
@@ -127,5 +133,7 @@ class PurchaseService: ObservableObject {
     func handlePurchaseStatusUpdates(_ status: PurchaseStatus) {
         isSubscribed = status == .subscribed
         UserPreferenceKeys.eligibleForPremium.save(status == .subscribed)
+        
+        print("\(#function) - isSubscribed: \(isSubscribed)")
     }
 }
