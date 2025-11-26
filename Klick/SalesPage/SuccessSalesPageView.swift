@@ -263,6 +263,7 @@ struct SuccessSalesPageView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 6.6) {
             withAnimation(.easeOut(duration: 0.5)) {
                 showButton = true
+                showConfetti = false
             }
         }
     }
