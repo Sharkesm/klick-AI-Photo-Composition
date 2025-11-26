@@ -33,7 +33,7 @@ struct SalesPageView: View {
     
     private var coverImageView: some View {
         ZStack(alignment: .bottom) {
-            Image(.rectangle12)
+            Image(.sales1)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(maxWidth: .infinity)
@@ -70,7 +70,7 @@ struct SalesPageView: View {
                     )
             }
         }
-        .padding(.horizontal, 28)
+        .padding(.horizontal, 48)
         .padding(.top, 40)
     }
     
@@ -122,7 +122,7 @@ struct SalesPageView: View {
             Text("By tapping Continue, you will be charged, your subscription will auto-renew for the same price and package length until you cancel via App store settings, and you agree to our Terms.")
                 .foregroundStyle(Color.white)
                 .font(.system(size: 11, weight: .light))
-                .multilineTextAlignment(.leading)
+                .multilineTextAlignment(.center)
            
             Button(action: {
                 
