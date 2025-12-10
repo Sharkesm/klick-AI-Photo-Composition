@@ -19,8 +19,42 @@ struct SalesPageView: View {
     @State private var selectedPackage: Package?
     @State private var isPurchasing: Bool = false
     @State private var showSuccessPage: Bool = false
+    @State private var fadeOutSalesContent: Bool = false
     
     var body: some View {
+        ZStack {
+            // Background
+            Color.black
+                .ignoresSafeArea()
+            
+            if !showSuccessPage {
+                // Sales page content
+                salesPageContent
+                    .opacity(fadeOutSalesContent ? 0 : 1)
+                    .animation(.easeOut(duration: 0.6), value: fadeOutSalesContent)
+            } else {
+                // Success page content
+                SuccessSalesPageView(onComplete: {
+                    dismiss()
+                })
+                .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
+        .onAppear {
+            /// Fetch subscription offerings
+            currentOffering = purchaseService.offerings?.current
+            currentPlan = purchaseService.currentPlan
+            
+            /// Set default selection to annual/yearly package
+            if let offering = currentOffering {
+                selectedPackage = offering.annual ?? offering.availablePackages.first
+            }
+        }
+    }
+    
+    private var salesPageContent: some View {
         ZStack(alignment: .top) {
             coverImageView
         
@@ -35,24 +69,6 @@ struct SalesPageView: View {
             .frame(maxWidth: .infinity)
             
             headerView
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .ignoresSafeArea()
-        .background(Color.black)
-        .fullScreenCover(isPresented: $showSuccessPage) {
-            SuccessSalesPageView(onComplete: {
-                dismiss()
-            })
-        }
-        .onAppear {
-            /// Fetch subscription offerings
-            currentOffering = purchaseService.offerings?.current
-            currentPlan = purchaseService.currentPlan
-            
-            /// Set default selection to annual/yearly package
-            if let offering = currentOffering {
-                selectedPackage = offering.annual ?? offering.availablePackages.first
-            }
         }
     }
     
@@ -261,8 +277,17 @@ extension SalesPageView {
 
         if purchaseStatus == .subscribed {
             print("SUCCESS - Subscribed")
-            // Show success page on successful subscription
-            showSuccessPage = true
+            // Smooth transition to success page
+            withAnimation(.easeOut(duration: 0.6)) {
+                fadeOutSalesContent = true
+            }
+            
+            // Show success page after fade out
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                withAnimation(.easeIn(duration: 0.6)) {
+                    showSuccessPage = true
+                }
+            }
         }
     }
     
@@ -274,7 +299,17 @@ extension SalesPageView {
             
         if purchaseStatus == .subscribed {
             print("SUCCESS - Purchases restored")
-            showSuccessPage = true
+            // Smooth transition to success page
+            withAnimation(.easeOut(duration: 0.6)) {
+                fadeOutSalesContent = true
+            }
+            
+            // Show success page after fade out
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                withAnimation(.easeIn(duration: 0.6)) {
+                    showSuccessPage = true
+                }
+            }
         } else if purchaseStatus == .notSubscribed {
             print("INFO - No purchases to restore")
                 // TODO: Show alert to user
