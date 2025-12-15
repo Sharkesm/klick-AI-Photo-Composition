@@ -53,11 +53,6 @@ struct FilterButton: View {
                 .frame(height: 30)
                 .overlay(alignment: .bottom) {
                     HStack(spacing: 4) {
-                        if isLocked {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 8, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.9))
-                        }
                         Text(filter?.name ?? "Normal")
                             .font(.caption)
                             .fontWeight(.semibold)
@@ -81,10 +76,6 @@ struct FilterButton: View {
                             Image(systemName: "lock.fill")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
-                            
-                            Text("PRO")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.yellow)
                         }
                     }
                     .frame(width: 70, height: frameHeight)

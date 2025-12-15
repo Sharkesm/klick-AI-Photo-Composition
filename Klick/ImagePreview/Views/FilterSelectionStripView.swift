@@ -31,7 +31,7 @@ struct FilterSelectionStripView: View {
                         filter: filter,
                         previewImage: filterPreviews[filter.id] ?? originalImage,
                         isSelected: selectedFilter?.id == filter.id,
-                        isLocked: !featureManager.canUseFilter(id: filter.id),
+                        isLocked: !featureManager.canUseFilter(id: filter.id, pack: selectedPack),
                         action: { onFilterSelected(filter) }
                     )
                 }

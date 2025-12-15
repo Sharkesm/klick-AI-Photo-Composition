@@ -16,7 +16,7 @@ class FeatureManager: ObservableObject {
     // MARK: - Constants
     
     /// Maximum number of photos allowed in free tier
-    private(set) var maxFreePhotos = 5
+    private(set) var maxFreePhotos = 2
     
     // MARK: - Published State
     
@@ -97,17 +97,52 @@ class FeatureManager: ObservableObject {
     
     // MARK: - Free Filters (Always Available)
     
-    /// Filter IDs that are free (first 3 filters)
-    let freeFilterIDs: Set<String> = ["GH1", "CG1", "NN1"]
+    /// Number of free filters per pack
+    private let freeFiltersPerPack = 2
     
     /// Check if a specific filter is available
-    func canUseFilter(id: String) -> Bool {
-        // Free filters always available
-        if freeFilterIDs.contains(id) {
+    /// - Parameters:
+    ///   - id: Filter ID
+    ///   - pack: Filter pack the filter belongs to
+    /// - Returns: True if filter is available (first 3 of pack, or Pro/trial period)
+    func canUseFilter(id: String, pack: FilterPack) -> Bool {
+        // Pro users or users in trial period can use all filters
+        if isPro || isInTrialPeriod {
             return true
         }
-        // Premium filters require Pro or trial period
-        return isPro || isInTrialPeriod
+        
+        // For free users, check if filter is in first 3 of its pack
+        let packFilters = FilterManager.shared.filters(for: pack)
+        let filterIndex = packFilters.firstIndex { $0.id == id }
+        
+        // If filter not found, deny access
+        guard let index = filterIndex else {
+            return false
+        }
+        
+        // First 3 filters (indices 0, 1, 2) are free
+        return index < freeFiltersPerPack
+    }
+    
+    /// Legacy method for backward compatibility (checks all packs)
+    /// - Note: This method is less efficient. Use canUseFilter(id:pack:) when pack is known.
+    func canUseFilter(id: String) -> Bool {
+        // Pro users or users in trial period can use all filters
+        if isPro || isInTrialPeriod {
+            return true
+        }
+        
+        // Check all packs to find the filter
+        for pack in FilterPack.allCases {
+            let packFilters = FilterManager.shared.filters(for: pack)
+            if let index = packFilters.firstIndex(where: { $0.id == id }) {
+                // First 3 filters (indices 0, 1, 2) are free
+                return index < freeFiltersPerPack
+            }
+        }
+        
+        // Filter not found in any pack
+        return false
     }
     
     // MARK: - Initialization

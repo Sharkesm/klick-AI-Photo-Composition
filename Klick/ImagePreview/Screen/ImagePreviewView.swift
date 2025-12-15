@@ -435,8 +435,8 @@ struct ImagePreviewView: View {
     private func selectFilter(_ filter: PhotoFilter?) {
         // Check if filter is available (feature gating)
         if let filter = filter {
-            // Check if user can use this filter
-            if !FeatureManager.shared.canUseFilter(id: filter.id) {
+            // Check if user can use this filter (using pack-aware method)
+            if !FeatureManager.shared.canUseFilter(id: filter.id, pack: filter.pack) {
                 print("🔒 Filter selection blocked - premium filter requires Pro")
                 FeatureManager.shared.showUpgradePrompt(context: .premiumFilter)
                 return
