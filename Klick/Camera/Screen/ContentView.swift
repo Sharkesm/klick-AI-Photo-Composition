@@ -54,6 +54,11 @@ struct ContentView: View {
     @State private var processedImage: UIImage?
     @State private var isProcessingImage = false
     
+    // Upgrade prompts
+    @State private var showUpgradePrompt = false
+    @State private var upgradeContext: FeatureManager.UpgradeContext = .photoLimit
+    @State private var showSalesPage = false
+    
     private var shouldShowPhotoAlbum: Bool {
         return hasCameraPermission && !cameraLoading && photoAlbumSnapshot
     }
@@ -110,6 +115,7 @@ struct ContentView: View {
                                     selectedZoomLevel: $selectedZoomLevel,
                                     showFrameSettings: $showFrameSettings,
                                     showCompositionPractice: $showCompositionPractice,
+                                    showSalesPage: $showSalesPage,
                                     compositionManager: compositionManager,
                                     hasCameraPermission: hasCameraPermission,
                                     cameraLoading: cameraLoading
@@ -262,6 +268,19 @@ struct ContentView: View {
             )
             .presentationDetents([.fraction(0.8), .large])
         }
+        .fullScreenCover(isPresented: $showSalesPage) {
+            SalesPageView()
+        }
+        .ngBottomSheet(isPresented: $showUpgradePrompt, sheetContent: {
+            UpgradePromptAlert(
+                context: upgradeContext,
+                isPresented: $showUpgradePrompt,
+                onUpgrade: {
+                    // Show sales page
+                    showSalesPage = true
+                }
+            )
+        })
         .fullScreenCover(isPresented: $showImagePreview) {
             ImagePreviewView(
                 image: $processedImage,
@@ -330,6 +349,16 @@ struct ContentView: View {
                 requestCameraPermission()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .showUpgradePrompt)) { notification in
+            // Show upgrade prompt when triggered
+            if let contextString = notification.userInfo?["context"] as? String,
+               let context = FeatureManager.UpgradeContext(rawValue: contextString) {
+                upgradeContext = context
+                withAnimation {
+                    showUpgradePrompt = true
+                }
+            }
+        }
         .animation(.easeInOut(duration: 0.3), value: cameraLoading)
         .animation(.easeInOut(duration: 0.3), value: hasCameraPermission)
     }
@@ -351,6 +380,14 @@ struct ContentView: View {
     }
     
     private func capturePhoto() {
+        // Check if user can capture more photos (free tier limit)
+        guard FeatureManager.shared.canCapture else {
+            print("🔒 Photo capture blocked - storage limit reached")
+            // Show upgrade prompt
+            FeatureManager.shared.showUpgradePrompt(context: .photoLimit)
+            return
+        }
+        
         // This will be implemented by accessing the camera coordinator directly
         // For now, we'll use a notification-based approach
         NotificationCenter.default.post(name: NSNotification.Name("CapturePhoto"), object: nil)

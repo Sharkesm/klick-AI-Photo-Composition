@@ -7,6 +7,7 @@ struct TopControlsView: View {
     @Binding var selectedZoomLevel: ZoomLevel
     @Binding var showFrameSettings: Bool
     @Binding var showCompositionPractice: Bool
+    @Binding var showSalesPage: Bool
     
     let compositionManager: CompositionManager
     let hasCameraPermission: Bool
@@ -36,6 +37,11 @@ struct TopControlsView: View {
                          FlashControlView(selectedFlashMode: $selectedFlashMode)
                          ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
                          CompositionStylePracticeControl(showCompositionPractice: $showCompositionPractice)
+                         
+                         // Photo counter badge (free tier only)
+                         if hasCameraPermission && !cameraLoading {
+                             PhotoCounterBadge(featureManager: FeatureManager.shared, showSalesPage: $showSalesPage)
+                         }
                      }
                  }
                  .padding(.horizontal, 20)

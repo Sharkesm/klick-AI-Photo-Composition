@@ -212,6 +212,8 @@ class PhotoManager: ObservableObject {
                 }
                 // Always update photo count
                 self.photoCount += 1
+                // Sync with FeatureManager for freemium gating
+                FeatureManager.shared.updatePhotoCount(self.photoCount)
             }
             
             print("✅ Photo and thumbnail saved successfully: \(fileName)")
@@ -581,6 +583,8 @@ class PhotoManager: ObservableObject {
             guard FileManager.default.fileExists(atPath: self.photosDirectory.path) else {
                 DispatchQueue.main.async {
                     self.photoCount = 0
+                    // Sync with FeatureManager for freemium gating
+                    FeatureManager.shared.updatePhotoCount(0)
                 }
                 return
             }
@@ -596,11 +600,15 @@ class PhotoManager: ObservableObject {
                 
                 DispatchQueue.main.async {
                     self.photoCount = photoFiles.count
+                    // Sync with FeatureManager for freemium gating
+                    FeatureManager.shared.updatePhotoCount(photoFiles.count)
                     print("📊 Photo count loaded: \(photoFiles.count) photos")
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.photoCount = 0
+                    // Sync with FeatureManager for freemium gating
+                    FeatureManager.shared.updatePhotoCount(0)
                     print("❌ Failed to load photo count: \(error)")
                 }
             }
@@ -799,6 +807,8 @@ class PhotoManager: ObservableObject {
                 self.capturedPhotos.removeAll { $0.id == photo.id }
                 // Update photo count
                 self.photoCount = max(0, self.photoCount - 1)
+                // Sync with FeatureManager for freemium gating
+                FeatureManager.shared.updatePhotoCount(self.photoCount)
             }
             
             print("✅ Photo and thumbnail deleted: \(photo.fileName)")

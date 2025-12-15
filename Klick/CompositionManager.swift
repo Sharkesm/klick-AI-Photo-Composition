@@ -80,6 +80,13 @@ class CompositionManager: ObservableObject {
     /// Switch to a different composition type
     /// - Parameter type: The new composition type to use
     func switchToCompositionType(_ type: CompositionType) {
+        // Check if user can access advanced compositions (feature gating)
+        if type != .ruleOfThirds && !FeatureManager.shared.canUseAdvancedComposition {
+            print("🔒 Composition switch blocked - advanced compositions require Pro")
+            FeatureManager.shared.showUpgradePrompt(context: .advancedComposition)
+            return
+        }
+        
         currentCompositionType = type
         lastResult = nil // Clear previous result when switching
     }

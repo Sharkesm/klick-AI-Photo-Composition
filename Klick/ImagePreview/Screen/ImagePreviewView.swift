@@ -385,9 +385,18 @@ struct ImagePreviewView: View {
             // MEMORY OPTIMIZATION: End editing session when leaving the view
             BackgroundBlurManager.shared.endEditingSession(clearAll: true)
             
+            // MEMORY OPTIMIZATION: Clear filter caches
+            FilterManager.shared.clearEditingCache()
+            
             // Clean up work items to prevent memory leaks
             effectWorkItem?.cancel()
             effectWorkItem = nil
+            
+            // MEMORY OPTIMIZATION: Clear state to release image references
+            processedImage = nil
+            filterPreviews.removeAll()
+            
+            print("💾 ImagePreviewView dismissed - all caches cleared")
         }
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
         .onChange(of: showingEffects) { _ in checkForOnboardingTrigger() }
@@ -651,16 +660,19 @@ struct ImagePreviewView: View {
         guard let imageToUse = baseImage ?? image else { return }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            var newPreviews: [String: UIImage] = [:]
+            // MEMORY OPTIMIZATION: Use autoreleasepool for preview generation
+            autoreleasepool {
+                var newPreviews: [String: UIImage] = [:]
 
-            for filter in FilterManager.shared.filters(for: selectedPack) {
-                if let preview = FilterManager.shared.generateFilterPreview(filter, for: imageToUse) {
-                    newPreviews[filter.id] = preview
+                for filter in FilterManager.shared.filters(for: self.selectedPack) {
+                    if let preview = FilterManager.shared.generateFilterPreview(filter, for: imageToUse) {
+                        newPreviews[filter.id] = preview
+                    }
                 }
-            }
 
-            DispatchQueue.main.async {
-                filterPreviews = newPreviews
+                DispatchQueue.main.async {
+                    self.filterPreviews = newPreviews
+                }
             }
         }
     }
@@ -671,40 +683,44 @@ struct ImagePreviewView: View {
         isProcessing = true
 
         DispatchQueue.global(qos: .userInitiated).async {
-            var finalImage = currentBaseImage
-            
-            // Apply background blur first if enabled
-            if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
-                if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
-                    to: finalImage, 
-                    blurIntensity: self.effectState.backgroundBlur.intensity,
-                    useCache: false // Don't use cache for final export
-                ) {
-                    finalImage = blurredImage
+            // MEMORY OPTIMIZATION: Use autoreleasepool to immediately release intermediate images
+            autoreleasepool {
+                var finalImage = currentBaseImage
+                
+                // Apply background blur first if enabled
+                if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
+                    if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
+                        to: finalImage, 
+                        blurIntensity: self.effectState.backgroundBlur.intensity,
+                        useCache: false // Don't use cache for final export
+                    ) {
+                        finalImage = blurredImage
+                    }
                 }
-            }
-            
-            // Apply filter second if selected
-            if let filterEffect = self.effectState.filter {
-                if let filteredImage = FilterManager.shared.applyFilter(
-                    filterEffect.filter, 
-                    to: finalImage, 
-                    adjustments: filterEffect.adjustments, 
-                    useCache: false // Don't use cache for final export
-                ) {
-                    finalImage = filteredImage
+                
+                // Apply filter second if selected
+                if let filterEffect = self.effectState.filter {
+                    if let filteredImage = FilterManager.shared.applyFilter(
+                        filterEffect.filter, 
+                        to: finalImage, 
+                        adjustments: filterEffect.adjustments, 
+                        useCache: false // Don't use cache for final export
+                    ) {
+                        finalImage = filteredImage
+                    }
                 }
-            }
-            
-            // Export the final processed image (no watermark)
-            let exportData = FilterManager.shared.exportImage(finalImage, withWatermark: false)
+                
+                // Export the final processed image (no watermark)
+                let exportData = FilterManager.shared.exportImage(finalImage, withWatermark: false)
 
-            DispatchQueue.main.async {
-                self.isProcessing = false
-                if exportData != nil {
-                    // MEMORY OPTIMIZATION: Clear all caches after successful save
-                    BackgroundBlurManager.shared.endEditingSession(clearAll: true)
-                    self.onSave()
+                DispatchQueue.main.async {
+                    self.isProcessing = false
+                    if exportData != nil {
+                        // MEMORY OPTIMIZATION: Clear all caches after successful save
+                        BackgroundBlurManager.shared.endEditingSession(clearAll: true)
+                        FilterManager.shared.clearEditingCache()
+                        self.onSave()
+                    }
                 }
             }
         }

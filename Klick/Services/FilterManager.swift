@@ -528,6 +528,14 @@ class FilterManager {
         print("🗑️ All filter caches cleared")
     }
     
+    /// Clear editing caches after saving photo (less aggressive than clearAllCaches)
+    /// MEMORY OPTIMIZATION: Called after user saves a photo to release intermediate results
+    func clearEditingCache() {
+        // Clear the main filter cache (preview and full-size cached results)
+        filterCache.removeAllObjects()
+        print("💾 Filter editing cache cleared")
+    }
+    
     /// Get memory usage information
     func getMemoryInfo() -> String {
         let filterCacheCount = filterCache.countLimit
