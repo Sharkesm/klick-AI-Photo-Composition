@@ -17,6 +17,8 @@ struct UpgradePromptAlert: View {
         switch context {
         case .photoLimit:
             return "Free Photo Limit Reached"
+        case .lastFreePhoto:
+            return "Last Free Photo!"
         case .advancedComposition:
             return "Pro Feature"
         case .premiumFilter:
@@ -24,6 +26,10 @@ struct UpgradePromptAlert: View {
         case .filterAdjustments:
             return "Pro Feature"
         case .backgroundBlur:
+            return "Pro Feature"
+        case .portraitPractices:
+            return "Pro Feature"
+        case .liveFeedback:
             return "Pro Feature"
         case .batchDelete:
             return "Pro Feature"
@@ -41,6 +47,8 @@ struct UpgradePromptAlert: View {
         switch context {
         case .photoLimit:
             return "You've reached the free tier limit of \(FeatureManager.shared.maxFreePhotos) photos. Upgrade to Pro for unlimited storage."
+        case .lastFreePhoto:
+            return "This is your last free photo! After this, Live Feedback and premium features will be disabled unless you upgrade to Pro. Continue to capture and enjoy unlimited access with Pro!"
         case .advancedComposition:
             return "This composition technique is available in Pro. Upgrade to unlock all composition styles."
         case .premiumFilter:
@@ -49,6 +57,10 @@ struct UpgradePromptAlert: View {
             return "Filter adjustments are available in Pro. Upgrade to fine-tune intensity, brightness, and warmth."
         case .backgroundBlur:
             return "Background blur is a Pro feature. Upgrade to create stunning portraits with professional depth-of-field effects."
+        case .portraitPractices:
+            return "Advanced portrait practices are available in Pro. Upgrade to unlock Expression, Angles, Framing, and Styling guides."
+        case .liveFeedback:
+            return "Live Feedback messages are available in Pro. Upgrade to get real-time AI coaching and directional guidance while shooting."
         case .batchDelete:
             return "Batch delete is a Pro feature. Upgrade to delete multiple photos at once."
         case .hideOverlays:
@@ -65,6 +77,8 @@ struct UpgradePromptAlert: View {
         switch context {
         case .photoLimit:
             return "photo.stack.fill"
+        case .lastFreePhoto:
+            return "exclamationmark.triangle.fill"
         case .advancedComposition:
             return "square.grid.3x3"
         case .premiumFilter:
@@ -73,6 +87,10 @@ struct UpgradePromptAlert: View {
             return "slider.horizontal.3"
         case .backgroundBlur:
             return "person.fill.and.arrow.left.and.arrow.right"
+        case .portraitPractices:
+            return "graduationcap.fill"
+        case .liveFeedback:
+            return "message.badge.fill"
         case .batchDelete:
             return "trash.fill"
         case .hideOverlays:

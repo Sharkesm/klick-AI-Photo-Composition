@@ -67,9 +67,9 @@ struct LandingPageView: View {
         }
         .onAppear {
             // Reset all onboarding states in test mode on app launch
-            if testMode {
-                resetOnboardingStates()
-            }
+//            if testMode {
+//                resetOnboardingStates()
+//            }
         }
     }
     

@@ -19,10 +19,10 @@ struct ContentView: View {
     
     // Frame settings state
     @State private var showFrameSettings = false
-    @State private var isFacialRecognitionEnabled = true
-    @State private var isCompositionAnalysisEnabled = true
-    @State private var areOverlaysHidden = false
-    @State private var isLiveFeedbackEnabled = true
+    @AppStorage("isFacialRecognitionEnabled") private var isFacialRecognitionEnabled = true
+    @AppStorage("isCompositionAnalysisEnabled") private var isCompositionAnalysisEnabled = true
+    @AppStorage("areOverlaysHidden") private var areOverlaysHidden = false
+    @AppStorage("isLiveFeedbackEnabled") private var isLiveFeedbackEnabled = true
     
     // Camera quality state
     @State private var selectedCameraQuality: CameraQuality = .standard
@@ -242,9 +242,20 @@ struct ContentView: View {
             OnboardingView(isPresented: $showOnboarding)
         }
         .sheet(isPresented: $showCompositionPractice) {
-            CompositionStyleEdView()
-                .presentationDetents([.fraction(1.0)])
-                .presentationDragIndicator(.hidden)
+            CompositionStyleEdView(
+                onShowSalesPage: {
+                    // Close practice view and show sales page
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showCompositionPractice = false
+                    }
+                    // Small delay to allow practice view to dismiss before showing sales page
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showSalesPage = true
+                    }
+                }
+            )
+            .presentationDetents([.fraction(1.0)])
+            .presentationDragIndicator(.hidden)
                 .onAppear {
                     // Pause camera session when sheet appears
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -265,7 +276,17 @@ struct ContentView: View {
                 isCompositionAnalysisEnabled: $isCompositionAnalysisEnabled,
                 areOverlaysHidden: $areOverlaysHidden,
                 isLiveFeedbackEnabled: $isLiveFeedbackEnabled,
-                compositionManager: compositionManager
+                compositionManager: compositionManager,
+                onShowSalesPage: {
+                    // Close frame settings and show sales page
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showFrameSettings = false
+                    }
+                    // Small delay to allow settings view to dismiss
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showSalesPage = true
+                    }
+                }
             )
             .presentationDetents([.fraction(0.8), .large])
         }
@@ -364,6 +385,28 @@ struct ContentView: View {
                 withAnimation {
                     showUpgradePrompt = true
                 }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .autoDisableLiveFeedback)) { _ in
+            // Auto-disable live feedback when trial ends
+            print("🔒 Auto-disabling Live Feedback - trial ended")
+            withAnimation {
+                isLiveFeedbackEnabled = false
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .autoDisableHideOverlays)) { _ in
+            // Auto-disable hide overlays when trial ends
+            print("🔒 Auto-disabling Hide Overlays - trial ended")
+            withAnimation {
+                areOverlaysHidden = false
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .lastFreePhotoWarning)) { _ in
+            // Show warning before last free photo
+            print("⚠️ Last free photo warning triggered")
+            upgradeContext = .lastFreePhoto
+            withAnimation {
+                showUpgradePrompt = true
             }
         }
         .animation(.easeInOut(duration: 0.3), value: cameraLoading)

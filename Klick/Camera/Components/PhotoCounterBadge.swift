@@ -29,6 +29,18 @@ struct PhotoCounterBadge: View {
             .frame(width: 42, height: 42)
             .background(Color.black.opacity(0.5))
             .clipShape(Capsule())
+            .overlay(alignment: .bottom) {
+                Text("FREE")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.green)
+                    )
+                    .offset(y: 5)
+            }
         }
     }
 }

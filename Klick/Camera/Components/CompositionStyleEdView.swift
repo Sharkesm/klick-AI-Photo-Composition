@@ -11,6 +11,10 @@ struct CompositionStyleEdView: View {
     @State private var selectedSection: CompositionSection? = nil
     @State private var showContent = false
     @State private var animateSections = false
+    @ObservedObject private var featureManager = FeatureManager.shared
+    @State private var showUpgradePrompt = false
+    @State private var upgradeContext: FeatureManager.UpgradeContext = .portraitPractices
+    let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
     
     // Portrait essentials sections
     private let sections = [
@@ -93,6 +97,16 @@ struct CompositionStyleEdView: View {
         .onAppear {
             startAnimation()
         }
+        .ngBottomSheet(isPresented: $showUpgradePrompt, sheetContent: {
+            UpgradePromptAlert(
+                context: upgradeContext,
+                isPresented: $showUpgradePrompt,
+                onUpgrade: {
+                    // Show sales page
+                    onShowSalesPage?()
+                }
+            )
+        })
     }
 }
 
@@ -132,7 +146,16 @@ extension CompositionStyleEdView {
             ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
                 CompositionSectionCard(
                     section: section,
+                    isLocked: !isPracticeUnlocked(section.id),
                     onTap: {
+                        // Check if practice is locked
+                        if !isPracticeUnlocked(section.id) {
+                            print("🔒 Practice '\(section.title)' blocked - requires Pro")
+                            // Show sales page directly when locked practice is clicked
+                            onShowSalesPage?()
+                            return
+                        }
+                        
                         withAnimation(.easeInOut(duration: 0.3)) {
                             selectedSection = section
                         }
@@ -147,6 +170,17 @@ extension CompositionStyleEdView {
                 )
             }
         }
+    }
+    
+    /// Check if a practice is unlocked for the current user
+    private func isPracticeUnlocked(_ practiceId: String) -> Bool {
+        // Pro users or users in trial period can access all practices
+        if featureManager.isPro || featureManager.isInTrialPeriod {
+            return true
+        }
+        
+        // Free users can only access "lighting" practice
+        return practiceId == "lighting"
     }
     
     private func startAnimation() {
@@ -165,53 +199,69 @@ extension CompositionStyleEdView {
 // MARK: - Section Card View
 struct CompositionSectionCard: View {
     let section: CompositionSection
+    let isLocked: Bool
     let onTap: () -> Void
     
     var body: some View {
         Button(action: onTap) {
-            HStack(alignment: .top, spacing: 20) {
-                // Icon
-                VStack {
-                    Image(systemName: section.icon)
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
+            ZStack(alignment: .bottomTrailing) {
+                HStack(alignment: .top, spacing: 20) {
+                    // Icon
+                    VStack {
+                        Image(systemName: section.icon)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(isLocked ? .white.opacity(0.5) : .white)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.1))
+                            )
+                    }
+                    
+                    // Content
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(section.title)
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundColor(isLocked ? .white.opacity(0.5) : .white)
+                            .multilineTextAlignment(.leading)
+                        
+                        Text(section.description)
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundColor(isLocked ? .white.opacity(0.4) : .white.opacity(0.8))
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+                    }
+                    
+                    Spacer()
+                    
+                    // Arrow
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(isLocked ? .white.opacity(0.3) : .white.opacity(0.6))
+                }
+                .padding(20)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white.opacity(isLocked ? 0.03 : 0.05))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(isLocked ? 0.05 : 0.1), lineWidth: 1)
+                        )
+                )
+                
+                // Lock icon at bottom right
+                if isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .frame(width: 24, height: 24)
                         .background(
                             Circle()
-                                .fill(Color.white.opacity(0.1))
+                                .fill(Color.black.opacity(0.6))
                         )
+                        .padding(12)
                 }
-                
-                // Content
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(section.title)
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.leading)
-                    
-                    Text(section.description)
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(.white.opacity(0.8))
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                }
-                
-                Spacer()
-                
-                // Arrow
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
             }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
-            )
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -392,5 +442,5 @@ struct CompositionStylePracticeControl: View {
 }
 
 #Preview(body: {
-    CompositionStyleEdView()
+    CompositionStyleEdView(onShowSalesPage: nil)
 })

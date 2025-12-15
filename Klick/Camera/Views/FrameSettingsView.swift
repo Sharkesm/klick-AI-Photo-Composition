@@ -7,7 +7,9 @@ struct FrameSettingsView: View {
     @Binding var areOverlaysHidden: Bool
     @Binding var isLiveFeedbackEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
+    @ObservedObject private var featureManager = FeatureManager.shared
     @State private var showOnboarding = false
+    let onShowSalesPage: (() -> Void)? // Callback to show sales page
     
     var body: some View {
         NavigationView {
@@ -67,7 +69,17 @@ struct FrameSettingsView: View {
                             title: "Live Feedback",
                             description: "Show real-time composition feedback messages. Disable to reduce distractions while keeping visual guides active.",
                             isEnabled: $isLiveFeedbackEnabled,
-                            accentColor: .orange
+                            isLocked: !featureManager.canUseLiveFeedback,
+                            accentColor: .orange,
+                            onToggleAttempt: {
+                                // If user tries to enable while locked
+                                if !featureManager.canUseLiveFeedback && isLiveFeedbackEnabled == false {
+                                    print("🔒 Live Feedback blocked - requires Pro")
+                                    onShowSalesPage?()
+                                    return false // Prevent toggle
+                                }
+                                return true // Allow toggle
+                            }
                         )
                         
                         Divider()
@@ -78,7 +90,17 @@ struct FrameSettingsView: View {
                             title: "Hide Overlays",
                             description: "Hide all composition guide overlays (grids, crosshairs, etc.) while keeping live analysis active.",
                             isEnabled: $areOverlaysHidden,
-                            accentColor: .purple
+                            isLocked: !featureManager.canHideOverlays,
+                            accentColor: .purple,
+                            onToggleAttempt: {
+                                // If user tries to enable while locked
+                                if !featureManager.canHideOverlays && areOverlaysHidden == false {
+                                    print("🔒 Hide Overlays blocked - requires Pro")
+                                    onShowSalesPage?()
+                                    return false // Prevent toggle
+                                }
+                                return true // Allow toggle
+                            }
                         )
                         
                         Divider()
@@ -159,8 +181,10 @@ struct SettingRow: View {
     let title: String
     let description: String
     @Binding var isEnabled: Bool
+    var isLocked: Bool = false
     var hideSwitchControl: Bool = false
     let accentColor: Color
+    var onToggleAttempt: (() -> Bool)? = nil // Returns true if toggle should proceed
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -181,24 +205,47 @@ struct SettingRow: View {
                 HStack(alignment: .center, spacing: 12) {
                     Text(title)
                         .font(.system(size: 14, weight: .medium, design: .default))
-                        .foregroundColor(.white)
+                        .foregroundColor(isLocked ? .white.opacity(0.5) : .white)
                         .lineLimit(nil)
                         .multilineTextAlignment(.leading)
+                    
+                    // Pro badge for locked features
+                    if isLocked {
+                        Text("PRO")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.yellow)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.yellow.opacity(0.2))
+                            )
+                    }
                     
                     Spacer()
                     
                     if !hideSwitchControl {
                         // Toggle aligned with title
-                        Toggle("", isOn: $isEnabled)
-                            .tint(.green)
-                            .toggleStyle(SwitchToggleStyle())
+                        Toggle("", isOn: Binding(
+                            get: { isEnabled },
+                            set: { newValue in
+                                // Check if toggle should proceed
+                                if let shouldProceed = onToggleAttempt?(), !shouldProceed {
+                                    return // Block the toggle
+                                }
+                                isEnabled = newValue
+                            }
+                        ))
+                        .tint(.green)
+                        .toggleStyle(SwitchToggleStyle())
+                        .disabled(isLocked && !isEnabled) // Disable if locked and currently off
                     }
                 }
                 
                 // Description (unaffected by toggle)
                 Text(description)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(isLocked ? .white.opacity(0.5) : .white.opacity(0.8))
                     .lineLimit(nil)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -264,6 +311,7 @@ struct InfoSection: View {
         isCompositionAnalysisEnabled: .constant(true),
         areOverlaysHidden: .constant(false),
         isLiveFeedbackEnabled: .constant(true),
-        compositionManager: CompositionManager()
+        compositionManager: CompositionManager(),
+        onShowSalesPage: nil
     )
 } 

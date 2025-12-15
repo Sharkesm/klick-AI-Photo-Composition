@@ -26,17 +26,22 @@ class FeatureManager: ObservableObject {
     /// Number of photos captured (used for trial period)
     @Published var capturedPhotoCount: Int = 0
     
+    /// Whether the trial period has ended permanently (once true, stays true even if photos deleted)
+    @Published var hasTrialEnded: Bool = false
+    
     // MARK: - Private State
     
     private var cancellables = Set<AnyCancellable>()
     private let userDefaults = UserDefaults.standard
     private let photoCountKey = "com.klick.photoCount"
+    private let trialEndedKey = "com.klick.hasTrialEnded"
     
     // MARK: - Computed Properties
     
-    /// Whether user is in trial period (first 10 photos)
+    /// Whether user is in trial period (first 2 photos)
+    /// Trial ends permanently once maxFreePhotos is reached, even if photos are deleted
     var isInTrialPeriod: Bool {
-        capturedPhotoCount < maxFreePhotos
+        !isPro && !hasTrialEnded && capturedPhotoCount < maxFreePhotos
     }
     
     /// Whether user can capture more photos
@@ -68,6 +73,11 @@ class FeatureManager: ObservableObject {
     /// Whether user can batch delete photos
     var canBatchDelete: Bool {
         isPro
+    }
+    
+    /// Whether user can use live feedback messages
+    var canUseLiveFeedback: Bool {
+        isPro || isInTrialPeriod
     }
     
     /// Whether user can hide overlays
@@ -157,6 +167,9 @@ class FeatureManager: ObservableObject {
         // Load persisted photo count
         capturedPhotoCount = userDefaults.integer(forKey: photoCountKey)
         
+        // Load persisted trial ended status
+        hasTrialEnded = userDefaults.bool(forKey: trialEndedKey)
+        
         // Subscribe to PurchaseService for Pro status
         PurchaseService.main.$isSubscribed
             .sink { [weak self] isSubscribed in
@@ -165,7 +178,7 @@ class FeatureManager: ObservableObject {
             }
             .store(in: &cancellables)
         
-        print("📊 FeatureManager initialized - Photo count: \(capturedPhotoCount), Pro: \(isPro)")
+        print("📊 FeatureManager initialized - Photo count: \(capturedPhotoCount), Trial ended: \(hasTrialEnded), Pro: \(isPro)")
     }
     
     // MARK: - Photo Count Management
@@ -186,12 +199,27 @@ class FeatureManager: ObservableObject {
             userInfo: ["count": count]
         )
         
-        // Check if user just hit the limit
-        if count == maxFreePhotos && !isPro {
-            NotificationCenter.default.post(
-                name: .trialLimitReached,
-                object: nil
-            )
+        // Check if we're on the last free photo (one before limit)
+        // Only show warning if trial hasn't ended yet
+        if count == maxFreePhotos - 1 && !isPro && !hasTrialEnded {
+            print("⚠️ Last free photo warning: \(count)/\(maxFreePhotos)")
+            NotificationCenter.default.post(name: .lastFreePhotoWarning, object: nil)
+        }
+        
+        // Check if user just hit the limit for the FIRST time
+        // Once trial ends, it never resets (even if photos deleted)
+        if count >= maxFreePhotos && !isPro && !hasTrialEnded {
+            print("🚨 Free photo limit reached: \(count)/\(maxFreePhotos) - Ending trial PERMANENTLY")
+            
+            // Mark trial as ended (permanent, won't reset if photos deleted)
+            hasTrialEnded = true
+            userDefaults.set(true, forKey: trialEndedKey)
+            
+            NotificationCenter.default.post(name: .trialLimitReached, object: nil)
+            
+            // Auto-disable premium features when trial ends
+            NotificationCenter.default.post(name: .autoDisableLiveFeedback, object: nil)
+            NotificationCenter.default.post(name: .autoDisableHideOverlays, object: nil)
         }
     }
     
@@ -209,10 +237,13 @@ class FeatureManager: ObservableObject {
     
     enum UpgradeContext: String {
         case photoLimit = "photo_limit"
+        case lastFreePhoto = "last_free_photo"
         case advancedComposition = "advanced_composition"
         case premiumFilter = "premium_filter"
         case filterAdjustments = "filter_adjustments"
         case backgroundBlur = "background_blur"
+        case portraitPractices = "portrait_practices"
+        case liveFeedback = "live_feedback"
         case batchDelete = "batch_delete"
         case hideOverlays = "hide_overlays"
         // REMOVED: Watermark feature temporarily disabled due to memory consumption
@@ -243,12 +274,22 @@ class FeatureManager: ObservableObject {
     func printFeatureStatus() {
         print("""
         📊 FeatureManager Status:
-        - Pro: \(isPro)
-        - Photo Count: \(capturedPhotoCount)/\(maxFreePhotos)
-        - In Trial: \(isInTrialPeriod)
-        - Can Capture: \(canCapture)
-        - Can Use Advanced Composition: \(canUseAdvancedComposition)
-        - Can Use Premium Filters: \(canUsePremiumFilters)
+        ═══════════════════════════════════════
+        Pro Status: \(isPro ? "✅ PRO" : "❌ FREE")
+        Photo Count: \(capturedPhotoCount)/\(maxFreePhotos)
+        Trial Ended: \(hasTrialEnded ? "✅ YES (Permanent)" : "❌ NO")
+        Trial Active: \(isInTrialPeriod ? "✅ ACTIVE" : "❌ ENDED")
+        Remaining: \(remainingTrialPhotos) photos
+        
+        🔓 Available Features:
+        • Capture Photos: \(canCapture ? "✅" : "❌")
+        • Advanced Composition: \(canUseAdvancedComposition ? "✅" : "❌")
+        • Premium Filters: \(canUsePremiumFilters ? "✅" : "❌")
+        • Live Feedback: \(canUseLiveFeedback ? "✅" : "❌")
+        • Background Blur: \(canUseBackgroundBlur ? "✅" : "❌")
+        • Save to Library: \(canSaveToPhotoLibrary ? "✅" : "❌")
+        • Hide Overlays: \(canHideOverlays ? "✅" : "❌")
+        ═══════════════════════════════════════
         """)
     }
 }
@@ -259,5 +300,8 @@ extension Notification.Name {
     static let photoCountDidChange = Notification.Name("com.klick.photoCountDidChange")
     static let trialLimitReached = Notification.Name("com.klick.trialLimitReached")
     static let showUpgradePrompt = Notification.Name("com.klick.showUpgradePrompt")
+    static let autoDisableLiveFeedback = Notification.Name("com.klick.autoDisableLiveFeedback")
+    static let autoDisableHideOverlays = Notification.Name("com.klick.autoDisableHideOverlays")
+    static let lastFreePhotoWarning = Notification.Name("com.klick.lastFreePhotoWarning")
 }
 
