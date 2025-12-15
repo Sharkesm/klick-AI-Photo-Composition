@@ -22,6 +22,8 @@ struct CameraQualitySelectorView: View {
     @State private var showQualityChange = false
     @State private var isRevealed = false
     
+    var onSelectionCompletion: (() -> Void)?
+    
     let impactFeedback = UIImpactFeedbackGenerator(style: .light)
     
     // Constants for consistent sizing
@@ -107,6 +109,7 @@ struct CameraQualitySelectorView: View {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     isRevealed = false
+                                    onSelectionCompletion?()
                                 }
                             }
                         }) {

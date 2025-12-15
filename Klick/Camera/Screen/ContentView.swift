@@ -116,6 +116,7 @@ struct ContentView: View {
                                     showFrameSettings: $showFrameSettings,
                                     showCompositionPractice: $showCompositionPractice,
                                     showSalesPage: $showSalesPage,
+                                    showUpgradePrompt: $showUpgradePrompt,
                                     compositionManager: compositionManager,
                                     hasCameraPermission: hasCameraPermission,
                                     cameraLoading: cameraLoading
@@ -359,15 +360,6 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: selectedCameraQuality, perform: { cameraQuality in
-            if FeatureManager.shared.canUseAdvancedComposition { return }
-            
-            if cameraQuality == .pro {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    FeatureManager.shared.showUpgradePrompt(context: .proCameraQuality)
-                }
-            }
-        })
         .animation(.easeInOut(duration: 0.3), value: cameraLoading)
         .animation(.easeInOut(duration: 0.3), value: hasCameraPermission)
     }

@@ -16,7 +16,7 @@ struct UpgradePromptAlert: View {
     private var title: String {
         switch context {
         case .photoLimit:
-            return "Free photo limit reached"
+            return "Free Photo Limit Reached"
         case .advancedComposition:
             return "Pro Feature"
         case .premiumFilter:

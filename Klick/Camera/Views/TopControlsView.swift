@@ -8,6 +8,7 @@ struct TopControlsView: View {
     @Binding var showFrameSettings: Bool
     @Binding var showCompositionPractice: Bool
     @Binding var showSalesPage: Bool
+    @Binding var showUpgradePrompt: Bool
     
     let compositionManager: CompositionManager
     let hasCameraPermission: Bool
@@ -33,7 +34,17 @@ struct TopControlsView: View {
                      
                      Spacer()
                      VStack {
-                         CameraQualitySelectorView(selectedQuality: $selectedCameraQuality)
+                         CameraQualitySelectorView(selectedQuality: $selectedCameraQuality) {
+                             if FeatureManager.shared.canUseAdvancedComposition { return }
+                             
+                             if selectedCameraQuality == .pro {
+                                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                     selectedCameraQuality = .standard
+                                     showUpgradePrompt = true
+                                 }
+                             }
+                         }
+                         
                          FlashControlView(selectedFlashMode: $selectedFlashMode)
                          ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
                          CompositionStylePracticeControl(showCompositionPractice: $showCompositionPractice)
