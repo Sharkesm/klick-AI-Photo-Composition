@@ -16,7 +16,7 @@ class FeatureManager: ObservableObject {
     // MARK: - Constants
     
     /// Maximum number of photos allowed in free tier
-    private(set) var maxFreePhotos = 2
+    private(set) var maxFreePhotos = 7
     
     // MARK: - Published State
     
