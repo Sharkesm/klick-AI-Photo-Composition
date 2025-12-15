@@ -331,6 +331,12 @@ struct ContentView: View {
                     capturedPreviewImage = nil
                     capturedRawImage = nil
                     processedImage = nil
+                },
+                onShowSalesPage: {
+                    // Small delay to allow preview to dismiss before showing sales page
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showSalesPage = true
+                    }
                 }
             )
         }

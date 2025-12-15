@@ -12,6 +12,7 @@ struct FilterSelectionStripView: View {
     let filterPreviews: [String: UIImage]
     let originalImage: UIImage?
     let onFilterSelected: (PhotoFilter?) -> Void
+    let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
     
     @ObservedObject private var featureManager = FeatureManager.shared
 
@@ -32,7 +33,14 @@ struct FilterSelectionStripView: View {
                         previewImage: filterPreviews[filter.id] ?? originalImage,
                         isSelected: selectedFilter?.id == filter.id,
                         isLocked: !featureManager.canUseFilter(id: filter.id, pack: selectedPack),
-                        action: { onFilterSelected(filter) }
+                        action: {
+                            // If filter is locked, show sales page; otherwise select filter
+                            if !featureManager.canUseFilter(id: filter.id, pack: selectedPack) {
+                                onShowSalesPage?()
+                            } else {
+                                onFilterSelected(filter)
+                            }
+                        }
                     )
                 }
             }

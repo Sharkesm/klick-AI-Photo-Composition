@@ -23,6 +23,8 @@ struct UpgradePromptAlert: View {
             return "Premium Filter"
         case .filterAdjustments:
             return "Pro Feature"
+        case .backgroundBlur:
+            return "Pro Feature"
         case .batchDelete:
             return "Pro Feature"
         case .hideOverlays:
@@ -45,6 +47,8 @@ struct UpgradePromptAlert: View {
             return "This filter is part of our Pro collection. Upgrade to access all 29 professional filters."
         case .filterAdjustments:
             return "Filter adjustments are available in Pro. Upgrade to fine-tune intensity, brightness, and warmth."
+        case .backgroundBlur:
+            return "Background blur is a Pro feature. Upgrade to create stunning portraits with professional depth-of-field effects."
         case .batchDelete:
             return "Batch delete is a Pro feature. Upgrade to delete multiple photos at once."
         case .hideOverlays:
@@ -67,6 +71,8 @@ struct UpgradePromptAlert: View {
             return "camera.filters"
         case .filterAdjustments:
             return "slider.horizontal.3"
+        case .backgroundBlur:
+            return "person.fill.and.arrow.left.and.arrow.right"
         case .batchDelete:
             return "trash.fill"
         case .hideOverlays:

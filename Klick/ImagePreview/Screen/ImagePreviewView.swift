@@ -13,6 +13,7 @@ struct ImagePreviewView: View {
 
     let onSave: () -> Void
     let onDiscard: () -> Void
+    let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
 
     @State private var showingShareSheet = false
 
@@ -46,6 +47,9 @@ struct ImagePreviewView: View {
     @AppStorage("hasSeenImagePreviewOnboarding") private var hasSeenImagePreviewOnboarding: Bool = false
     @State private var showOnboardingAnimation = false
     @State private var hasAppliedFirstFilter = false
+    
+    @State private var showUpgradePrompt: Bool = false
+    @State private var upgradeContext: FeatureManager.UpgradeContext = .backgroundBlur
     
     // Computed property for determining the base image to use for processing
     private var baseImage: UIImage? {
@@ -162,9 +166,18 @@ struct ImagePreviewView: View {
                             AdjustmentControlsView(
                                 adjustments: Binding(
                                     get: { effectState.filter?.adjustments ?? .balanced },
-                                    set: {
+                                    set: { newValue in
+                                        // Check if user can use filter adjustments before allowing changes
+                                        if !FeatureManager.shared.canUseFilterAdjustments {
+                                            print("🔒 Filter adjustments blocked - requires Pro")
+                                            // Show sales page when free tier user tries to interact with adjustments
+                                            onShowSalesPage?()
+                                            return
+                                        }
+                                        
+                                        // Allow the change if user has access
                                         if effectState.filter != nil {
-                                            effectState.filter!.adjustments = $0
+                                            effectState.filter!.adjustments = newValue
                                         }
                                     }
                                 ),
@@ -199,7 +212,8 @@ struct ImagePreviewView: View {
                                 selectedFilter: effectState.filter?.filter,
                                 filterPreviews: filterPreviews,
                                 originalImage: originalImage,
-                                onFilterSelected: selectFilter
+                                onFilterSelected: selectFilter,
+                                onShowSalesPage: onShowSalesPage
                             )
                         }
                         
@@ -251,6 +265,19 @@ struct ImagePreviewView: View {
                                 
                                 // Background Blur Button
                                 Button(action: {
+                                    // Check if person segmentation is available first
+                                    guard hasPersonSegmentation else {
+                                        return
+                                    }
+                                    
+                                    // Check if user can use background blur
+                                    if !FeatureManager.shared.canUseBackgroundBlur {
+                                        print("🔒 Background blur blocked - requires Pro")
+                                        showUpgradePrompt = true
+                                        return
+                                    }
+                                    
+                                    // User can use background blur - proceed with toggle
                                     if showingAdjustments || showingEffects {
                                         withAnimation(.easeIn(duration: 0.35)) {
                                             showingAdjustments = false
@@ -272,23 +299,24 @@ struct ImagePreviewView: View {
                                     }
                                 }) {
                                     Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                                        .foregroundColor(hasPersonSegmentation ? effectState.backgroundBlur.isEnabled ? .yellow : .white : .white.opacity(0.35))
+                                        .foregroundColor(
+                                            hasPersonSegmentation
+                                                ? (FeatureManager.shared.canUseBackgroundBlur ? (effectState.backgroundBlur.isEnabled ? .yellow : .white) : .white) // Dimmed but visible for free users
+                                                : .white.opacity(0.35) // Fully dimmed if no person detected
+                                        )
                                         .font(.system(size: 16, weight: .medium))
                                         .frame(width: 30, height: 30)
                                         .padding(8)
                                         .clipShape(Circle())
                                         .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                                 }
-                                .disabled(!hasPersonSegmentation)
+                                .disabled(!hasPersonSegmentation) // Only disable if no person detected
                                 
                                 // Filter Adjustments Button
                                 Button(action: {
-                                    // Check if user can use filter adjustments
-                                    if !FeatureManager.shared.canUseFilterAdjustments {
-                                        print("🔒 Filter adjustments blocked - requires Pro")
-                                        FeatureManager.shared.showUpgradePrompt(context: .filterAdjustments)
-                                        return
-                                    }
+                                    // Allow opening adjustments view even for free users (they can see but not interact)
+                                    // Only require a filter to be selected
+                                    guard effectState.filter?.filter != nil else { return }
                                     
                                     if showingBlurAdjustment || showingEffects {
                                         withAnimation(.easeIn(duration: 0.35)) {
@@ -311,7 +339,7 @@ struct ImagePreviewView: View {
                                 }) {
                                     Image(systemName: "slider.horizontal.3")
                                         .foregroundColor(
-                                            effectState.filter?.filter != nil && FeatureManager.shared.canUseFilterAdjustments
+                                            effectState.filter?.filter != nil
                                                 ? .white
                                                 : .white.opacity(0.35)
                                         )
@@ -321,7 +349,7 @@ struct ImagePreviewView: View {
                                         .clipShape(Circle())
                                         .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                                 }
-                                .disabled(effectState.filter?.filter == nil || !FeatureManager.shared.canUseFilterAdjustments)
+                                .disabled(effectState.filter?.filter == nil)
                             }
                             .padding(6)
                             .background(.ultraThinMaterial)
@@ -414,6 +442,15 @@ struct ImagePreviewView: View {
         .onChange(of: showingBlurAdjustment) { _ in checkForOnboardingTrigger() }
         .onChange(of: showingAdjustments) { _ in checkForOnboardingTrigger() }
         .onChange(of: effectState.filter?.filter.id) { _ in markFirstFilterApplied() }
+        .ngBottomSheet(isPresented: $showUpgradePrompt, sheetContent: {
+            UpgradePromptAlert(
+                context: upgradeContext,
+                isPresented: $showUpgradePrompt,
+                onUpgrade: {
+                    onShowSalesPage?()
+                }
+            )
+        })
     }
 
     // MARK: - ProRaw Mode Handling
@@ -438,7 +475,8 @@ struct ImagePreviewView: View {
             // Check if user can use this filter (using pack-aware method)
             if !FeatureManager.shared.canUseFilter(id: filter.id, pack: filter.pack) {
                 print("🔒 Filter selection blocked - premium filter requires Pro")
-                FeatureManager.shared.showUpgradePrompt(context: .premiumFilter)
+                // Show sales page directly when locked filter is clicked
+                onShowSalesPage?()
                 return
             }
         }
@@ -877,7 +915,8 @@ extension UIImage {
         cameraQuality: .standard,
         isProcessing: .constant(false),
         onSave: {},
-        onDiscard: {}
+        onDiscard: {},
+        onShowSalesPage: nil
     )
     .preferredColorScheme(.dark)
 }

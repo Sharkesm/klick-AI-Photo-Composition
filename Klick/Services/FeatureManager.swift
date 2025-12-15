@@ -55,7 +55,13 @@ class FeatureManager: ObservableObject {
     }
     
     /// Whether user can use filter adjustments (intensity, brightness, warmth)
+    /// Note: Now available to all users (free tier can use basic adjustments)
     var canUseFilterAdjustments: Bool {
+        true // Available to all users
+    }
+    
+    /// Whether user can use background blur feature
+    var canUseBackgroundBlur: Bool {
         isPro || isInTrialPeriod
     }
     
@@ -206,6 +212,7 @@ class FeatureManager: ObservableObject {
         case advancedComposition = "advanced_composition"
         case premiumFilter = "premium_filter"
         case filterAdjustments = "filter_adjustments"
+        case backgroundBlur = "background_blur"
         case batchDelete = "batch_delete"
         case hideOverlays = "hide_overlays"
         // REMOVED: Watermark feature temporarily disabled due to memory consumption
