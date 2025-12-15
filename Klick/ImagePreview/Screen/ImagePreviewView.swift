@@ -283,6 +283,13 @@ struct ImagePreviewView: View {
                                 
                                 // Filter Adjustments Button
                                 Button(action: {
+                                    // Check if user can use filter adjustments
+                                    if !FeatureManager.shared.canUseFilterAdjustments {
+                                        print("🔒 Filter adjustments blocked - requires Pro")
+                                        FeatureManager.shared.showUpgradePrompt(context: .filterAdjustments)
+                                        return
+                                    }
+                                    
                                     if showingBlurAdjustment || showingEffects {
                                         withAnimation(.easeIn(duration: 0.35)) {
                                             showingBlurAdjustment = false
@@ -303,14 +310,18 @@ struct ImagePreviewView: View {
                                     }
                                 }) {
                                     Image(systemName: "slider.horizontal.3")
-                                        .foregroundColor(effectState.filter?.filter != nil ? .white : .white.opacity(0.35))
+                                        .foregroundColor(
+                                            effectState.filter?.filter != nil && FeatureManager.shared.canUseFilterAdjustments
+                                                ? .white
+                                                : .white.opacity(0.35)
+                                        )
                                         .font(.system(size: 16, weight: .medium))
                                         .frame(width: 30, height: 30)
                                         .padding(8)
                                         .clipShape(Circle())
                                         .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                                 }
-                                .disabled(effectState.filter?.filter == nil)
+                                .disabled(effectState.filter?.filter == nil || !FeatureManager.shared.canUseFilterAdjustments)
                             }
                             .padding(6)
                             .background(.ultraThinMaterial)
@@ -422,6 +433,16 @@ struct ImagePreviewView: View {
     // MARK: - Effect Functions
 
     private func selectFilter(_ filter: PhotoFilter?) {
+        // Check if filter is available (feature gating)
+        if let filter = filter {
+            // Check if user can use this filter
+            if !FeatureManager.shared.canUseFilter(id: filter.id) {
+                print("🔒 Filter selection blocked - premium filter requires Pro")
+                FeatureManager.shared.showUpgradePrompt(context: .premiumFilter)
+                return
+            }
+        }
+        
         withAnimation(.spring) {
             if let filter = filter {
                 // Always save state when applying any filter (styling choice)

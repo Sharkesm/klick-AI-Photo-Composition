@@ -87,12 +87,12 @@ class FeatureManager: ObservableObject {
     
     /// Remaining photos in trial
     var remainingTrialPhotos: Int {
-        max(0, 10 - capturedPhotoCount)
+        max(0, maxFreePhotos - capturedPhotoCount)
     }
     
     /// Progress through trial (0.0 to 1.0)
     var trialProgress: Double {
-        min(1.0, Double(capturedPhotoCount) / 10.0)
+        min(1.0, Double(capturedPhotoCount) / Double(maxFreePhotos))
     }
     
     // MARK: - Free Filters (Always Available)
@@ -146,7 +146,7 @@ class FeatureManager: ObservableObject {
         )
         
         // Check if user just hit the limit
-        if count == 10 && !isPro {
+        if count == maxFreePhotos && !isPro {
             NotificationCenter.default.post(
                 name: .trialLimitReached,
                 object: nil
@@ -202,7 +202,7 @@ class FeatureManager: ObservableObject {
         print("""
         📊 FeatureManager Status:
         - Pro: \(isPro)
-        - Photo Count: \(capturedPhotoCount)/10
+        - Photo Count: \(capturedPhotoCount)/\(maxFreePhotos)
         - In Trial: \(isInTrialPeriod)
         - Can Capture: \(canCapture)
         - Can Use Advanced Composition: \(canUseAdvancedComposition)

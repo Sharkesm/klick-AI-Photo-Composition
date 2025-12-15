@@ -10,6 +10,7 @@ struct FilterButton: View {
     let filter: PhotoFilter?
     let previewImage: UIImage?
     let isSelected: Bool
+    let isLocked: Bool
     let action: () -> Void
 
     // Calculate frame height based on 3:4 aspect ratio (portrait photos)
@@ -28,6 +29,7 @@ struct FilterButton: View {
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 70, height: frameHeight)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .opacity(isLocked ? 0.5 : 1.0) // Dim locked filters
                 } else {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color.gray.opacity(0.3))
@@ -50,17 +52,43 @@ struct FilterButton: View {
                 )
                 .frame(height: 30)
                 .overlay(alignment: .bottom) {
-                    Text(filter?.name ?? "Normal")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .scaleEffect(0.92)
-                        .foregroundColor(Color.white.opacity(0.85))
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity)
-                        .multilineTextAlignment(.center)
-                        .padding(.bottom, 5)
+                    HStack(spacing: 4) {
+                        if isLocked {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        Text(filter?.name ?? "Normal")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .scaleEffect(0.92)
+                            .foregroundColor(Color.white.opacity(0.85))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 5)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                
+                // Lock overlay for premium filters
+                if isLocked {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.black.opacity(0.4))
+                        
+                        VStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                            
+                            Text("PRO")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.yellow)
+                        }
+                    }
+                    .frame(width: 70, height: frameHeight)
+                }
             }
             .overlay {
                 if isSelected {

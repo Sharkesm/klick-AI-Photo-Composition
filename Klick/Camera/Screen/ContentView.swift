@@ -359,6 +359,15 @@ struct ContentView: View {
                 }
             }
         }
+        .onChange(of: selectedCameraQuality, perform: { cameraQuality in
+            if FeatureManager.shared.canUseAdvancedComposition { return }
+            
+            if cameraQuality == .pro {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    FeatureManager.shared.showUpgradePrompt(context: .proCameraQuality)
+                }
+            }
+        })
         .animation(.easeInOut(duration: 0.3), value: cameraLoading)
         .animation(.easeInOut(duration: 0.3), value: hasCameraPermission)
     }
@@ -380,14 +389,24 @@ struct ContentView: View {
     }
     
     private func capturePhoto() {
-        // Check if user can capture more photos (free tier limit)
-        guard FeatureManager.shared.canCapture else {
+        let currentComposition = compositionManager.currentCompositionType
+        
+        // First check: Photo count limit
+        guard FeatureManager.shared.canCapture || currentComposition == .ruleOfThirds else {
             print("🔒 Photo capture blocked - storage limit reached")
-            // Show upgrade prompt
             FeatureManager.shared.showUpgradePrompt(context: .photoLimit)
             return
         }
         
+        // Second check: Advanced composition gating
+        // Rule of Thirds is always free, but Center Framing and Symmetry require Pro or trial period
+        if currentComposition != .ruleOfThirds && !FeatureManager.shared.canUseAdvancedComposition {
+            print("🔒 Photo capture blocked - advanced composition (\(currentComposition.displayName)) requires Pro")
+            FeatureManager.shared.showUpgradePrompt(context: .advancedComposition)
+            return
+        }
+        
+        // All checks passed - proceed with capture
         // This will be implemented by accessing the camera coordinator directly
         // For now, we'll use a notification-based approach
         NotificationCenter.default.post(name: NSNotification.Name("CapturePhoto"), object: nil)

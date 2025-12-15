@@ -79,16 +79,13 @@ class CompositionManager: ObservableObject {
     
     /// Switch to a different composition type
     /// - Parameter type: The new composition type to use
+    /// - Note: Allows switching to any composition type for UI purposes.
+    ///   Actual capture blocking is handled in ContentView.capturePhoto()
     func switchToCompositionType(_ type: CompositionType) {
-        // Check if user can access advanced compositions (feature gating)
-        if type != .ruleOfThirds && !FeatureManager.shared.canUseAdvancedComposition {
-            print("🔒 Composition switch blocked - advanced compositions require Pro")
-            FeatureManager.shared.showUpgradePrompt(context: .advancedComposition)
-            return
-        }
-        
+        // Allow switching to any composition type - capture will be gated separately
         currentCompositionType = type
         lastResult = nil // Clear previous result when switching
+        print("📐 Composition switched to: \(type.displayName)")
     }
     
     /// Toggle composition analysis on/off

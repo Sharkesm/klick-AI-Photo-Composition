@@ -12,7 +12,7 @@ struct PhotoCounterBadge: View {
     @Binding var showSalesPage: Bool
     
     var remainingPhotos: Int {
-        featureManager.maxFreePhotos - featureManager.capturedPhotoCount
+        max(0, featureManager.maxFreePhotos - featureManager.capturedPhotoCount)
     }
     
     

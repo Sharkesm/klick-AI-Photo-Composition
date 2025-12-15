@@ -5,13 +5,15 @@ struct CompositionPickerView: View {
     @Binding var isPresented: Bool
     @ObservedObject var featureManager = FeatureManager.shared
     
-    // Check if a composition type is locked
+    // Check if a composition type is locked (for visual indication only)
+    // Note: Selection is now allowed, but capture will be blocked in ContentView
     private func isCompositionLocked(_ type: CompositionType) -> Bool {
         // Rule of Thirds is always free
         if type == .ruleOfThirds {
             return false
         }
-        // Advanced compositions require Pro or trial period
+        // Advanced compositions show as locked if user can't use them
+        // But selection is still allowed - capture will be gated separately
         return !featureManager.canUseAdvancedComposition
     }
     
@@ -44,14 +46,17 @@ struct CompositionPickerView: View {
                                 isSelected: type == compositionManager.currentCompositionType,
                                 isLocked: isCompositionLocked(type),
                                 onTap: {
-                                    // Check if composition is locked
+                                    // Allow selection of any composition type
+                                    // Capture will be gated in ContentView.capturePhoto()
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        compositionManager.switchToCompositionType(type)
+                                    }
+                                    
+                                    // If selecting a locked composition, inform user that capture requires upgrade
                                     if isCompositionLocked(type) {
-                                        // Show upgrade prompt
-                                        FeatureManager.shared.showUpgradePrompt(context: .advancedComposition)
-                                    } else {
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            compositionManager.switchToCompositionType(type)
-                                        }
+                                        // Note: We don't show prompt here since user can still preview
+                                        // The prompt will show when they try to capture
+                                        print("ℹ️ Selected advanced composition (\(type.displayName)) - capture will require Pro")
                                     }
                                 }
                             )

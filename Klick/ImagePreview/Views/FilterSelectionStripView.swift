@@ -12,6 +12,8 @@ struct FilterSelectionStripView: View {
     let filterPreviews: [String: UIImage]
     let originalImage: UIImage?
     let onFilterSelected: (PhotoFilter?) -> Void
+    
+    @ObservedObject private var featureManager = FeatureManager.shared
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -20,6 +22,7 @@ struct FilterSelectionStripView: View {
                     filter: nil,
                     previewImage: originalImage,
                     isSelected: selectedFilter == nil,
+                    isLocked: false,
                     action: { onFilterSelected(nil) }
                 )
 
@@ -28,6 +31,7 @@ struct FilterSelectionStripView: View {
                         filter: filter,
                         previewImage: filterPreviews[filter.id] ?? originalImage,
                         isSelected: selectedFilter?.id == filter.id,
+                        isLocked: !featureManager.canUseFilter(id: filter.id),
                         action: { onFilterSelected(filter) }
                     )
                 }
