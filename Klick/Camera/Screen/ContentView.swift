@@ -5,6 +5,10 @@ import Photos
 struct ContentView: View {
     @AppStorage("photoAlbumSnapshot") private var photoAlbumSnapshot: Bool = false
     @AppStorage("hasShowedIntroductionGuide") private var hasShowedIntroductionGuide: Bool = false
+    @AppStorage("isFacialRecognitionEnabled") private var isFacialRecognitionEnabled = true
+    @AppStorage("isCompositionAnalysisEnabled") private var isCompositionAnalysisEnabled = true
+    @AppStorage("areOverlaysHidden") private var areOverlaysHidden = false
+    @AppStorage("isLiveFeedbackEnabled") private var isLiveFeedbackEnabled = true
     
     @State private var feedbackMessage: String?
     @State private var feedbackIcon: String?
@@ -19,11 +23,7 @@ struct ContentView: View {
     
     // Frame settings state
     @State private var showFrameSettings = false
-    @AppStorage("isFacialRecognitionEnabled") private var isFacialRecognitionEnabled = true
-    @AppStorage("isCompositionAnalysisEnabled") private var isCompositionAnalysisEnabled = true
-    @AppStorage("areOverlaysHidden") private var areOverlaysHidden = false
-    @AppStorage("isLiveFeedbackEnabled") private var isLiveFeedbackEnabled = true
-    
+
     // Camera quality state
     @State private var selectedCameraQuality: CameraQuality = .standard
     
@@ -47,11 +47,8 @@ struct ContentView: View {
     // Onboarding
     @State private var showOnboarding = false
     
-    // Image Preview
-    @State private var showImagePreview = false
-    @State private var capturedPreviewImage: UIImage?
-    @State private var capturedRawImage: UIImage? // New: RAW image for Pro mode
-    @State private var processedImage: UIImage?
+    // Image Preview - Using item-based presentation to ensure fresh state
+    @State private var capturedPhotoData: CapturedPhotoData?
     @State private var isProcessingImage = false
     
     // Upgrade prompts
@@ -97,14 +94,18 @@ struct ContentView: View {
                                     }
                                 },
                                 onPhotoCaptured: { processedImage, rawImage, imageData in
-                                    // Show preview instead of immediately saving
-                                    capturedPreviewImage = processedImage
-                                    capturedRawImage = rawImage // Store RAW image if available
-                                    self.processedImage = processedImage // Initialize with processed image
+                                    // Create captured photo data struct
+                                    // Item-based presentation guarantees fresh state (fixes first-capture-empty bug)
+                                    let photoData = CapturedPhotoData(
+                                        processedImage: processedImage,
+                                        rawImage: rawImage,
+                                        cameraQuality: selectedCameraQuality
+                                    )
+                                    
+                                    // Setting this triggers the fullScreenCover(item:) presentation
                                     withAnimation(.easeInOut(duration: 0.3)) {
-                                        showImagePreview = true
+                                        capturedPhotoData = photoData
                                     }
-                                    print("📸 Photo captured - Processed: ✓, RAW: \(rawImage != nil ? "✓" : "✗"), showing preview")
                                 }
                             )
                             .overlay(alignment: .top, content: {
@@ -303,55 +304,50 @@ struct ContentView: View {
                 }
             )
         })
-        .fullScreenCover(isPresented: $showImagePreview) {
+        .fullScreenCover(item: $capturedPhotoData) { photoData in
             ImagePreviewView(
-                image: $processedImage,
-                originalImage: capturedPreviewImage,
-                rawImage: capturedRawImage,
-                cameraQuality: selectedCameraQuality,
+                image: .constant(photoData.processedImage),
+                originalImage: photoData.processedImage,
+                rawImage: photoData.rawImage,
+                cameraQuality: photoData.cameraQuality,
                 isProcessing: $isProcessingImage,
                 onSave: {
-                    // Save the processed image
-                    if let imageToSave = processedImage {
-                        let compositionType = compositionManager.currentCompositionType.displayName
-                        let compositionScore = compositionManager.lastResult?.score ?? 0.7
-                        photoManager.savePhoto(imageToSave, compositionType: compositionType, compositionScore: compositionScore)
-                        print("📸 Processed photo saved with metadata")
-                        
-                        // Show photo album glimpse
-                        if !photoAlbumSnapshot {
-                            withAnimation(.linear) {
-                                photoAlbumSnapshot = true
-                            }
-                        }
-                        
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showPhotoAlbumGlimpse = true
-                        }
-                        
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showPhotoAlbumGlimpse = false
-                            }
+                    // Save the processed image (with any filters/blur applied in preview)
+                    let compositionType = compositionManager.currentCompositionType.displayName
+                    let compositionScore = compositionManager.lastResult?.score ?? 0.7
+                    photoManager.savePhoto(photoData.processedImage, compositionType: compositionType, compositionScore: compositionScore)
+                    print("📸 Processed photo saved with metadata")
+                    
+                    // Show photo album glimpse
+                    if !photoAlbumSnapshot {
+                        withAnimation(.linear) {
+                            photoAlbumSnapshot = true
                         }
                     }
                     
-                    // Close preview
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        showImagePreview = false
+                        showPhotoAlbumGlimpse = true
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPhotoAlbumGlimpse = false
+                        }
+                    }
+                    
+                    // Close preview by clearing the item (item-based dismissal)
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        capturedPhotoData = nil
                     }
                 },
                 onDiscard: {
                     // MEMORY OPTIMIZATION: Clear all caches when discarding
                     BackgroundBlurManager.shared.endEditingSession(clearAll: true)
                     
-                    // Close preview without saving
+                    // Close preview by clearing the item (item-based dismissal)
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        showImagePreview = false
+                        capturedPhotoData = nil
                     }
-                    capturedPreviewImage = nil
-                    capturedRawImage = nil
-                    processedImage = nil
                 },
                 onShowSalesPage: {
                     // Small delay to allow preview to dismiss before showing sales page

@@ -77,6 +77,33 @@ struct ImagePreviewView: View {
         return controlStates && qualityState
     }
     
+    init(image: Binding<UIImage?>,
+         originalImage: UIImage?,
+         rawImage: UIImage?,
+         cameraQuality: CameraQuality,
+         isProcessing: Binding<Bool>,
+         onSave: @escaping () -> Void,
+         onDiscard: @escaping () -> Void,
+         onShowSalesPage: (() -> Void)?
+    ) {
+        self._image = image
+        self.originalImage = originalImage
+        self.rawImage = rawImage
+        self.cameraQuality = cameraQuality
+        self._isProcessing = isProcessing
+        self.onSave = onSave
+        self.onDiscard = onDiscard
+        self.onShowSalesPage = onShowSalesPage
+        
+        print("✅ ImagePreviewView initialized via item-based presentation")
+        print("   📷 Original Image: \(originalImage != nil ? "✓ Present" : "✗ NIL")")
+        print("   📷 RAW Image: \(rawImage != nil ? "✓ Present" : "✗ Not available")")
+        print("   🎥 Camera Quality: \(cameraQuality)")
+        if originalImage != nil {
+            print("   ✅ FIX CONFIRMED: Images successfully passed to preview!")
+        }
+    }
+    
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
@@ -391,10 +418,17 @@ struct ImagePreviewView: View {
                 stateHistory.initializeWithOriginal(originalImage: imageToUse)
                 generateFilterPreviews()
                 checkPersonSegmentationSupport()
+                print("✅ ImagePreviewView initialized with image on appear")
+            } else {
+                // Race condition protection: Image not available yet on first appear
+                // onChange handlers will initialize when image becomes available
+                print("⚠️ ImagePreviewView appeared but no image available yet - waiting for onChange")
             }
         }
         .onChange(of: originalImage) { newValue in
             if let imageToUse = newValue ?? originalImage {
+                print("✅ ImagePreviewView originalImage changed - reinitializing")
+                
                 // MEMORY OPTIMIZATION: Start editing session for this image
                 BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 
@@ -408,12 +442,15 @@ struct ImagePreviewView: View {
                 checkPersonSegmentationSupport()
             } else {
                 // Just reset state if image becomes nil
+                print("⚠️ ImagePreviewView originalImage became nil - resetting state")
                 resetEffectState()
             }
         }
         .onChange(of: image) { newValue in
-            // If we don't have state history initialized yet and we get an image, use it
+            // Safety net: If we don't have state history initialized yet and we get an image, use it
+            // This handles race conditions where the view appears before state is fully propagated
             if !stateHistory.isInitialized, let imageToUse = newValue ?? originalImage {
+                print("✅ ImagePreviewView initializing from image binding change (first capture fix)")
                 BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 stateHistory.initializeWithOriginal(originalImage: imageToUse)
                 generateFilterPreviews()
