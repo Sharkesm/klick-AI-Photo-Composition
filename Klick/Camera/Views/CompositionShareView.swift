@@ -29,6 +29,15 @@ struct CompositionShareView: View {
     /// State for showing share sheet
     @State private var showingShareSheet = false
     
+    // MARK: - Animation States
+    
+    @State private var showHeader = false
+    @State private var showTitle = false
+    @State private var showSocialProof = false
+    @State private var showPhoto = false
+    @State private var showDescription = false
+    @State private var showButton = false
+    
     // MARK: - Body
     
     var body: some View {
@@ -64,6 +73,8 @@ struct CompositionShareView: View {
                     Spacer()
                 }
             }
+            .opacity(showHeader ? 1 : 0)
+            .offset(y: showHeader ? 0 : -10)
             
             Spacer()
             
@@ -79,6 +90,8 @@ struct CompositionShareView: View {
                             .font(.system(size: 28, weight: .medium, design: .rounded))
                             .foregroundColor(.white)
                     }
+                    .opacity(showTitle ? 1 : 0)
+                    .offset(y: showTitle ? 0 : 15)
                     
                     // Social Proof
                     VStack {
@@ -95,10 +108,14 @@ struct CompositionShareView: View {
                             .padding(.horizontal, 24)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    .opacity(showSocialProof ? 1 : 0)
+                    .offset(y: showSocialProof ? 0 : 15)
                 }
                 
                 // Photo Card
                 photoCard
+                    .opacity(showPhoto ? 1 : 0)
+                    .scaleEffect(showPhoto ? 1 : 0.92)
                 
                 // Technique Description
                 VStack(spacing: 12) {
@@ -116,12 +133,16 @@ struct CompositionShareView: View {
                         .padding(.horizontal, 12)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                .opacity(showDescription ? 1 : 0)
+                .offset(y: showDescription ? 0 : 15)
             }
             
             Spacer()
             
             // Share CTA
             shareButton
+                .opacity(showButton ? 1 : 0)
+                .offset(y: showButton ? 0 : 15)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 24)
@@ -130,6 +151,51 @@ struct CompositionShareView: View {
         .background(.black)
         .sheet(isPresented: $showingShareSheet) {
             ShareSheet(items: [photo])
+        }
+        .onAppear {
+            // Sequential reveal animations mimicking onboarding flow
+            
+            // 1. Header (logo + close button)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeOut(duration: 0.5)) {
+                    showHeader = true
+                }
+            }
+            
+            // 2. Title
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    showTitle = true
+                }
+            }
+            
+            // 3. Social proof
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    showSocialProof = true
+                }
+            }
+            
+            // 4. Photo card with spring animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                withAnimation(.spring(response: 0.7, dampingFraction: 0.8)) {
+                    showPhoto = true
+                }
+            }
+            
+            // 5. Technique description
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    showDescription = true
+                }
+            }
+            
+            // 6. Share button
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    showButton = true
+                }
+            }
         }
     }
     
