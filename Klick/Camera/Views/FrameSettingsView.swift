@@ -7,7 +7,7 @@ struct FrameSettingsView: View {
     @Binding var areOverlaysHidden: Bool
     @Binding var isLiveFeedbackEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
-    @ObservedObject private var featureManager = FeatureManager.shared
+    @ObservedObject var featureManager: FeatureManager
     @State private var showOnboarding = false
     let onShowSalesPage: (() -> Void)? // Callback to show sales page
     
@@ -312,6 +312,7 @@ struct InfoSection: View {
         areOverlaysHidden: .constant(false),
         isLiveFeedbackEnabled: .constant(true),
         compositionManager: CompositionManager(),
+        featureManager: .init(),
         onShowSalesPage: nil
     )
 } 

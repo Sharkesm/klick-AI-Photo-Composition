@@ -11,7 +11,6 @@ import Combine
 
 /// Central manager for freemium feature gating
 class FeatureManager: ObservableObject {
-    static let shared = FeatureManager()
     
     // MARK: - Constants
     
@@ -163,7 +162,7 @@ class FeatureManager: ObservableObject {
     
     // MARK: - Initialization
     
-    private init() {
+    init() {
         // Load persisted photo count
         capturedPhotoCount = userDefaults.integer(forKey: photoCountKey)
         

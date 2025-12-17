@@ -11,6 +11,7 @@ import SwiftUI
 struct UpgradePromptAlert: View {
     let context: FeatureManager.UpgradeContext
     @Binding var isPresented: Bool
+    @ObservedObject var featureManager: FeatureManager
     let onUpgrade: () -> Void
     
     private var title: String {
@@ -46,7 +47,7 @@ struct UpgradePromptAlert: View {
     private var message: String {
         switch context {
         case .photoLimit:
-            return "You've reached the free tier limit of \(FeatureManager.shared.maxFreePhotos) photos. Upgrade to Pro for unlimited storage."
+            return "You've reached the free tier limit of \(featureManager.maxFreePhotos) photos. Upgrade to Pro for unlimited storage."
         case .lastFreePhoto:
             return "This is your last free photo! After this, Live Feedback and premium features will be disabled unless you upgrade to Pro. Continue to capture and enjoy unlimited access with Pro!"
         case .advancedComposition:
@@ -176,6 +177,7 @@ struct UpgradePromptAlert: View {
         UpgradePromptAlert(
             context: .filterAdjustments,
             isPresented: .constant(true),
+            featureManager: .init(),
             onUpgrade: {}
         )
     }

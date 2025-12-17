@@ -10,7 +10,8 @@ struct ImagePreviewView: View {
     let rawImage: UIImage? // New: RAW image for Pro mode
     let cameraQuality: CameraQuality // New: Camera quality used for capture
     @Binding var isProcessing: Bool
-
+    @ObservedObject var featureManager: FeatureManager
+    
     let onSave: () -> Void
     let onDiscard: () -> Void
     let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
@@ -75,33 +76,6 @@ struct ImagePreviewView: View {
         let controlStates = (!showingAdjustments || showingBlurAdjustment || (!isShowingPreviousState && stateHistory.hasPreviousState))
         let qualityState = cameraQuality == .pro && rawImage != nil
         return controlStates && qualityState
-    }
-    
-    init(image: Binding<UIImage?>,
-         originalImage: UIImage?,
-         rawImage: UIImage?,
-         cameraQuality: CameraQuality,
-         isProcessing: Binding<Bool>,
-         onSave: @escaping () -> Void,
-         onDiscard: @escaping () -> Void,
-         onShowSalesPage: (() -> Void)?
-    ) {
-        self._image = image
-        self.originalImage = originalImage
-        self.rawImage = rawImage
-        self.cameraQuality = cameraQuality
-        self._isProcessing = isProcessing
-        self.onSave = onSave
-        self.onDiscard = onDiscard
-        self.onShowSalesPage = onShowSalesPage
-        
-        print("✅ ImagePreviewView initialized via item-based presentation")
-        print("   📷 Original Image: \(originalImage != nil ? "✓ Present" : "✗ NIL")")
-        print("   📷 RAW Image: \(rawImage != nil ? "✓ Present" : "✗ Not available")")
-        print("   🎥 Camera Quality: \(cameraQuality)")
-        if originalImage != nil {
-            print("   ✅ FIX CONFIRMED: Images successfully passed to preview!")
-        }
     }
     
     var body: some View {
@@ -195,7 +169,7 @@ struct ImagePreviewView: View {
                                     get: { effectState.filter?.adjustments ?? .balanced },
                                     set: { newValue in
                                         // Check if user can use filter adjustments before allowing changes
-                                        if !FeatureManager.shared.canUseFilterAdjustments {
+                                        if !featureManager.canUseFilterAdjustments {
                                             print("🔒 Filter adjustments blocked - requires Pro")
                                             // Show sales page when free tier user tries to interact with adjustments
                                             onShowSalesPage?()
@@ -239,6 +213,7 @@ struct ImagePreviewView: View {
                                 selectedFilter: effectState.filter?.filter,
                                 filterPreviews: filterPreviews,
                                 originalImage: originalImage,
+                                featureManager: featureManager,
                                 onFilterSelected: selectFilter,
                                 onShowSalesPage: onShowSalesPage
                             )
@@ -298,7 +273,7 @@ struct ImagePreviewView: View {
                                     }
                                     
                                     // Check if user can use background blur
-                                    if !FeatureManager.shared.canUseBackgroundBlur {
+                                    if !featureManager.canUseBackgroundBlur {
                                         print("🔒 Background blur blocked - requires Pro")
                                         showUpgradePrompt = true
                                         return
@@ -325,12 +300,20 @@ struct ImagePreviewView: View {
                                        shouldShrinkImage = false
                                     }
                                 }) {
+                                    let blurButtonColor: Color = {
+                                        if !hasPersonSegmentation {
+                                            return .white.opacity(0.35)
+                                        } else if !featureManager.canUseBackgroundBlur {
+                                            return .white
+                                        } else if effectState.backgroundBlur.isEnabled {
+                                            return .yellow
+                                        } else {
+                                            return .white
+                                        }
+                                    }()
+                                    
                                     Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                                        .foregroundColor(
-                                            hasPersonSegmentation
-                                                ? (FeatureManager.shared.canUseBackgroundBlur ? (effectState.backgroundBlur.isEnabled ? .yellow : .white) : .white) // Dimmed but visible for free users
-                                                : .white.opacity(0.35) // Fully dimmed if no person detected
-                                        )
+                                        .foregroundColor(blurButtonColor)
                                         .font(.system(size: 16, weight: .medium))
                                         .frame(width: 30, height: 30)
                                         .padding(8)
@@ -483,6 +466,7 @@ struct ImagePreviewView: View {
             UpgradePromptAlert(
                 context: upgradeContext,
                 isPresented: $showUpgradePrompt,
+                featureManager: featureManager,
                 onUpgrade: {
                     onShowSalesPage?()
                 }
@@ -510,7 +494,7 @@ struct ImagePreviewView: View {
         // Check if filter is available (feature gating)
         if let filter = filter {
             // Check if user can use this filter (using pack-aware method)
-            if !FeatureManager.shared.canUseFilter(id: filter.id, pack: filter.pack) {
+            if !featureManager.canUseFilter(id: filter.id, pack: filter.pack) {
                 print("🔒 Filter selection blocked - premium filter requires Pro")
                 // Show sales page directly when locked filter is clicked
                 onShowSalesPage?()
@@ -951,6 +935,7 @@ extension UIImage {
         rawImage: nil, // No RAW for preview
         cameraQuality: .standard,
         isProcessing: .constant(false),
+        featureManager: .init(),
         onSave: {},
         onDiscard: {},
         onShowSalesPage: nil

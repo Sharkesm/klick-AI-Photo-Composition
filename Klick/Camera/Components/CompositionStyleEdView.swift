@@ -11,7 +11,7 @@ struct CompositionStyleEdView: View {
     @State private var selectedSection: CompositionSection? = nil
     @State private var showContent = false
     @State private var animateSections = false
-    @ObservedObject private var featureManager = FeatureManager.shared
+    @ObservedObject var featureManager: FeatureManager
     @State private var showUpgradePrompt = false
     @State private var upgradeContext: FeatureManager.UpgradeContext = .portraitPractices
     let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
@@ -101,6 +101,7 @@ struct CompositionStyleEdView: View {
             UpgradePromptAlert(
                 context: upgradeContext,
                 isPresented: $showUpgradePrompt,
+                featureManager: featureManager,
                 onUpgrade: {
                     // Show sales page
                     onShowSalesPage?()
@@ -442,5 +443,5 @@ struct CompositionStylePracticeControl: View {
 }
 
 #Preview(body: {
-    CompositionStyleEdView(onShowSalesPage: nil)
+    CompositionStyleEdView(featureManager: .init(), onShowSalesPage: nil)
 })

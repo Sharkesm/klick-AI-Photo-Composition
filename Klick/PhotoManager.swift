@@ -40,6 +40,9 @@ class PhotoManager: ObservableObject {
     // Track photos saved to photo library
     private var savedToLibraryPhotos: Set<String> = []
     
+    // Dependency injection for FeatureManager
+    private weak var featureManager: FeatureManager?
+    
     // Performance optimization properties
     private let thumbnailCache = NSCache<NSString, UIImage>()
     private let fullImageCache = NSCache<NSString, UIImage>()
@@ -69,11 +72,19 @@ class PhotoManager: ObservableObject {
         return thumbnailsDir
     }()
     
-    init() {
+    init(featureManager: FeatureManager? = nil) {
+        self.featureManager = featureManager
         setupCaches()
         loadPhotoCountOnly() // Only load count for preview
         requestPhotoLibraryPermission()
         loadSavedPhotosState() // Load saved photos state
+    }
+    
+    // Method to set FeatureManager after initialization if needed
+    func setFeatureManager(_ featureManager: FeatureManager) {
+        self.featureManager = featureManager
+        // Update current photo count
+        featureManager.updatePhotoCount(self.photoCount)
     }
     
     private func setupCaches() {
@@ -213,7 +224,7 @@ class PhotoManager: ObservableObject {
                 // Always update photo count
                 self.photoCount += 1
                 // Sync with FeatureManager for freemium gating
-                FeatureManager.shared.updatePhotoCount(self.photoCount)
+                self.featureManager?.updatePhotoCount(self.photoCount)
             }
             
             print("✅ Photo and thumbnail saved successfully: \(fileName)")
@@ -584,7 +595,7 @@ class PhotoManager: ObservableObject {
                 DispatchQueue.main.async {
                     self.photoCount = 0
                     // Sync with FeatureManager for freemium gating
-                    FeatureManager.shared.updatePhotoCount(0)
+                    self.featureManager?.updatePhotoCount(0)
                 }
                 return
             }
@@ -601,14 +612,14 @@ class PhotoManager: ObservableObject {
                 DispatchQueue.main.async {
                     self.photoCount = photoFiles.count
                     // Sync with FeatureManager for freemium gating
-                    FeatureManager.shared.updatePhotoCount(photoFiles.count)
+                    self.featureManager?.updatePhotoCount(photoFiles.count)
                     print("📊 Photo count loaded: \(photoFiles.count) photos")
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.photoCount = 0
                     // Sync with FeatureManager for freemium gating
-                    FeatureManager.shared.updatePhotoCount(0)
+                    self.featureManager?.updatePhotoCount(0)
                     print("❌ Failed to load photo count: \(error)")
                 }
             }
@@ -808,7 +819,7 @@ class PhotoManager: ObservableObject {
                 // Update photo count
                 self.photoCount = max(0, self.photoCount - 1)
                 // Sync with FeatureManager for freemium gating
-                FeatureManager.shared.updatePhotoCount(self.photoCount)
+                self.featureManager?.updatePhotoCount(self.photoCount)
             }
             
             print("✅ Photo and thumbnail deleted: \(photo.fileName)")

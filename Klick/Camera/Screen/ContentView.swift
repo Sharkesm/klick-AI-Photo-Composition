@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var detectedFaceBoundingBox: CGRect?
     @State private var faceDetectionConfidence: CGFloat = 0.0
     @StateObject private var compositionManager = CompositionManager()
+    @StateObject private var featureManager = FeatureManager()
+    
     @State private var showCompositionPractice = false
     
     // Frame settings state
@@ -124,6 +126,7 @@ struct ContentView: View {
                             .overlay(alignment: .top, content: {
                                 // Top controls
                                 TopControlsView(
+                                    featureManager: featureManager,
                                     selectedCameraQuality: $selectedCameraQuality,
                                     selectedFlashMode: $selectedFlashMode,
                                     selectedZoomLevel: $selectedZoomLevel,
@@ -136,7 +139,7 @@ struct ContentView: View {
                                     compositionManager: compositionManager,
                                     hasCameraPermission: hasCameraPermission,
                                     cameraLoading: cameraLoading,
-                                    hasShowedCameraQualityIntro: hasShowedCameraQualityIntro
+                                    hasShowedCameraQualityIntro: hasShowedCameraQualityIntro,
                                 )
                                 .padding(.top, 20)
                             })
@@ -288,6 +291,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showCompositionPractice) {
             CompositionStyleEdView(
+                featureManager: featureManager,
                 onShowSalesPage: {
                     // Close practice view and show sales page
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -322,6 +326,7 @@ struct ContentView: View {
                 areOverlaysHidden: $areOverlaysHidden,
                 isLiveFeedbackEnabled: $isLiveFeedbackEnabled,
                 compositionManager: compositionManager,
+                featureManager: featureManager,
                 onShowSalesPage: {
                     // Close frame settings and show sales page
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -342,6 +347,7 @@ struct ContentView: View {
             UpgradePromptAlert(
                 context: upgradeContext,
                 isPresented: $showUpgradePrompt,
+                featureManager: featureManager,
                 onUpgrade: {
                     // Show sales page
                     showSalesPage = true
@@ -364,6 +370,7 @@ struct ContentView: View {
                 rawImage: photoData.rawImage,
                 cameraQuality: photoData.cameraQuality,
                 isProcessing: $isProcessingImage,
+                featureManager: featureManager,
                 onSave: {
                     // Save the processed image (with any filters/blur applied in preview)
                     let compositionType = compositionManager.currentCompositionType.displayName
@@ -411,6 +418,9 @@ struct ContentView: View {
             )
         }
         .onAppear {
+            // Inject FeatureManager into PhotoManager
+            photoManager.setFeatureManager(featureManager)
+            
             // Add small delay to ensure transition completes before requesting camera
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 print("ContentView onAppear - requesting camera permission")
@@ -497,17 +507,17 @@ struct ContentView: View {
         let currentComposition = compositionManager.currentCompositionType
         
         // First check: Photo count limit
-        guard FeatureManager.shared.canCapture || currentComposition == .ruleOfThirds else {
+        guard featureManager.canCapture || currentComposition == .ruleOfThirds else {
             print("🔒 Photo capture blocked - storage limit reached")
-            FeatureManager.shared.showUpgradePrompt(context: .photoLimit)
+            featureManager.showUpgradePrompt(context: .photoLimit)
             return
         }
         
         // Second check: Advanced composition gating
         // Rule of Thirds is always free, but Center Framing and Symmetry require Pro or trial period
-        if currentComposition != .ruleOfThirds && !FeatureManager.shared.canUseAdvancedComposition {
+        if currentComposition != .ruleOfThirds && !featureManager.canUseAdvancedComposition {
             print("🔒 Photo capture blocked - advanced composition (\(currentComposition.displayName)) requires Pro")
-            FeatureManager.shared.showUpgradePrompt(context: .advancedComposition)
+            featureManager.showUpgradePrompt(context: .advancedComposition)
             return
         }
         

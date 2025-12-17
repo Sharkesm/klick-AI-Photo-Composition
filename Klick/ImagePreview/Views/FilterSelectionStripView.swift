@@ -11,11 +11,10 @@ struct FilterSelectionStripView: View {
     let selectedFilter: PhotoFilter?
     let filterPreviews: [String: UIImage]
     let originalImage: UIImage?
+    @ObservedObject var featureManager: FeatureManager
     let onFilterSelected: (PhotoFilter?) -> Void
     let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
     
-    @ObservedObject private var featureManager = FeatureManager.shared
-
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 12) {

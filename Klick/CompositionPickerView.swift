@@ -3,7 +3,7 @@ import SwiftUI
 struct CompositionPickerView: View {
     @ObservedObject var compositionManager: CompositionManager
     @Binding var isPresented: Bool
-    @ObservedObject var featureManager = FeatureManager.shared
+    @ObservedObject var featureManager: FeatureManager
     
     // Check if a composition type is locked (for visual indication only)
     // Note: Selection is now allowed, but capture will be blocked in ContentView
