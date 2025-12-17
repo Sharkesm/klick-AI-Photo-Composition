@@ -9,6 +9,7 @@ struct ContentView: View {
     @AppStorage("isCompositionAnalysisEnabled") private var isCompositionAnalysisEnabled = true
     @AppStorage("areOverlaysHidden") private var areOverlaysHidden = false
     @AppStorage("isLiveFeedbackEnabled") private var isLiveFeedbackEnabled = true
+    @AppStorage("hasShowedCameraQualityIntro") private var hasShowedCameraQualityIntro: Bool = false
     
     @State private var feedbackMessage: String?
     @State private var feedbackIcon: String?
@@ -55,6 +56,10 @@ struct ContentView: View {
     @State private var showUpgradePrompt = false
     @State private var upgradeContext: FeatureManager.UpgradeContext = .photoLimit
     @State private var showSalesPage = false
+    
+    // Camera quality intro
+    @State private var showCameraQualityIntro = false
+    @State private var shouldAutoExpandCameraQuality = false
     
     private var shouldShowPhotoAlbum: Bool {
         return hasCameraPermission && !cameraLoading && photoAlbumSnapshot
@@ -118,9 +123,12 @@ struct ContentView: View {
                                     showCompositionPractice: $showCompositionPractice,
                                     showSalesPage: $showSalesPage,
                                     showUpgradePrompt: $showUpgradePrompt,
+                                    showCameraQualityIntro: $showCameraQualityIntro,
+                                    shouldAutoExpandCameraQuality: $shouldAutoExpandCameraQuality,
                                     compositionManager: compositionManager,
                                     hasCameraPermission: hasCameraPermission,
-                                    cameraLoading: cameraLoading
+                                    cameraLoading: cameraLoading,
+                                    hasShowedCameraQualityIntro: hasShowedCameraQualityIntro
                                 )
                                 .padding(.top, 20)
                             })
@@ -301,6 +309,15 @@ struct ContentView: View {
                 onUpgrade: {
                     // Show sales page
                     showSalesPage = true
+                }
+            )
+        })
+        .ngBottomSheet(isPresented: $showCameraQualityIntro, sheetContent: {
+            CameraQualityIntroView(
+                isPresented: $showCameraQualityIntro,
+                onDismiss: {
+                    // Trigger auto-expand of quality selector
+                    shouldAutoExpandCameraQuality = true
                 }
             )
         })

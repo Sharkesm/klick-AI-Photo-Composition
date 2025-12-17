@@ -9,10 +9,13 @@ struct TopControlsView: View {
     @Binding var showCompositionPractice: Bool
     @Binding var showSalesPage: Bool
     @Binding var showUpgradePrompt: Bool
+    @Binding var showCameraQualityIntro: Bool
+    @Binding var shouldAutoExpandCameraQuality: Bool
     
     let compositionManager: CompositionManager
     let hasCameraPermission: Bool
     let cameraLoading: Bool
+    let hasShowedCameraQualityIntro: Bool
     
     var body: some View {
         // Top controls - composition indicator, quality selector and flash control
@@ -34,16 +37,29 @@ struct TopControlsView: View {
                      
                      Spacer()
                      VStack {
-                         CameraQualitySelectorView(selectedQuality: $selectedCameraQuality) {
-                             if FeatureManager.shared.canUseAdvancedComposition { return }
-                             
-                             if selectedCameraQuality == .pro {
-                                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                     selectedCameraQuality = .standard
-                                     showUpgradePrompt = true
-                                 }
-                             }
-                         }
+                         CameraQualitySelectorView(
+                            selectedQuality: $selectedCameraQuality,
+                            shouldAutoExpand: $shouldAutoExpandCameraQuality,
+                            shouldBlockExpansion: !hasShowedCameraQualityIntro,
+                            onFirstInteraction: {
+                                // Show intro sheet on first interaction
+                                if !hasShowedCameraQualityIntro {
+                                    withAnimation {
+                                        showCameraQualityIntro = true
+                                    }
+                                }
+                            },
+                            onSelectionCompletion: {
+                                if FeatureManager.shared.canUseAdvancedComposition { return }
+                                
+                                if selectedCameraQuality == .pro {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                        selectedCameraQuality = .standard
+                                        showUpgradePrompt = true
+                                    }
+                                }
+                            }
+                         )
                          
                          FlashControlView(selectedFlashMode: $selectedFlashMode)
                          ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)

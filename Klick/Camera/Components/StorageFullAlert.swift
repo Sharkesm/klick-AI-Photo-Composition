@@ -120,13 +120,13 @@ struct UpgradePromptAlert: View {
                 
                 // Title
                 Text(title)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.primary)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
                 
                 // Message
                 Text(message)
                     .font(.system(size: 15))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.white.opacity(0.8))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
                 
@@ -159,12 +159,11 @@ struct UpgradePromptAlert: View {
                     }
                 }) {
                     Text("Maybe Later")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.6))
                 }
                 .padding(.bottom, 8)
             }
-            .padding(24)
             .background(.black)
         }
     }
