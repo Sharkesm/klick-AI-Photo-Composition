@@ -59,6 +59,18 @@ struct ContentView: View {
     @State private var showCameraQualityIntro = false
     @State private var shouldAutoExpandCameraQuality = false
     
+    // Swipe composition selector
+    @State private var dragOffset: CGFloat = 0
+    @State private var showSwipeOverlay = false
+    @State private var swipeCompositionPreview: CompositionType?
+    @State private var isAnimatingTextOut = false
+    @State private var swipeDirection: Int = 0 // 1 = right, -1 = left
+    @State private var showLabel = false
+    @State private var labelScale: CGFloat = 0
+    @State private var canvasProgress: CGFloat = 0 // 0 = edge, 1 = center (animated independently)
+    @State private var hasTriggeredThreshold = false // Prevent multiple threshold triggers
+    @State private var isProcessingSwipe = false // Prevent overlapping swipe gestures
+    
     private var shouldShowPhotoAlbum: Bool {
         return hasCameraPermission && !cameraLoading && photoAlbumSnapshot
     }
@@ -166,6 +178,15 @@ struct ContentView: View {
                         }
                         .frame(height: height)
                         .cornerRadius(30)
+                        .gesture(
+                            DragGesture(minimumDistance: 20)
+                                .onChanged { value in
+                                    handleSwipeChanged(translation: value.translation.width)
+                                }
+                                .onEnded { value in
+                                    handleSwipeEnded(translation: value.translation.width)
+                                }
+                        )
                         .overlay(alignment: .bottom) {
                             VStack {
                                 Spacer()
@@ -211,6 +232,26 @@ struct ContentView: View {
                             }
                             .padding(.bottom, 20)
                         }
+                        .overlay(alignment: .center, content: {
+                             // Swipe overlay for composition switching (dev mode)
+                             if showSwipeOverlay {
+                                 let displayComposition = swipeCompositionPreview ?? compositionManager.currentCompositionType
+                                 CompositionSwipeOverlay(
+                                     composition: displayComposition,
+                                     canvasProgress: canvasProgress,
+                                     swipeDirection: swipeDirection,
+                                     showLabel: showLabel,
+                                     labelScale: labelScale,
+                                     isAnimatingOut: isAnimatingTextOut
+                                 )
+                                 .frame(height: height)
+                                 .cornerRadius(30)
+                                 .allowsHitTesting(false)
+                                 .onAppear {
+                                     print("🖼️ Overlay appeared with composition: \(displayComposition.displayName)")
+                                 }
+                             }
+                        })
                         
                         if shouldShowPhotoAlbum {
                             VStack {
@@ -516,6 +557,267 @@ struct ContentView: View {
             print("❓ Unknown camera permission status")
             hasCameraPermission = false
             cameraLoading = false
+        }
+    }
+    
+    // MARK: - Swipe Gesture Handlers
+    
+    private func handleSwipeChanged(translation: CGFloat) {
+        // Prevent updates if already processing swipe end
+        guard !isProcessingSwipe else { return }
+        
+        // Determine swipe direction (positive = right, negative = left)
+        let direction = translation > 0 ? 1 : -1
+        swipeDirection = direction
+        
+        // Check if swipe is valid based on current position and boundaries
+        guard canSwipeInDirection(direction) else {
+            // At boundary - don't allow further swiping in this direction
+            return
+        }
+        
+        dragOffset = translation
+        
+        // Show overlay when drag starts
+        if !showSwipeOverlay {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                showSwipeOverlay = true
+            }
+        }
+        
+        // Calculate which composition to preview based on drag direction
+        let threshold: CGFloat = 80
+        if abs(translation) > threshold {
+            print("⚡️ Threshold crossed - translation: \(translation), direction: \(direction)")
+            
+            // Show and slam the label when threshold is crossed (only once)
+            if !hasTriggeredThreshold {
+                let newComposition = getAdjacentComposition(direction: direction)
+                print("⚡️ Setting swipeCompositionPreview to: \(newComposition.displayName)")
+                
+                // Haptic feedback when threshold crossed
+                HapticFeedback.medium.generate()
+                
+                // Set preview for overlay display (synchronous)
+                swipeCompositionPreview = newComposition
+                hasTriggeredThreshold = true
+                print("🎨 Swipe threshold crossed - showing label for: \(newComposition.displayName)")
+                
+                // Only trigger visual animations - NO composition manager update yet
+                DispatchQueue.main.async {
+                    // Show label
+                    self.showLabel = true
+                    
+                    // Perform slam animation
+                    self.performSlamAnimation()
+                    
+                    // Automatically complete canvas slide-in animation
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        self.canvasProgress = 1.0
+                    }
+                }
+            } else {
+                // Update preview even if threshold was already triggered
+                let newComposition = getAdjacentComposition(direction: direction)
+                swipeCompositionPreview = newComposition
+            }
+        } else {
+            // Reset threshold flag if user swipes back below threshold
+            if hasTriggeredThreshold {
+                hasTriggeredThreshold = false
+                showLabel = false
+                labelScale = 0
+            }
+            
+            // Update canvas progress based on drag (before threshold)
+            canvasProgress = min(abs(translation) / threshold, 1.0)
+        }
+    }
+    
+    private func handleSwipeEnded(translation: CGFloat) {
+        // Prevent multiple simultaneous swipe endings
+        guard !isProcessingSwipe else { return }
+        isProcessingSwipe = true
+        
+        let threshold: CGFloat = 80
+        
+        // Determine if swipe was significant enough to change composition
+        if abs(translation) > threshold {
+            // Apply composition change AFTER visual animations complete (smoother performance)
+            if let newComposition = swipeCompositionPreview {
+                // Delay composition change until after slam animation settles
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    print("🎨 Applying composition change to: \(newComposition.displayName)")
+                    
+                    // Selection haptic when composition actually changes
+                    HapticFeedback.selection.generate()
+                    
+                    self.compositionManager.switchToCompositionType(newComposition)
+                }
+            }
+            
+            // Keep label visible for a moment before starting exit animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                // Animate text out (scale down and fade) - slower animation
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    self.isAnimatingTextOut = true
+                }
+            }
+            
+            // Hide overlay after animation completes (longer delay for better visibility)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.25) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    self.showSwipeOverlay = false
+                    self.isAnimatingTextOut = false
+                    self.showLabel = false
+                    self.labelScale = 0
+                    self.dragOffset = 0
+                    self.canvasProgress = 0
+                    self.swipeCompositionPreview = nil
+                    self.swipeDirection = 0
+                    self.hasTriggeredThreshold = false
+                    self.isProcessingSwipe = false
+                }
+            }
+        } else {
+            // Swipe not significant enough - reset with spring animation
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                self.showSwipeOverlay = false
+                self.isAnimatingTextOut = false
+                self.showLabel = false
+                self.labelScale = 0
+                self.dragOffset = 0
+                self.canvasProgress = 0
+                self.swipeCompositionPreview = nil
+                self.swipeDirection = 0
+                self.hasTriggeredThreshold = false
+            }
+            
+            // Reset processing flag after animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.isProcessingSwipe = false
+            }
+        }
+    }
+    
+    private func performSlamAnimation() {
+        // Slam effect: Scale up quickly (overshoot), then settle
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+            labelScale = 1.2 // Overshoot (contained within screen bounds)
+        }
+        
+        // Light haptic when label slams in
+        HapticFeedback.light.generate()
+        
+        // Then settle to normal size (longer delay)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                labelScale = 1.0
+            }
+        }
+    }
+    
+    /// Check if swipe in given direction is allowed based on current position
+    /// - Parameter direction: 1 = right swipe (go left in array), -1 = left swipe (go right in array)
+    /// - Returns: true if swipe is allowed, false if at boundary
+    private func canSwipeInDirection(_ direction: Int) -> Bool {
+        let compositions = CompositionType.allCases
+        guard let currentIndex = compositions.firstIndex(of: compositionManager.currentCompositionType) else {
+            return true
+        }
+        
+        // Order: [Rule of Thirds (0), Center (1), Symmetry (2)]
+        // Right swipe (direction = 1) → Move to lower index (left in list)
+        // Left swipe (direction = -1) → Move to higher index (right in list)
+        
+        if direction > 0 {
+            // Right swipe - trying to go left in the array
+            // Can't go left if already at Rule of Thirds (index 0)
+            return currentIndex > 0
+        } else {
+            // Left swipe - trying to go right in the array
+            // Can't go right if already at Symmetry (last index)
+            return currentIndex < compositions.count - 1
+        }
+    }
+    
+    private func getAdjacentComposition(direction: Int) -> CompositionType {
+        let compositions = CompositionType.allCases
+        guard let currentIndex = compositions.firstIndex(of: compositionManager.currentCompositionType) else {
+            return compositionManager.currentCompositionType
+        }
+        
+        print("🔍 getAdjacentComposition - Current: \(compositionManager.currentCompositionType.displayName) (index: \(currentIndex)), Direction: \(direction)")
+        
+        // direction: 1 = right swipe (go to previous/left), -1 = left swipe (go to next/right)
+        let newIndex: Int
+        if direction > 0 {
+            // Right swipe - go to previous (left in array) - NO wrap around
+            newIndex = max(0, currentIndex - 1)
+        } else {
+            // Left swipe - go to next (right in array) - NO wrap around
+            newIndex = min(compositions.count - 1, currentIndex + 1)
+        }
+        
+        let result = compositions[newIndex]
+        print("🔍 getAdjacentComposition - Result: \(result.displayName) (index: \(newIndex))")
+        
+        return result
+    }
+}
+
+// MARK: - Composition Swipe Overlay
+
+struct CompositionSwipeOverlay: View {
+    let composition: CompositionType
+    let canvasProgress: CGFloat
+    let swipeDirection: Int
+    let showLabel: Bool
+    let labelScale: CGFloat
+    let isAnimatingOut: Bool
+    
+    var overlayColor: Color {
+        return Color.yellow
+    }
+    
+    var body: some View {
+        GeometryReader { geometry in
+            let screenWidth = geometry.size.width
+            
+            // Calculate canvas position - slides from edges based on progress (0 to 1)
+            let canvasOffset: CGFloat = {
+                let startOffset = swipeDirection > 0 ? -screenWidth : screenWidth
+                return startOffset * (1 - canvasProgress) // Slide from edge to center
+            }()
+            
+            ZStack {
+                overlayColor
+                    .opacity(0.5)
+                    .overlay(overlayColor.opacity(0.2))
+                    .offset(x: canvasOffset)
+            
+                // Label - only shows when canvas is centered (slam animation)
+                if showLabel {
+                    // Composition text
+                    Text(composition.displayName)
+                        .font(.system(size: 56, weight: .heavy, design: .rounded))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 8)
+                        .shadow(color: .black.opacity(0.3), radius: 40, x: 0, y: 0)
+                        .scaleEffect(isAnimatingOut ? 0.3 : labelScale)
+                        .opacity(isAnimatingOut ? 0.0 : (labelScale > 0 ? 1.0 : 0.0))
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isAnimatingOut)
+                        .onAppear {
+                            print("📱 Overlay showing label: \(composition.displayName) (scale: \(labelScale))")
+                        }
+                        .onChange(of: labelScale) { newScale in
+                            print("📱 Label scale changed to: \(newScale) for \(composition.displayName)")
+                        }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 30))
         }
     }
 }

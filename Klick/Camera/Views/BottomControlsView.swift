@@ -70,6 +70,16 @@ struct BottomControlsView: View {
                                 isInitializing = false
                             }
                         }
+                        .onChange(of: compositionManager.currentCompositionType) { newType in
+                            // Sync selectedIndex when composition changes externally (e.g., from swipe gesture)
+                            if let newIndex = compositionTypes.firstIndex(of: newType),
+                               newIndex != selectedIndex {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                    selectedIndex = newIndex
+                                    proxy.scrollTo(newIndex, anchor: .center)
+                                }
+                            }
+                        }
                     }
                     
                     // Fixed center border overlay (always stays in center)
