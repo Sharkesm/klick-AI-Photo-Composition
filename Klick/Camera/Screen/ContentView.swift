@@ -777,7 +777,7 @@ struct CompositionSwipeOverlay: View {
     let isAnimatingOut: Bool
     
     var overlayColor: Color {
-        return Color.yellow
+        return Color.black
     }
     
     var body: some View {
