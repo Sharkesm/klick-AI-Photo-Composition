@@ -3,26 +3,25 @@ import SwiftUI
 // MARK: - Feedback Overlay View
 struct FeedbackOverlayView: View {
     let showFeedback: Bool
-    let feedbackMessage: String?
-    let feedbackIcon: String?
     let hasCameraPermission: Bool
     let cameraLoading: Bool
     let isCompositionAnalysisEnabled: Bool
+    let feedback: CompositionFeedback?
     
     var body: some View {
         if hasCameraPermission && !cameraLoading && isCompositionAnalysisEnabled {
-            if showFeedback, let message = feedbackMessage {
+            if showFeedback, let feedback = feedback {
                 HStack(spacing: 8) {
-                    // System image icon with translucent background
-                    Image(systemName: feedbackIcon ?? "questionmark.circle")
+                    // System image icon with translucent background - using color from feedback model
+                    Image(systemName: feedback.label)
                         .font(.title2)
-                        .foregroundColor(.white)
+                        .foregroundColor(feedback.color)
                         .frame(width: 32, height: 32)
                         .background(.ultraThinMaterial)
                         .clipShape(Circle())
                         
                     // Feedback message
-                    Text(message)
+                    Text(feedback.suggestion)
                         .font(.headline)
                         .foregroundColor(.white)
                         .padding(.vertical, 12)

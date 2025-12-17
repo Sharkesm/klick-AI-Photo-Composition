@@ -11,8 +11,6 @@ struct ContentView: View {
     @AppStorage("isLiveFeedbackEnabled") private var isLiveFeedbackEnabled = true
     @AppStorage("hasShowedCameraQualityIntro") private var hasShowedCameraQualityIntro: Bool = false
     
-    @State private var feedbackMessage: String?
-    @State private var feedbackIcon: String?
     @State private var showFeedback = false
     @State private var hasCameraPermission = false
     @State private var cameraLoading = true
@@ -80,8 +78,6 @@ struct ContentView: View {
                     VStack {
                         ZStack {
                             CameraView(
-                                feedbackMessage: $feedbackMessage,
-                                feedbackIcon: $feedbackIcon,
                                 showFeedback: $showFeedback,
                                 detectedFaceBoundingBox: $detectedFaceBoundingBox,
                                 faceDetectionConfidence: $faceDetectionConfidence,
@@ -175,11 +171,10 @@ struct ContentView: View {
                                 Spacer()
                                 FeedbackOverlayView(
                                     showFeedback: showFeedback,
-                                    feedbackMessage: isLiveFeedbackEnabled ? feedbackMessage : "Live feedback disabled",
-                                    feedbackIcon: isLiveFeedbackEnabled ? feedbackIcon : "exclamationmark.message",
                                     hasCameraPermission: hasCameraPermission,
                                     cameraLoading: cameraLoading,
-                                    isCompositionAnalysisEnabled: isCompositionAnalysisEnabled
+                                    isCompositionAnalysisEnabled: isCompositionAnalysisEnabled,
+                                    feedback: getFeedback()
                                 )
                                 
                                 // Bottom controls
@@ -439,6 +434,21 @@ struct ContentView: View {
             return glimpseOffset
         } else {
             return hiddenOffset
+        }
+    }
+    
+    /// Get appropriate feedback based on live feedback setting
+    private func getFeedback() -> CompositionFeedback? {
+        if isLiveFeedbackEnabled {
+            return compositionManager.lastResult?.feedback
+        } else {
+            // Return "Live feedback disabled" feedback
+            return CompositionFeedback(
+                label: "exclamationmark.message",
+                suggestion: "Live feedback disabled",
+                compositionLevel: -1,
+                color: .yellow
+            )
         }
     }
     

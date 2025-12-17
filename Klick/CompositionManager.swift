@@ -42,6 +42,12 @@ class CompositionManager: ObservableObject {
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
         guard isEnabled else {
             let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
+            let disabledFeedback = CompositionFeedback(
+                label: "pause.circle",
+                suggestion: "Analysis disabled",
+                compositionLevel: 4,
+                color: .white
+            )
             return EnhancedCompositionResult(
                 composition: currentCompositionType.rawValue,
                 score: 0.0,
@@ -49,7 +55,8 @@ class CompositionManager: ObservableObject {
                 suggestion: "Analysis disabled",
                 context: context,
                 overlayElements: [],
-                feedbackIcon: "pause.circle"
+                feedbackIcon: "pause.circle",
+                feedback: disabledFeedback
             )
         }
         

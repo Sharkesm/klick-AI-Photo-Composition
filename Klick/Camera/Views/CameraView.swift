@@ -3,8 +3,6 @@ import AVFoundation
 import Vision
 
 struct CameraView: View {
-    @Binding var feedbackMessage: String?
-    @Binding var feedbackIcon: String?
     @Binding var showFeedback: Bool
     @Binding var detectedFaceBoundingBox: CGRect?
     @Binding var faceDetectionConfidence: CGFloat
@@ -27,8 +25,6 @@ struct CameraView: View {
         ZStack {
             // Camera view
             CameraUIViewRepresentable(
-                feedbackMessage: $feedbackMessage,
-                feedbackIcon: $feedbackIcon,
                 showFeedback: $showFeedback,
                 detectedFaceBoundingBox: $detectedFaceBoundingBox,
                 faceDetectionConfidence: $faceDetectionConfidence,
@@ -62,8 +58,6 @@ struct CameraView: View {
 }
 
 struct CameraUIViewRepresentable: UIViewRepresentable {
-    @Binding var feedbackMessage: String?
-    @Binding var feedbackIcon: String?
     @Binding var showFeedback: Bool
     @Binding var detectedFaceBoundingBox: CGRect?
     @Binding var faceDetectionConfidence: CGFloat
@@ -656,8 +650,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 DispatchQueue.main.async {
                     self.parent.detectedFaceBoundingBox = nil
                     self.parent.faceDetectionConfidence = 0.0
-                    self.parent.feedbackMessage = nil
-                    self.parent.feedbackIcon = nil
                     self.parent.showFeedback = false
                 }
             }
@@ -737,8 +729,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                             self.evaluateComposition(observation: human, pixelBuffer: pixelBuffer)
                         } else {
                             // No subject detected
-                            self.parent.feedbackMessage = nil
-                            self.parent.feedbackIcon = nil
                             self.parent.showFeedback = false
                             self.parent.detectedFaceBoundingBox = nil
                             self.parent.faceDetectionConfidence = 0.0
@@ -813,8 +803,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             guard parent.compositionManager.isEnabled else { 
                 // Clear feedback when analysis is disabled
                 DispatchQueue.main.async {
-                    self.parent.feedbackMessage = nil
-                    self.parent.feedbackIcon = nil
                     self.parent.showFeedback = false
                 }
                 return 
@@ -825,16 +813,15 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             let frameSize = previewLayer.frame.size
             
             // Use the composition manager to evaluate the current composition
-            let result = parent.compositionManager.evaluate(
+            // Result is stored in compositionManager.lastResult with feedback model
+            _ = parent.compositionManager.evaluate(
                 observation: observation,
                 frameSize: frameSize,
                 pixelBuffer: pixelBuffer
             )
             
-            // Update UI with the composition result
+            // Update UI to show feedback (data comes from compositionManager.lastResult)
             withAnimation(.bouncy) {
-                parent.feedbackMessage = result.feedbackMessage
-                parent.feedbackIcon = result.feedbackIcon
                 parent.showFeedback = true
             }
         }
