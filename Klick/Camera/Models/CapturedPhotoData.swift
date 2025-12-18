@@ -16,11 +16,21 @@ struct CapturedPhotoData: Identifiable {
     let processedImage: UIImage
     let rawImage: UIImage?
     let cameraQuality: CameraQuality
+    let compositionType: String
+    let compositionDescription: String
     
-    init(processedImage: UIImage, rawImage: UIImage?, cameraQuality: CameraQuality) {
+    init(
+        processedImage: UIImage,
+        rawImage: UIImage?,
+        cameraQuality: CameraQuality,
+        compositionType: String = "Rule of Thirds",
+        compositionDescription: String = "You positioned your subject perfectly, creating a balanced composition."
+    ) {
         self.processedImage = processedImage
         self.rawImage = rawImage
         self.cameraQuality = cameraQuality
-        print("✅ CapturedPhotoData created - Processed: ✓, RAW: \(rawImage != nil ? "✓" : "✗"), Quality: \(cameraQuality)")
+        self.compositionType = compositionType
+        self.compositionDescription = compositionDescription
+        print("✅ CapturedPhotoData created - Processed: ✓, RAW: \(rawImage != nil ? "✓" : "✗"), Quality: \(cameraQuality), Composition: \(compositionType)")
     }
 }

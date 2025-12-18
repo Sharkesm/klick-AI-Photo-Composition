@@ -12,7 +12,7 @@ struct ImagePreviewView: View {
     @Binding var isProcessing: Bool
     @ObservedObject var featureManager: FeatureManager
     
-    let onSave: () -> Void
+    let onSave: (UIImage) -> Void // Callback with saved image for share screen
     let onDiscard: () -> Void
     let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
 
@@ -51,6 +51,15 @@ struct ImagePreviewView: View {
     
     @State private var showUpgradePrompt: Bool = false
     @State private var upgradeContext: FeatureManager.UpgradeContext = .backgroundBlur
+    
+    // Save indicator state
+    @State private var showSaveIndicator = false
+    @State private var saveIndicatorStatus: SaveIndicatorStatus = .saving
+    
+    enum SaveIndicatorStatus {
+        case saving
+        case saved
+    }
     
     // Computed property for determining the base image to use for processing
     private var baseImage: UIImage? {
@@ -369,15 +378,39 @@ struct ImagePreviewView: View {
                             
                             // Save button
                             Button(action: onSaveChanges) {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.black)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 30, height: 30)
-                                    .padding(8)
-                                    .background(.yellow)
-                                    .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                                ZStack {
+                                    // Default checkmark icon (always present as base layer)
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.black)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .opacity(showSaveIndicator ? 0 : 1)
+                                    
+                                    // Saving spinner
+                                    if saveIndicatorStatus == .saving {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                            .scaleEffect(0.8)
+                                            .opacity(showSaveIndicator ? 1 : 0)
+                                    }
+                                    
+                                    // Saved checkmark (filled circle)
+                                    if saveIndicatorStatus == .saved {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.black)
+                                            .font(.system(size: 22, weight: .medium))
+                                            .opacity(showSaveIndicator ? 1 : 0)
+                                            .scaleEffect(showSaveIndicator ? 1 : 0.5)
+                                    }
+                                }
+                                .frame(width: 30, height: 30)
+                                .padding(8)
+                                .background(.yellow)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSaveIndicator)
+                                .animation(.easeInOut(duration: 0.3), value: saveIndicatorStatus)
                             }
+                            .disabled(showSaveIndicator) // Disable button while saving
                             
                             Spacer()
                         }
@@ -761,6 +794,14 @@ struct ImagePreviewView: View {
         guard let currentBaseImage = baseImage else { return }
 
         isProcessing = true
+        
+        // Show save indicator with delay for visibility
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                showSaveIndicator = true
+                saveIndicatorStatus = .saving
+            }
+        }
 
         DispatchQueue.global(qos: .userInitiated).async {
             // MEMORY OPTIMIZATION: Use autoreleasepool to immediately release intermediate images
@@ -792,14 +833,50 @@ struct ImagePreviewView: View {
                 
                 // Export the final processed image (no watermark)
                 let exportData = FilterManager.shared.exportImage(finalImage, withWatermark: false)
+                
+                // Create compressed version for share screen
+                let maxDimension: CGFloat = 1200
+                let scale: CGFloat
+                if finalImage.size.width > finalImage.size.height {
+                    scale = maxDimension / finalImage.size.width
+                } else {
+                    scale = maxDimension / finalImage.size.height
+                }
+                
+                let newSize = CGSize(
+                    width: finalImage.size.width * scale,
+                    height: finalImage.size.height * scale
+                )
+                let compressedImage = finalImage.resized(to: newSize) ?? finalImage
 
                 DispatchQueue.main.async {
                     self.isProcessing = false
                     if exportData != nil {
+                        // Update save indicator to "Saved"
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            self.saveIndicatorStatus = .saved
+                        }
+                        
+                        // Hide indicator after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                self.showSaveIndicator = false
+                            }
+                            
+                            // Reset status for next time
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                self.saveIndicatorStatus = .saving
+                            }
+                        }
+                        
                         // MEMORY OPTIMIZATION: Clear all caches after successful save
                         BackgroundBlurManager.shared.endEditingSession(clearAll: true)
                         FilterManager.shared.clearEditingCache()
-                        self.onSave()
+                        
+                        // Call onSave with compressed image after indicator shows "Saved"
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                            self.onSave(compressedImage)
+                        }
                     }
                 }
             }
@@ -936,7 +1013,7 @@ extension UIImage {
         cameraQuality: .standard,
         isProcessing: .constant(false),
         featureManager: .init(),
-        onSave: {},
+        onSave: {_ in },
         onDiscard: {},
         onShowSalesPage: nil
     )

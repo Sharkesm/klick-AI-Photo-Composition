@@ -49,6 +49,7 @@ struct EnhancedCompositionResult {
     let overlayElements: [OverlayElement] // Visual guidance elements
     let feedbackIcon: String // SF Symbol for feedback UI
     let feedback: CompositionFeedback // Structured feedback model
+    let achievementContext: String // Rich description for share screen (level-specific)
     
     // Legacy compatibility
     var isWellComposed: Bool {
@@ -329,6 +330,7 @@ class CenterFramingService: CompositionService {
         
         // Create structured feedback model
         let feedback = getCenterFramingFeedback(for: suggestion, status: status, icon: icon)
+        let achievementContext = getCenterFramingAchievementContext(for: suggestion)
         
         return EnhancedCompositionResult(
             composition: CompositionType.centerFraming.rawValue,
@@ -338,7 +340,8 @@ class CenterFramingService: CompositionService {
             context: context,
             overlayElements: overlayElements,
             feedbackIcon: icon,
-            feedback: feedback
+            feedback: feedback,
+            achievementContext: achievementContext
         )
     }
     
@@ -533,6 +536,24 @@ class CenterFramingService: CompositionService {
         )
     }
     
+    /// Get achievement context for Center Framing (share screen)
+    private func getCenterFramingAchievementContext(for suggestion: String) -> String {
+        switch suggestion {
+        case "Perfect!":
+            return "Boom! Perfectly centered 🎯 Your subject is right where it should be, and it totally works."
+        case "Nice center!":
+            return "Nice one! Your subject is sitting confidently in the middle. Simple, bold, and effective."
+        case "Almost there":
+            return "So close! A tiny shift and this would be perfectly centered. You're getting it!"
+        case let str where str.starts(with: "Go "), let str where str.starts(with: "Shift "):
+            return "Good eye! You found a great subject—just nudge it a bit closer to the center next time."
+        case "Step back", "Get closer":
+            return "Nice catch! The distance was a little off, but you're clearly spotting the right moments."
+        default:
+            return "Nice shot! Every photo helps train your framing instincts. Keep going—you're learning fast."
+        }
+    }
+    
     // Optimized symmetry calculation for real-time performance
     private func calculateSymmetryScore(pixelBuffer: CVPixelBuffer) -> Double {
         // Ultra-fast symmetry using 64x64 downsampling for <50ms performance
@@ -677,6 +698,7 @@ class SymmetryService: CompositionService {
         
         // Create structured feedback model
         let feedback = getSymmetryFeedback(for: suggestion, status: status, icon: icon)
+        let achievementContext = getSymmetryAchievementContext(for: suggestion)
         
         return EnhancedCompositionResult(
             composition: CompositionType.symmetry.rawValue,
@@ -686,7 +708,8 @@ class SymmetryService: CompositionService {
             context: context,
             overlayElements: overlayElements,
             feedbackIcon: icon,
-            feedback: feedback
+            feedback: feedback,
+            achievementContext: achievementContext
         )
     }
     
@@ -923,6 +946,26 @@ class SymmetryService: CompositionService {
             color: color
         )
     }
+    
+    /// Get achievement context for Symmetry (share screen)
+    private func getSymmetryAchievementContext(for suggestion: String) -> String {
+        switch suggestion {
+        case "So balanced!":
+            return "Ooo, satisfying 😌 The symmetry here is spot-on and super pleasing to look at."
+        case "Well balanced":
+            return "Looking good! The frame feels steady and centered. Your balance game is strong."
+        case "Good balance":
+            return "Nice! You're seeing the symmetry. One small tweak and this would be perfect."
+        case let str where str.starts(with: "Shift "):
+            return "Good instinct! You spotted a symmetrical scene—just a tiny shift would lock it in."
+        case "Find center":
+            return "You're on the right track! Symmetry takes practice, and you're learning to see it."
+        case "Step back":
+            return "Nice shot! A bit more space would help, but your sense of balance is growing."
+        default:
+            return "Nice capture! Every try sharpens your eye for balance. Keep experimenting!"
+        }
+    }
 }
 
 // MARK: - JSON Conversion Extension
@@ -1011,6 +1054,7 @@ class RuleOfThirdsService: CompositionService {
         
         // Create structured feedback model
         let feedback = getRuleOfThirdsFeedback(for: suggestion, status: status, icon: icon)
+        let achievementContext = getRuleOfThirdsAchievementContext(for: suggestion)
         
         return EnhancedCompositionResult(
             composition: CompositionType.ruleOfThirds.rawValue,
@@ -1020,7 +1064,8 @@ class RuleOfThirdsService: CompositionService {
             context: context,
             overlayElements: overlayElements,
             feedbackIcon: icon,
-            feedback: feedback
+            feedback: feedback,
+            achievementContext: achievementContext
         )
     }
     
@@ -1238,6 +1283,24 @@ class RuleOfThirdsService: CompositionService {
             compositionLevel: level,
             color: color
         )
+    }
+    
+    /// Get achievement context for Rule of Thirds (share screen)
+    private func getRuleOfThirdsAchievementContext(for suggestion: String) -> String {
+        switch suggestion {
+        case "Nailed it!":
+            return "Nailed it! 🙌 Your subject sits right on the sweet spot. This frame feels balanced and natural."
+        case "Looking good!":
+            return "Looking good! You placed your subject nicely along the grid—easy on the eyes."
+        case "Almost there":
+            return "Almost! You've got the idea—just a little tweak and it'll really shine."
+        case let str where str.starts(with: "Go "):
+            return "Nice try! You caught the moment. A small move would make this even stronger."
+        case "Step back", "Get closer":
+            return "Good shot! The distance wasn't perfect, but you're choosing interesting subjects."
+        default:
+            return "You took the shot! Every photo helps you get better—keep playing with the frame."
+        }
     }
     
     private func calculateRuleOfThirdsScore(centerX: Double, centerY: Double) -> Double {

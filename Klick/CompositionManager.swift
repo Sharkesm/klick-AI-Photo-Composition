@@ -56,7 +56,7 @@ class CompositionManager: ObservableObject {
                 context: context,
                 overlayElements: [],
                 feedbackIcon: "pause.circle",
-                feedback: disabledFeedback
+                feedback: disabledFeedback, achievementContext: "Mhhh, curious how your composition scored? Enable live feedback to find out next time."
             )
         }
         

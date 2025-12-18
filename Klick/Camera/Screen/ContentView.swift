@@ -52,6 +52,9 @@ struct ContentView: View {
     @State private var capturedPhotoData: CapturedPhotoData?
     @State private var isProcessingImage = false
     
+    // Composition Share Screen - Using item-based presentation
+    @State private var shareScreenData: ShareScreenData?
+    
     // Upgrade prompts
     @State private var showUpgradePrompt = false
     @State private var upgradeContext: FeatureManager.UpgradeContext = .photoLimit
@@ -111,10 +114,17 @@ struct ContentView: View {
                                 onPhotoCaptured: { processedImage, rawImage, imageData in
                                     // Create captured photo data struct
                                     // Item-based presentation guarantees fresh state (fixes first-capture-empty bug)
+                                    
+                                    // Get composition data from manager
+                                    let compositionType = compositionManager.currentCompositionType.displayName
+                                    let compositionDescription = compositionManager.lastResult?.achievementContext ?? "You positioned your subject perfectly, creating a balanced composition."
+                                    
                                     let photoData = CapturedPhotoData(
                                         processedImage: processedImage,
                                         rawImage: rawImage,
-                                        cameraQuality: selectedCameraQuality
+                                        cameraQuality: selectedCameraQuality,
+                                        compositionType: compositionType,
+                                        compositionDescription: compositionDescription
                                     )
                                     
                                     // Setting this triggers the fullScreenCover(item:) presentation
@@ -371,11 +381,11 @@ struct ContentView: View {
                 cameraQuality: photoData.cameraQuality,
                 isProcessing: $isProcessingImage,
                 featureManager: featureManager,
-                onSave: {
+                onSave: { savedImage in
                     // Save the processed image (with any filters/blur applied in preview)
-                    let compositionType = compositionManager.currentCompositionType.displayName
+                    let compositionType = photoData.compositionType
                     let compositionScore = compositionManager.lastResult?.score ?? 0.7
-                    photoManager.savePhoto(photoData.processedImage, compositionType: compositionType, compositionScore: compositionScore)
+                    photoManager.savePhoto(savedImage, compositionType: compositionType, compositionScore: compositionScore)
                     print("📸 Processed photo saved with metadata")
                     
                     // Show photo album glimpse
@@ -399,6 +409,18 @@ struct ContentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         capturedPhotoData = nil
                     }
+                    
+                    // Prepare share screen data with compressed image
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        let shareData = ShareScreenData(
+                            photo: savedImage,
+                            compositionTechnique: photoData.compositionType,
+                            techniqueDescription: photoData.compositionDescription
+                        )
+                        
+                        // Show composition share screen (item-based presentation)
+                        shareScreenData = shareData
+                    }
                 },
                 onDiscard: {
                     // MEMORY OPTIMIZATION: Clear all caches when discarding
@@ -415,6 +437,13 @@ struct ContentView: View {
                         showSalesPage = true
                     }
                 }
+            )
+        }
+        .fullScreenCover(item: $shareScreenData) { shareData in
+            CompositionShareView(
+                photo: shareData.photo,
+                compositionTechnique: shareData.compositionTechnique,
+                techniqueDescription: shareData.techniqueDescription
             )
         }
         .onAppear {

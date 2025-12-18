@@ -38,6 +38,12 @@ struct CompositionShareView: View {
     @State private var showDescription = false
     @State private var showButton = false
     
+    // Animated gradient rotation for hero card border
+    @State private var gradientRotation: Double = 0
+    
+    // Animated glow intensity for smooth shimmer
+    @State private var glowIntensity: Double = 0.3
+    
     // MARK: - Body
     
     var body: some View {
@@ -45,50 +51,26 @@ struct CompositionShareView: View {
         // meshGradientBackground
         
         VStack(spacing: 20) {
-            // Header with close button
-            HStack {
-                Spacer()
-                
-                Button(action: {
-                    dismiss()
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.1))
-                        )
-                }
-            }
-            .overlay(alignment: .center) {
-                HStack {
-                    Spacer()
-                    Image(.appLogo)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 32, height: 32)
-                        .cornerRadius(6)
-                    Spacer()
-                }
-            }
-            .opacity(showHeader ? 1 : 0)
-            .offset(y: showHeader ? 0 : -10)
-            
-            Spacer()
-            
             // Content
             VStack(spacing: 32) {
                 // Title
                 VStack(spacing: 12) {
-                    VStack {
-                        Text("Your shot deserves")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                        Text("to be seen")
-                            .font(.system(size: 28, weight: .medium, design: .rounded))
-                            .foregroundColor(.white)
+                    VStack(spacing: 15) {
+                        Image(.appLogo)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 32, height: 32)
+                            .cornerRadius(6)
+                            .shadow(color: .white.opacity(0.3), radius: 8, x: -1, y: -1)
+                        
+                        VStack {
+                            Text("Your shot deserves")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                            Text("to be seen")
+                                .font(.system(size: 28, weight: .medium, design: .rounded))
+                                .foregroundColor(.white)
+                        }
                     }
                     .opacity(showTitle ? 1 : 0)
                     .offset(y: showTitle ? 0 : 15)
@@ -100,8 +82,8 @@ struct CompositionShareView: View {
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 65, height: 30)
                         
-                        Text("Be among **1,300+** photographers who share their best shots")
-                            .font(.system(size: 14, weight: .regular))
+                        Text("Be among **300+** photographers who share their best shots")
+                            .font(.system(size: 12, weight: .regular))
                             .foregroundColor(.white.opacity(0.9))
                             .multilineTextAlignment(.center)
                             .lineSpacing(4)
@@ -197,6 +179,29 @@ struct CompositionShareView: View {
                 }
             }
         }
+        .overlay(alignment: .top) {
+            // Header with close button
+            HStack {
+                Spacer()
+                
+                Button(action: {
+                    dismiss()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.1))
+                        )
+                }
+            }
+            .padding(.top, 32)
+            .padding(.horizontal, 24)
+            .opacity(showHeader ? 1 : 0)
+            .offset(y: showHeader ? 0 : -10)
+        }
     }
     
     
@@ -263,30 +268,82 @@ struct CompositionShareView: View {
     }
     
     private var photoCard: some View {
-        Image(uiImage: photo)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 240, height: 320)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 2)
-            )
-            .shadow(color: .black.opacity(0.3), radius: 30, x: 0, y: 15)
-            .overlay(alignment: .bottom) {
-                HStack {
-                    Spacer()
-                    Text("Rule of Third")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.black)
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 8)
-                        .background(Color.yellow)
-                        .clipShape(Capsule())
-                    Spacer()
+        ZStack {
+            // Animated gradient border layer
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    AngularGradient(
+                        gradient: Gradient(colors: [
+                            Color(red: 245/255, green: 176/255, blue: 2/255),  // Golden yellow
+                            Color.orange,                                        // Orange
+                            Color(red: 255/255, green: 220/255, blue: 100/255), // Light gold
+                            Color.white,                                         // White
+                            Color(red: 255/255, green: 140/255, blue: 0/255),   // Dark orange
+                            Color(red: 245/255, green: 176/255, blue: 2/255)    // Back to golden
+                        ]),
+                        center: .center,
+                        startAngle: .degrees(gradientRotation),
+                        endAngle: .degrees(gradientRotation + 360)
+                    )
+                )
+                .frame(width: 244, height: 324) // 2pt larger on each side for border
+                .blur(radius: 2) // Slight blur for softer glow
+                .shadow(
+                    color: Color(red: 245/255, green: 176/255, blue: 2/255).opacity(glowIntensity),
+                    radius: 10,
+                    x: 0,
+                    y: 0
+                )
+                .shadow(
+                    color: Color.orange.opacity(glowIntensity * 0.5),
+                    radius: 20,
+                    x: 0,
+                    y: 0
+                )
+            
+            // Photo with inner border
+            Image(uiImage: photo)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 240, height: 320)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.black.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.3), radius: 30, x: 0, y: 15)
+                .overlay(alignment: .bottom) {
+                    HStack {
+                        Spacer()
+                        Text(compositionTechnique)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.black)
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(Color.yellow)
+                            .clipShape(Capsule())
+                        Spacer()
+                    }
+                    .padding(.bottom, 10)
                 }
-                .padding(.bottom, 10)
+        }
+        .onAppear {
+            // Start infinite rotation animation when photo appears
+            withAnimation(
+                .linear(duration: 4)
+                .repeatForever(autoreverses: false)
+            ) {
+                gradientRotation = 360
             }
+            
+            // Start smooth glow pulse animation
+            withAnimation(
+                .easeInOut(duration: 2.5)
+                .repeatForever(autoreverses: true)
+            ) {
+                glowIntensity = 0.6
+            }
+        }
     }
     
     private var compositionBadge: some View {
