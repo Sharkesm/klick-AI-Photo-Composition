@@ -192,6 +192,11 @@ struct LandingPageView: View {
     private func startTransition() {
         isTransitioning = true
         
+        // Track onboarding flow started
+        Task {
+            await EventTrackingManager.shared.trackOnboardingFlowStarted(source: "landing_page")
+        }
+        
         // Simple fade out animation
         withAnimation(.easeOut(duration: 0.5)) {
             showRows = false

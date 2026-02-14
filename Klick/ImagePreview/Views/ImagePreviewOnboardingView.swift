@@ -34,6 +34,14 @@ struct ImagePreviewOnboardingView: View {
         .scaleEffect(scaleAnimation ? 1.0 : 0.8)
         .opacity(isVisible ? 1.0 : 0.0)
         .onAppear {
+            // Track image preview intro viewed
+            Task {
+                await EventTrackingManager.shared.trackOnboardingGuideViewed(
+                    guideType: .imagePreview,
+                    trigger: "first_filter"
+                )
+            }
+            
             startAnimations()
             
             // Auto-dismiss after 4 seconds

@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @State private var showContent = false
     @State private var animateFeatures = false
+    @State private var viewStartTime: Date = Date()
     
     // Feature data matching the provided copy
     private let features = [
@@ -99,6 +100,16 @@ struct OnboardingView: View {
             }
         }
         .onAppear {
+            viewStartTime = Date()
+            
+            // Track guide viewed
+            Task {
+                await EventTrackingManager.shared.trackOnboardingGuideViewed(
+                    guideType: .introduction,
+                    trigger: "auto"
+                )
+            }
+            
             startAnimation()
         }
     }
@@ -133,6 +144,15 @@ struct OnboardingView: View {
             Spacer()
             
             Button(action: {
+                // Track guide dismissed
+                let timeSpent = Date().timeIntervalSince(viewStartTime)
+                Task {
+                    await EventTrackingManager.shared.trackOnboardingGuideDismissed(
+                        guideType: .introduction,
+                        timeSpent: timeSpent
+                    )
+                }
+                
                 withAnimation(.easeInOut(duration: 0.3)) {
                     isPresented = false
                 }
@@ -185,6 +205,15 @@ struct OnboardingView: View {
     
     private var getStartedButton: some View {
         Button(action: {
+            // Track guide dismissed
+            let timeSpent = Date().timeIntervalSince(viewStartTime)
+            Task {
+                await EventTrackingManager.shared.trackOnboardingGuideDismissed(
+                    guideType: .introduction,
+                    timeSpent: timeSpent
+                )
+            }
+            
             withAnimation(.easeInOut(duration: 0.3)) {
                 isPresented = false
             }

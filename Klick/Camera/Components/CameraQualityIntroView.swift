@@ -122,6 +122,14 @@ struct CameraQualityIntroView: View {
                 hasShowedCameraQualityIntro = true
                 print("✅ Camera Quality intro marked as shown")
             }
+            
+            // Track camera quality intro viewed
+            Task {
+                await EventTrackingManager.shared.trackOnboardingGuideViewed(
+                    guideType: .cameraQuality,
+                    trigger: "first_use"
+                )
+            }
         }
     }
 }

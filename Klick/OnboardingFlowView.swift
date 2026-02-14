@@ -16,6 +16,14 @@ struct OnboardingFlowView: View {
     @AppStorage("hasSeenProUpsell") private var hasSeenProUpsell: Bool = false
     @AppStorage("userCreativeGoal") private var userCreativeGoal: String = ""
     
+    // Event tracking state
+    @State private var flowStartTime: Date = Date()
+    @State private var screenStartTime: Date = Date()
+    @State private var screensViewed: Set<Int> = []
+    @State private var skippedCount: Int = 0
+    @State private var cameFromSkip: Bool = false
+    @State private var previousGoalSelection: String = ""
+    
     enum NavigationDirection {
         case forward
         case backward
@@ -88,17 +96,28 @@ struct OnboardingFlowView: View {
                 .frame(maxHeight: .infinity)
             }
         }
+        .onAppear {
+            flowStartTime = Date()
+            trackScreenView()
+        }
+        .onChange(of: currentScreen) { _ in
+            trackScreenView()
+        }
     }
     
     // MARK: - Navigation Actions
     
     private func moveToNext() {
+        // Track screen completion
+        trackScreenCompletion()
+        
         guard let nextScreen = OnboardingScreen(rawValue: currentScreen.rawValue + 1) else {
             handleComplete()
             return
         }
         
         navigationDirection = .forward
+        cameFromSkip = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             currentScreen = nextScreen
         }
@@ -109,13 +128,33 @@ struct OnboardingFlowView: View {
             return
         }
         
+        // Track back navigation
+        Task {
+            await EventTrackingManager.shared.trackOnboardingScreenBack(
+                fromScreen: currentScreen.rawValue,
+                toScreen: previousScreen.rawValue
+            )
+        }
+        
         navigationDirection = .backward
+        cameFromSkip = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             currentScreen = previousScreen
         }
     }
     
     private func handleSkip() {
+        // Track skip event
+        Task {
+            await EventTrackingManager.shared.trackOnboardingScreenSkipped(
+                fromScreen: mapToEventScreen(currentScreen),
+                fromScreenNumber: currentScreen.rawValue
+            )
+        }
+        
+        skippedCount += 1
+        cameFromSkip = true
+        
         // Skip takes user directly to Pro Upsell screen
         navigationDirection = .forward
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -134,14 +173,93 @@ struct OnboardingFlowView: View {
     }
     
     private func handleProUpgrade() {
-        // TODO: Handle Pro upgrade flow
+        // Track Pro upgrade tapped
+        let timeOnScreen = Date().timeIntervalSince(screenStartTime)
+        Task {
+            await EventTrackingManager.shared.trackOnboardingProUpsellUpgradeTapped(timeOnScreen: timeOnScreen)
+        }
+        
         hasSeenProUpsell = true
         moveToNext()
     }
     
     private func handleComplete() {
+        // Track goal confirmation
+        if let goal = UserCreativeGoal(rawValue: userCreativeGoal) {
+            let timeOnScreen = Date().timeIntervalSince(screenStartTime)
+            Task {
+                await EventTrackingManager.shared.trackOnboardingGoalConfirmed(
+                    goal: goal,
+                    timeSpent: timeOnScreen
+                )
+                
+                // Track flow completion
+                let totalTime = Date().timeIntervalSince(flowStartTime)
+                await EventTrackingManager.shared.trackOnboardingFlowCompleted(
+                    timeSpent: totalTime,
+                    screensViewed: screensViewed.count,
+                    skippedCount: skippedCount
+                )
+            }
+        }
+        
         withAnimation(.easeInOut(duration: 0.3)) {
             isPresented = false
+        }
+    }
+    
+    // MARK: - Event Tracking Helpers
+    
+    private func trackScreenView() {
+        screenStartTime = Date()
+        screensViewed.insert(currentScreen.rawValue)
+        
+        Task {
+            await EventTrackingManager.shared.trackOnboardingScreenViewed(
+                screen: mapToEventScreen(currentScreen),
+                screenNumber: currentScreen.rawValue
+            )
+            
+            // Track Pro upsell viewed
+            if currentScreen == .proUpsell {
+                await EventTrackingManager.shared.trackOnboardingProUpsellViewed(cameFromSkip: cameFromSkip)
+            }
+        }
+    }
+    
+    private func trackScreenCompletion() {
+        let timeOnScreen = Date().timeIntervalSince(screenStartTime)
+        
+        Task {
+            await EventTrackingManager.shared.trackOnboardingScreenCompleted(
+                screen: mapToEventScreen(currentScreen),
+                screenNumber: currentScreen.rawValue,
+                timeOnScreen: timeOnScreen
+            )
+            
+            // Track Pro upsell skipped (Maybe later button)
+            if currentScreen == .proUpsell {
+                await EventTrackingManager.shared.trackOnboardingProUpsellSkipped(timeOnScreen: timeOnScreen)
+            }
+        }
+    }
+    
+    private func mapToEventScreen(_ screen: OnboardingScreen) -> Klick.OnboardingScreen {
+        switch screen {
+        case .welcome:
+            return .welcome
+        case .composition:
+            return .composition
+        case .posing:
+            return .posing
+        case .editing:
+            return .editing
+        case .achievement:
+            return .achievement
+        case .proUpsell:
+            return .proUpsell
+        case .personalization:
+            return .personalization
         }
     }
 }
@@ -886,6 +1004,7 @@ struct OnboardingScreen7_Personalization: View {
     @State private var showOption3 = false
     @State private var showOption4 = false
     @State private var localSelection: String = "" // Local state, not persisted
+    @State private var previousSelection: String = "" // Track selection changes
     
     // Creative goals with subtexts
     private let goals = [
@@ -932,6 +1051,7 @@ struct OnboardingScreen7_Personalization: View {
                     isVisible: showOption1,
                     action: {
                         HapticFeedback.selection.generate()
+                        trackGoalSelection(goals[0].id)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             localSelection = goals[0].id
                         }
@@ -947,6 +1067,7 @@ struct OnboardingScreen7_Personalization: View {
                     isVisible: showOption2,
                     action: {
                         HapticFeedback.selection.generate()
+                        trackGoalSelection(goals[1].id)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             localSelection = goals[1].id
                         }
@@ -962,6 +1083,7 @@ struct OnboardingScreen7_Personalization: View {
                     isVisible: showOption3,
                     action: {
                         HapticFeedback.selection.generate()
+                        trackGoalSelection(goals[2].id)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             localSelection = goals[2].id
                         }
@@ -977,6 +1099,7 @@ struct OnboardingScreen7_Personalization: View {
                     isVisible: showOption4,
                     action: {
                         HapticFeedback.selection.generate()
+                        trackGoalSelection(goals[3].id)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             localSelection = goals[3].id
                         }
@@ -1040,6 +1163,22 @@ struct OnboardingScreen7_Personalization: View {
                     showOption4 = true
                 }
             }
+        }
+    }
+    
+    // MARK: - Tracking Helper
+    
+    private func trackGoalSelection(_ goalId: String) {
+        guard let goal = UserCreativeGoal(rawValue: goalId) else { return }
+        
+        let changedSelection = !previousSelection.isEmpty && previousSelection != goalId
+        previousSelection = goalId
+        
+        Task {
+            await EventTrackingManager.shared.trackOnboardingGoalSelected(
+                goal: goal,
+                changedSelection: changedSelection
+            )
         }
     }
 }

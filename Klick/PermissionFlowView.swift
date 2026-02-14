@@ -14,6 +14,7 @@ struct PermissionFlowView: View {
     
     @State private var showContent = false
     @State private var isRequesting = false
+    @State private var permissionRequestTime: Date?
     
     var body: some View {
         ZStack {
@@ -44,6 +45,13 @@ struct PermissionFlowView: View {
             }
         }
         .onAppear {
+            // Track permission screen viewed
+            Task {
+                await EventTrackingManager.shared.trackOnboardingPermissionViewed(
+                    permissionType: .camera
+                )
+            }
+            
             // Check if permission is already granted
             let status = AVCaptureDevice.authorizationStatus(for: .video)
             if status == .authorized {
@@ -60,6 +68,14 @@ struct PermissionFlowView: View {
     
     private func requestCameraPermission() {
         isRequesting = true
+        permissionRequestTime = Date()
+        
+        // Track permission requested
+        Task {
+            await EventTrackingManager.shared.trackOnboardingPermissionRequested(
+                permissionType: .camera
+            )
+        }
         
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         
@@ -67,6 +83,18 @@ struct PermissionFlowView: View {
         case .authorized:
             // Already authorized
             permissionGranted = true
+            
+            // Track granted
+            if let requestTime = permissionRequestTime {
+                let timeToGrant = Date().timeIntervalSince(requestTime)
+                Task {
+                    await EventTrackingManager.shared.trackOnboardingPermissionGranted(
+                        permissionType: .camera,
+                        timeToGrant: timeToGrant
+                    )
+                }
+            }
+            
             withAnimation(.easeInOut(duration: 0.3)) {
                 isPresented = false
             }
@@ -77,6 +105,23 @@ struct PermissionFlowView: View {
                 DispatchQueue.main.async {
                     self.permissionGranted = granted
                     self.isRequesting = false
+                    
+                    // Track result
+                    if let requestTime = self.permissionRequestTime {
+                        let timeToGrant = Date().timeIntervalSince(requestTime)
+                        Task {
+                            if granted {
+                                await EventTrackingManager.shared.trackOnboardingPermissionGranted(
+                                    permissionType: .camera,
+                                    timeToGrant: timeToGrant
+                                )
+                            } else {
+                                await EventTrackingManager.shared.trackOnboardingPermissionDenied(
+                                    permissionType: .camera
+                                )
+                            }
+                        }
+                    }
                     
                     if granted {
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -89,6 +134,14 @@ struct PermissionFlowView: View {
         case .denied, .restricted:
             // Permission denied - open settings
             isRequesting = false
+            
+            // Track settings opened
+            Task {
+                await EventTrackingManager.shared.trackOnboardingPermissionSettingsOpened(
+                    permissionType: .camera
+                )
+            }
+            
             if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(settingsUrl)
             }
