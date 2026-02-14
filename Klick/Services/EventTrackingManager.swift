@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import PostHog
 
 // MARK: - Event Tracking Manager
 
@@ -45,6 +46,11 @@ class EventTrackingManager {
     func unregister(serviceName: String) {
         services.removeAll { $0.name == serviceName }
         print("📊 EventTrackingManager: Unregistered \(serviceName)")
+    }
+    
+    /// Get list of registered service names
+    var registeredServices: [String] {
+        services.map { $0.name }
     }
     
     // MARK: - Event Tracking
@@ -136,25 +142,32 @@ class EventTrackingManager {
     
     // MARK: - Configuration
     
-    /// Configure the event tracking manager with default services
-    /// Call this during app initialization
+    /// Configure all available event tracking services
+    /// This method iterates through all available services and pre-configures them
+    /// Call this during app initialization (e.g., in KlickApp.swift init())
     /// 
     /// Example initialization in KlickApp.swift:
     /// ```swift
     /// init() {
-    ///     // Register tracking services
-    ///     EventTrackingManager.shared.register(FirebaseEventService())
-    ///     EventTrackingManager.shared.register(PostHogEventService())
-    ///     
-    ///     // Optional: Register console service for debugging
-    ///     #if DEBUG
-    ///     EventTrackingManager.shared.register(ConsoleEventService())
-    ///     #endif
+    ///     // Configure all event tracking services
+    ///     EventTrackingManager.configure()
     /// }
     /// ```
+    /// 
+    /// **Security Note**: Store API keys in Info.plist (not in code) or use environment variables.
+    /// Add Info.plist keys to .gitignore if they contain sensitive data.
+    /// 
+    /// Reference: https://posthog.com/docs/libraries/ios
     static func configure() {
-        // Services will be registered individually by the app
-        // This method exists for future configuration needs
-        print("📊 EventTrackingManager: Configured")
+        print("📊 EventTrackingManager: Starting configuration...")
+        
+        shared.register([PostHogEventService(), ConsoleEventService()])
+        
+        let serviceNames = shared.registeredServices.joined(separator: ", ")
+        print("""
+            ✅ EventTrackingManager: Configuration complete. 
+            - Registered \(shared.services.count)
+            - Service(s): \(serviceNames)
+        """)
     }
 }

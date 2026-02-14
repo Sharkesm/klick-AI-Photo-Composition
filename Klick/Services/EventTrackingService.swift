@@ -15,6 +15,9 @@ protocol EventTrackingService {
     /// The name of the tracking service (e.g., "Firebase", "PostHog")
     var name: String { get }
     
+    /// Configures the services with the API credentials
+    func setup()
+    
     /// Track an event with optional parameters
     /// - Parameters:
     ///   - eventName: Event name following Braze conventions (group_noun_action, lowercase, snake_case)

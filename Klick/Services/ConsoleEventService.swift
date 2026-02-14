@@ -8,12 +8,17 @@
 import Foundation
 
 /// Console/debug implementation of EventTrackingService
-/// Useful for development and debugging
+/// Useful for development and debugging - prints events to console instead of sending remotely
 class ConsoleEventService: EventTrackingService {
+    
     let name = "Console"
     
     /// Whether to print events to console (useful for debugging)
     var isEnabled: Bool = true
+    
+    func setup() {
+        // Do nothing
+    }
     
     func trackEvent(name eventName: String, parameters: [String: Any]? = nil) async {
         guard isEnabled else { return }
@@ -50,7 +55,6 @@ class ConsoleEventService: EventTrackingService {
     
     func reset() async {
         guard isEnabled else { return }
-        
         print("📊 [Reset] User data cleared")
     }
 }

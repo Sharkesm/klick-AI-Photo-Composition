@@ -6,70 +6,53 @@
 //
 
 import Foundation
-
-#if canImport(PostHog)
 import PostHog
 
-/// PostHog implementation of EventTrackingService
 class PostHogEventService: EventTrackingService {
     let name = "PostHog"
     
+    /// Initialize PostHog service
+    /// Note: PostHog must be configured separately before using this service
+    /// Use PostHogSDK.shared.setup(PostHogConfig(apiKey:host:)) in your app initialization
+    init() {
+        // PostHog should be configured separately via PostHogSDK.shared.setup()
+        // This allows API keys to be managed securely (e.g., from Info.plist or environment)
+    }
+    
+    func setup() {
+        // Get API key and host from Info.plist or use defaults
+        let apiKey = Bundle.main.object(forInfoDictionaryKey: "PostHogAPIKey") as? String ?? ""
+        let host = Bundle.main.object(forInfoDictionaryKey: "PostHogHost") as? String ?? "https://us.i.posthog.com"
+
+        // Configure PostHog SDK
+        let config = PostHogConfig(apiKey: apiKey, host: host)
+        PostHogSDK.shared.setup(config)
+    }
+    
     func trackEvent(name eventName: String, parameters: [String: Any]? = nil) async {
         await MainActor.run {
-            PostHog.shared.capture(eventName, properties: parameters)
+            PostHogSDK.shared.capture(eventName, properties: parameters)
         }
     }
     
     func setUserProperty(_ key: String, value: Any?) async {
-        await MainActor.run {
-            if let value = value {
-                PostHog.shared.identify(distinctId: nil, properties: [key: value])
-            } else {
-                // PostHog doesn't have direct unset, but we can set to nil
-                PostHog.shared.identify(distinctId: nil, properties: [key: NSNull()])
-            }
-        }
+        // Do nothing for now
     }
     
     func identify(userId: String?) async {
         await MainActor.run {
             if let userId = userId {
-                PostHog.shared.identify(distinctId: userId)
+                PostHogSDK.shared.identify(userId)
             } else {
                 // Reset to anonymous
-                PostHog.shared.reset()
+                PostHogSDK.shared.reset()
             }
         }
     }
     
     func reset() async {
         await MainActor.run {
-            PostHog.shared.reset()
+            PostHogSDK.shared.reset()
         }
     }
 }
-
-#else
-
-/// Placeholder implementation when PostHog is not available
-class PostHogEventService: EventTrackingService {
-    let name = "PostHog"
-    
-    func trackEvent(name eventName: String, parameters: [String: Any]? = nil) async {
-        print("⚠️ PostHogEventService: PostHog SDK not available. Event: \(eventName)")
-    }
-    
-    func setUserProperty(_ key: String, value: Any?) async {
-        print("⚠️ PostHogEventService: PostHog SDK not available. Property: \(key)")
-    }
-    
-    func identify(userId: String?) async {
-        print("⚠️ PostHogEventService: PostHog SDK not available. UserId: \(userId ?? "nil")")
-    }
-    
-    func reset() async {
-        print("⚠️ PostHogEventService: PostHog SDK not available. Reset called.")
-    }
-}
-
-#endif

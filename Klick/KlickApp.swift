@@ -14,6 +14,7 @@ struct KlickApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
+        EventTrackingManager.configure()
         PurchaseService.configure()
         
         Task {
