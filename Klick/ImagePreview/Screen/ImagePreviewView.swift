@@ -375,9 +375,11 @@ struct ImagePreviewView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 100))
                             .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                             
-                            
                             // Save button
-                            Button(action: onSaveChanges) {
+                            Button {
+                                HapticFeedback.selection.generate()
+                                onSaveChanges()
+                            } label: {
                                 ZStack {
                                     // Default checkmark icon (always present as base layer)
                                     Image(systemName: "checkmark")

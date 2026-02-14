@@ -1,0 +1,160 @@
+//
+//  EventTrackingManager.swift
+//  Klick
+//
+//  Created on 14/02/2026.
+//
+
+import Foundation
+
+// MARK: - Event Tracking Manager
+
+/// Orchestrator for multiple event tracking services
+/// Manages multiple platform implementations (Firebase, PostHog, etc.)
+/// Provides unified API while delegating to individual services
+class EventTrackingManager {
+    
+    /// Singleton instance
+    static let shared = EventTrackingManager()
+    
+    /// Registered tracking services
+    private var services: [EventTrackingService] = []
+    
+    /// Whether tracking is enabled (can be disabled for privacy/debugging)
+    var isEnabled: Bool = true
+    
+    private init() {}
+    
+    // MARK: - Service Registration
+    
+    /// Register a tracking service
+    /// - Parameter service: The tracking service to register
+    func register(_ service: EventTrackingService) {
+        services.append(service)
+        print("📊 EventTrackingManager: Registered \(service.name)")
+    }
+    
+    /// Register multiple tracking services
+    /// - Parameter services: Array of tracking services to register
+    func register(_ services: [EventTrackingService]) {
+        services.forEach { register($0) }
+    }
+    
+    /// Remove a tracking service
+    /// - Parameter serviceName: Name of the service to remove
+    func unregister(serviceName: String) {
+        services.removeAll { $0.name == serviceName }
+        print("📊 EventTrackingManager: Unregistered \(serviceName)")
+    }
+    
+    // MARK: - Event Tracking
+    
+    /// Track an event across all registered services
+    /// - Parameters:
+    ///   - eventName: Event name following Braze conventions (group_noun_action)
+    ///   - parameters: Optional event parameters/properties
+    /// 
+    /// Example usage:
+    /// ```swift
+    /// // Simple event
+    /// await EventTrackingManager.shared.track(eventName: "user_signup")
+    /// 
+    /// // Event with parameters
+    /// await EventTrackingManager.shared.track(
+    ///     eventName: "photo_captured",
+    ///     parameters: ["composition_type": "rule_of_thirds", "filter": "vintage"]
+    /// )
+    /// 
+    /// // Using Event model
+    /// let event = Event(group: "camera", noun: "photo", action: "captured", parameters: ["filter": "vintage"])
+    /// await EventTrackingManager.shared.track(event)
+    /// ```
+    func track(eventName: String, parameters: [String: Any]? = nil) async {
+        guard isEnabled else { return }
+        
+        await withTaskGroup(of: Void.self) { group in
+            for service in services {
+                group.addTask {
+                    await service.trackEvent(name: eventName, parameters: parameters)
+                }
+            }
+        }
+    }
+    
+    /// Track an event using the Event model
+    /// - Parameter event: Event to track
+    func track(_ event: Event) async {
+        await track(eventName: event.name, parameters: event.parameters)
+    }
+    
+    // MARK: - User Identification
+    
+    /// Identify a user across all registered services
+    /// - Parameter userId: Unique user identifier
+    func identify(userId: String?) async {
+        guard isEnabled else { return }
+        
+        await withTaskGroup(of: Void.self) { group in
+            for service in services {
+                group.addTask {
+                    await service.identify(userId: userId)
+                }
+            }
+        }
+    }
+    
+    // MARK: - User Properties
+    
+    /// Set a user property across all registered services
+    /// - Parameters:
+    ///   - key: Property key
+    ///   - value: Property value (String, Int, Double, Bool, or Date)
+    func setUserProperty(_ key: String, value: Any?) async {
+        guard isEnabled else { return }
+        
+        await withTaskGroup(of: Void.self) { group in
+            for service in services {
+                group.addTask {
+                    await service.setUserProperty(key, value: value)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Reset
+    
+    /// Reset/clear user data across all registered services
+    func reset() async {
+        await withTaskGroup(of: Void.self) { group in
+            for service in services {
+                group.addTask {
+                    await service.reset()
+                }
+            }
+        }
+    }
+    
+    // MARK: - Configuration
+    
+    /// Configure the event tracking manager with default services
+    /// Call this during app initialization
+    /// 
+    /// Example initialization in KlickApp.swift:
+    /// ```swift
+    /// init() {
+    ///     // Register tracking services
+    ///     EventTrackingManager.shared.register(FirebaseEventService())
+    ///     EventTrackingManager.shared.register(PostHogEventService())
+    ///     
+    ///     // Optional: Register console service for debugging
+    ///     #if DEBUG
+    ///     EventTrackingManager.shared.register(ConsoleEventService())
+    ///     #endif
+    /// }
+    /// ```
+    static func configure() {
+        // Services will be registered individually by the app
+        // This method exists for future configuration needs
+        print("📊 EventTrackingManager: Configured")
+    }
+}
