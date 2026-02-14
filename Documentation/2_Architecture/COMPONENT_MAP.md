@@ -594,6 +594,74 @@ ImagePreviewView
 
 ---
 
+## 📊 Event Tracking System
+
+### Event Tracking Architecture
+
+```
+Event Tracking System:
+EventTrackingManager.shared (Singleton)
+├── Service Registry
+│   ├── PostHogEventService (Production)
+│   └── ConsoleEventService (Development)
+├── Unified API
+│   ├── track()
+│   ├── identify()
+│   ├── setUserProperty()
+│   └── reset()
+└── Protocol-Oriented Design
+    └── EventTrackingService (Protocol)
+```
+
+**Files**:
+- `Klick/Services/EventTrackingManager.swift` - Orchestrator
+- `Klick/Services/EventTrackingService.swift` - Protocol definition
+- `Klick/Services/PostHogEventService.swift` - PostHog implementation
+- `Klick/Services/ConsoleEventService.swift` - Debug implementation
+- `Klick/Services/EventTrackingExtensions.swift` - Convenience helpers
+
+**Architecture**:
+```
+EventTrackingManager (Singleton)
+├── Service Registry: [EventTrackingService]
+├── Unified API (async/await)
+└── Configuration
+    └── configure() - Auto-configures all services
+```
+
+**Dependencies**:
+```
+EventTrackingManager
+└── EventTrackingService implementations
+    ├── PostHogEventService
+    │   └── PostHog SDK (optional)
+    └── ConsoleEventService
+```
+
+**Used By**:
+- App-wide event tracking (onboarding, photo capture, purchases, etc.)
+- All views can track events via `EventTrackingManager.shared`
+
+**Data Flow**:
+```
+Event Tracking Call
+    ↓
+EventTrackingManager.track()
+    ↓
+Iterate through registered services
+    ↓
+Service-specific implementation
+    ├── PostHogEventService → PostHogSDK.shared.capture()
+    └── ConsoleEventService → print()
+```
+
+**Configuration**:
+- Single `EventTrackingManager.configure()` call in `KlickApp.swift`
+- Automatically configures PostHog (if available) and Console (DEBUG only)
+- API keys stored in Info.plist for security
+
+---
+
 ## 🔄 State Flow Diagram
 
 ### Complete State Management Flow
