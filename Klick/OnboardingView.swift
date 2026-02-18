@@ -104,10 +104,7 @@ struct OnboardingView: View {
             
             // Track guide viewed
             Task {
-                await EventTrackingManager.shared.trackOnboardingGuideViewed(
-                    guideType: .introduction,
-                    trigger: "auto"
-                )
+                await EventTrackingManager.shared.trackOnboardingGuideViewed(guideType: .introduction)
             }
             
             startAnimation()

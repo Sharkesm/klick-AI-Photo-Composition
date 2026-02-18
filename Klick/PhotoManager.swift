@@ -48,7 +48,7 @@ class PhotoManager: ObservableObject {
     private let fullImageCache = NSCache<NSString, UIImage>()
     private let loadingQueue = DispatchQueue(label: "photo.loading", qos: .userInitiated, attributes: .concurrent)
     
-    private let photosDirectory: URL = {
+    let photosDirectory: URL = {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let photosDir = documentsPath.appendingPathComponent("CapturedPhotos")
         
@@ -860,3 +860,4 @@ struct CapturedPhoto: Identifiable, Equatable {
         return lhs.id == rhs.id
     }
 } 
+

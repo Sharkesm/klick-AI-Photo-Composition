@@ -161,7 +161,16 @@ class EventTrackingManager {
     static func configure() {
         print("📊 EventTrackingManager: Starting configuration...")
         
-        shared.register([PostHogEventService(), ConsoleEventService()])
+        // Create services
+        let postHogService = PostHogEventService()
+        let consoleService = ConsoleEventService()
+        
+        // Setup each service
+        postHogService.setup()
+        consoleService.setup()
+        
+        // Register services
+        shared.register([postHogService, consoleService])
         
         let serviceNames = shared.registeredServices.joined(separator: ", ")
         print("""

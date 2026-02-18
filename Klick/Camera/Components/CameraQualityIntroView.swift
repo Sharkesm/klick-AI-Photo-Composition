@@ -125,10 +125,7 @@ struct CameraQualityIntroView: View {
             
             // Track camera quality intro viewed
             Task {
-                await EventTrackingManager.shared.trackOnboardingGuideViewed(
-                    guideType: .cameraQuality,
-                    trigger: "first_use"
-                )
+                await EventTrackingManager.shared.trackOnboardingGuideViewed(guideType: .cameraQuality)
             }
         }
     }

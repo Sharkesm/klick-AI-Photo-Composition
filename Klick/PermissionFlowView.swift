@@ -88,10 +88,7 @@ struct PermissionFlowView: View {
             if let requestTime = permissionRequestTime {
                 let timeToGrant = Date().timeIntervalSince(requestTime)
                 Task {
-                    await EventTrackingManager.shared.trackOnboardingPermissionGranted(
-                        permissionType: .camera,
-                        timeToGrant: timeToGrant
-                    )
+                    await EventTrackingManager.shared.trackOnboardingPermissionGranted(permissionType: .camera)
                 }
             }
             
@@ -111,14 +108,9 @@ struct PermissionFlowView: View {
                         let timeToGrant = Date().timeIntervalSince(requestTime)
                         Task {
                             if granted {
-                                await EventTrackingManager.shared.trackOnboardingPermissionGranted(
-                                    permissionType: .camera,
-                                    timeToGrant: timeToGrant
-                                )
+                                await EventTrackingManager.shared.trackOnboardingPermissionGranted(permissionType: .camera)
                             } else {
-                                await EventTrackingManager.shared.trackOnboardingPermissionDenied(
-                                    permissionType: .camera
-                                )
+                                await EventTrackingManager.shared.trackOnboardingPermissionDenied(permissionType: .camera)
                             }
                         }
                     }

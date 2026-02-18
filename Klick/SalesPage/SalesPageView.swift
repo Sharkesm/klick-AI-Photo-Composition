@@ -73,7 +73,7 @@ public struct SalesPageView: View {
                 await EventTrackingManager.shared.trackPaywallViewed(
                     source: source,
                     offeringsCount: currentOffering?.availablePackages.count ?? 0,
-                    defaultPackage: selectedPackage.map { PackageType(from: $0.packageType) }
+                    defaultPackage: selectedPackage.map { PackageType(from: $0.packageType).rawValue }
                 )
             }
         }
@@ -389,7 +389,7 @@ extension SalesPageView {
             
             // Track restore failed
             await EventTrackingManager.shared.trackPaywallRestoreFailed(
-                error: "No active subscriptions found"
+                error: NSError(domain: "PaywallRestore", code: 1, userInfo: [NSLocalizedDescriptionKey: "No active subscriptions found"])
             )
             // TODO: Show alert to user
         } else {
@@ -397,7 +397,7 @@ extension SalesPageView {
             
             // Track restore failed
             await EventTrackingManager.shared.trackPaywallRestoreFailed(
-                error: "Restore interrupted"
+                error: NSError(domain: "PaywallRestore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restore interrupted"])
             )
             // TODO: Show error alert
         }
@@ -583,4 +583,5 @@ extension SubscriptionPeriod {
         return pluralized
     }
 }
+
 

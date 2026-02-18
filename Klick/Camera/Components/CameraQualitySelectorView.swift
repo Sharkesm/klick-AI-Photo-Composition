@@ -120,6 +120,16 @@ struct CameraQualitySelectorView: View {
                                 showQualityChange = true
                             }
                             
+                            // Track camera quality selected
+                            Task {
+                                let trackingQuality: CameraQuality = quality == .standard ? .standard : .pro
+                                let wasGated = quality == .pro && shouldBlockExpansion
+                                await EventTrackingManager.shared.trackCameraQualitySelected(
+                                    quality: trackingQuality,
+                                    wasGated: wasGated
+                                )
+                            }
+                            
                             // Collapse after selection with unified animation
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {

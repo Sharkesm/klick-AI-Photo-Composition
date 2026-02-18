@@ -130,10 +130,7 @@ struct OnboardingFlowView: View {
         
         // Track back navigation
         Task {
-            await EventTrackingManager.shared.trackOnboardingScreenBack(
-                fromScreen: currentScreen.rawValue,
-                toScreen: previousScreen.rawValue
-            )
+            await EventTrackingManager.shared.trackOnboardingScreenBack(fromScreen: mapToEventScreen(currentScreen))
         }
         
         navigationDirection = .backward
@@ -146,10 +143,7 @@ struct OnboardingFlowView: View {
     private func handleSkip() {
         // Track skip event
         Task {
-            await EventTrackingManager.shared.trackOnboardingScreenSkipped(
-                fromScreen: mapToEventScreen(currentScreen),
-                fromScreenNumber: currentScreen.rawValue
-            )
+            await EventTrackingManager.shared.trackOnboardingScreenSkipped(screen: mapToEventScreen(currentScreen))
         }
         
         skippedCount += 1
@@ -174,9 +168,8 @@ struct OnboardingFlowView: View {
     
     private func handleProUpgrade() {
         // Track Pro upgrade tapped
-        let timeOnScreen = Date().timeIntervalSince(screenStartTime)
         Task {
-            await EventTrackingManager.shared.trackOnboardingProUpsellUpgradeTapped(timeOnScreen: timeOnScreen)
+            await EventTrackingManager.shared.trackOnboardingProUpsellUpgradeTapped()
         }
         
         hasSeenProUpsell = true
@@ -188,18 +181,11 @@ struct OnboardingFlowView: View {
         if let goal = UserCreativeGoal(rawValue: userCreativeGoal) {
             let timeOnScreen = Date().timeIntervalSince(screenStartTime)
             Task {
-                await EventTrackingManager.shared.trackOnboardingGoalConfirmed(
-                    goal: goal,
-                    timeSpent: timeOnScreen
-                )
+                await EventTrackingManager.shared.trackOnboardingGoalConfirmed(goal: goal)
                 
                 // Track flow completion
                 let totalTime = Date().timeIntervalSince(flowStartTime)
-                await EventTrackingManager.shared.trackOnboardingFlowCompleted(
-                    timeSpent: totalTime,
-                    screensViewed: screensViewed.count,
-                    skippedCount: skippedCount
-                )
+                await EventTrackingManager.shared.trackOnboardingFlowCompleted(completedScreens: screensViewed.count, timeSpent: totalTime)
             }
         }
         
@@ -215,14 +201,11 @@ struct OnboardingFlowView: View {
         screensViewed.insert(currentScreen.rawValue)
         
         Task {
-            await EventTrackingManager.shared.trackOnboardingScreenViewed(
-                screen: mapToEventScreen(currentScreen),
-                screenNumber: currentScreen.rawValue
-            )
+            await EventTrackingManager.shared.trackOnboardingScreenViewed(screen: mapToEventScreen(currentScreen))
             
             // Track Pro upsell viewed
             if currentScreen == .proUpsell {
-                await EventTrackingManager.shared.trackOnboardingProUpsellViewed(cameFromSkip: cameFromSkip)
+                await EventTrackingManager.shared.trackOnboardingProUpsellViewed()
             }
         }
     }
@@ -231,15 +214,11 @@ struct OnboardingFlowView: View {
         let timeOnScreen = Date().timeIntervalSince(screenStartTime)
         
         Task {
-            await EventTrackingManager.shared.trackOnboardingScreenCompleted(
-                screen: mapToEventScreen(currentScreen),
-                screenNumber: currentScreen.rawValue,
-                timeOnScreen: timeOnScreen
-            )
+            await EventTrackingManager.shared.trackOnboardingScreenCompleted(screen: mapToEventScreen(currentScreen))
             
             // Track Pro upsell skipped (Maybe later button)
             if currentScreen == .proUpsell {
-                await EventTrackingManager.shared.trackOnboardingProUpsellSkipped(timeOnScreen: timeOnScreen)
+                await EventTrackingManager.shared.trackOnboardingProUpsellSkipped()
             }
         }
     }
@@ -1175,10 +1154,7 @@ struct OnboardingScreen7_Personalization: View {
         previousSelection = goalId
         
         Task {
-            await EventTrackingManager.shared.trackOnboardingGoalSelected(
-                goal: goal,
-                changedSelection: changedSelection
-            )
+            await EventTrackingManager.shared.trackOnboardingGoalSelected(goal: goal)
         }
     }
 }

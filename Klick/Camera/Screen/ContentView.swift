@@ -113,6 +113,30 @@ struct ContentView: View {
                                     }
                                 },
                                 onPhotoCaptured: { processedImage, rawImage, imageData in
+                                    // Track photo captured
+                                    Task {
+                                        let cameraQuality = selectedCameraQuality == .standard ? CameraQuality.standard : CameraQuality.pro
+                                        let flashMode: TrackingFlashMode = {
+                                            switch selectedFlashMode {
+                                            case .off: return .off
+                                            case .auto: return .auto
+                                            case .on: return .on
+                                            }
+                                        }()
+                                        let zoomLevel = TrackingZoomLevel(fromFactor: selectedZoomLevel.zoomFactor)
+                                        let facesDetected = detectedFaceBoundingBox != nil ? 1 : 0
+                                        let compositionScore = compositionManager.lastResult?.score
+                                        
+                                        await EventTrackingManager.shared.trackPhotoCaptured(
+                                            compositionType: compositionManager.currentCompositionType,
+                                            cameraQuality: cameraQuality,
+                                            flashMode: flashMode,
+                                            zoomLevel: zoomLevel,
+                                            facesDetected: facesDetected,
+                                            compositionScore: compositionScore
+                                        )
+                                    }
+                                    
                                     // Create captured photo data struct
                                     // Item-based presentation guarantees fresh state (fixes first-capture-empty bug)
                                     
@@ -297,6 +321,14 @@ struct ContentView: View {
                 }
             })
             .presentationDetents([.large])
+            .onAppear {
+                // Track photo album opened
+                Task {
+                    await EventTrackingManager.shared.trackCameraPhotoAlbumOpened(
+                        photoCount: photoManager.photoCount
+                    )
+                }
+            }
         })
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(isPresented: $showOnboarding)
@@ -318,6 +350,12 @@ struct ContentView: View {
             )
             .presentationDetents([.fraction(1.0)])
             .presentationDragIndicator(.hidden)
+            .onAppear {
+                // Track practice opened
+                Task {
+                    await EventTrackingManager.shared.trackCameraPracticeOpened(compositionType: compositionManager.currentCompositionType)
+                }
+            }
                 .onAppear {
                     // Pause camera session when sheet appears
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -353,6 +391,12 @@ struct ContentView: View {
                 }
             )
             .presentationDetents([.fraction(0.8), .large])
+            .onAppear {
+                // Track settings opened
+                Task {
+                    await EventTrackingManager.shared.trackCameraSettingsOpened()
+                }
+            }
         }
         .fullScreenCover(isPresented: $showSalesPage) {
             SalesPageView(source: paywallSource)
@@ -383,6 +427,7 @@ struct ContentView: View {
                 originalImage: photoData.processedImage,
                 rawImage: photoData.rawImage,
                 cameraQuality: photoData.cameraQuality,
+                compositionType: photoData.compositionType,
                 isProcessing: $isProcessingImage,
                 featureManager: featureManager,
                 onSave: { savedImage in
@@ -453,6 +498,13 @@ struct ContentView: View {
             )
         }
         .onAppear {
+            // Track camera screen viewed
+            Task {
+                await EventTrackingManager.shared.trackCameraScreenViewed(
+                    sessionId: UUID().uuidString
+                )
+            }
+            
             // Inject FeatureManager into PhotoManager
             photoManager.setFeatureManager(featureManager)
             
@@ -701,6 +753,16 @@ struct ContentView: View {
                     
                     // Selection haptic when composition actually changes
                     HapticFeedback.selection.generate()
+                    
+                    // Track composition swiped
+                    let direction = translation > 0 ? "right" : "left"
+                    Task {
+                        await EventTrackingManager.shared.trackCompositionSwiped(
+                            fromComposition: compositionManager.currentCompositionType,
+                            toComposition: newComposition,
+                            swipeDirection: direction
+                        )
+                    }
                     
                     self.compositionManager.switchToCompositionType(newComposition)
                 }

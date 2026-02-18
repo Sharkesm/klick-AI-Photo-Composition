@@ -18,6 +18,7 @@ struct PhotoDetailView: View {
     @State private var showSaveAlert = false
     @State private var saveAlertMessage = ""
     @State private var saveAlertIsSuccess = false
+    @State private var viewStartTime: Date?
     
     init(photo: CapturedPhoto, photoManager: PhotoManager, isPresented: Binding<Bool>, onDismiss: (() -> Void)? = nil) {
         self.photo = photo
@@ -103,10 +104,31 @@ struct PhotoDetailView: View {
                                 .frame(maxWidth: .infinity, minHeight: geometry.size.height * 0.8)
                                 .id("photoSection")
                                 .onAppear {
+                                    // Track photo detail viewed
+                                    viewStartTime = Date()
+                                    Task {
+                                        await EventTrackingManager.shared.trackPhotoDetailViewed(
+                                            photoId: photo.id,
+                                            compositionType: photo.basicInfo.compositionStyle,
+                                            framingScore: nil
+                                        )
+                                    }
+                                    
                                     // Reset state and load full resolution image when view appears
                                     fullResolutionImage = nil
                                     isLoadingFullResolution = false
                                     loadFullResolutionImage()
+                                }
+                                .onDisappear {
+                                    // Track photo detail dismissed
+                                    if let startTime = viewStartTime {
+                                        let timeSpent = Date().timeIntervalSince(startTime)
+                                        Task {
+                                            await EventTrackingManager.shared.trackPhotoDetailDismissed(
+                                                timeSpent: timeSpent
+                                            )
+                                        }
+                                    }
                                 }
                                 
                                 // Metadata section (20% of screen at bottom)
@@ -263,6 +285,21 @@ struct PhotoDetailView: View {
                 
                 if success {
                     saveAlertMessage = "Photo saved to your photo library successfully!"
+                    
+                    // Track photo saved to library
+                    Task {
+                        // Get file size
+                        let fileManager = FileManager.default
+                        let photoPath = photoManager.photosDirectory.appendingPathComponent(photo.id).appendingPathExtension("jpg")
+                        if let attributes = try? fileManager.attributesOfItem(atPath: photoPath.path),
+                           let fileSize = attributes[.size] as? Int {
+                            await EventTrackingManager.shared.trackPhotoSavedToLibrary(
+                                photoId: photo.id,
+                                format: "JPEG",
+                                fileSize: fileSize
+                            )
+                        }
+                    }
                 } else {
                     saveAlertMessage = error ?? "Failed to save photo to library"
                 }

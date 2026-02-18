@@ -11,9 +11,20 @@ import CoreImage.CIFilterBuiltins
 // MARK: - Filter System
 
 enum FilterPack: String, CaseIterable {
-    case glow = "😍 Glow Pack"
-    case cine = "🍿 Cine Pack"
-    case aesthetic = "🌹 Aesthetic Pack"
+    case glow = "glow_pack"
+    case cine = "cine_pack"
+    case aesthetic = "aesthetic_pack"
+    
+    var displayName: String {
+        switch self {
+        case .glow:
+            return "😍 Glow Pack"
+        case .cine:
+            return "🍿 Cine Pack"
+        case .aesthetic:
+            return "🌹 Aesthetic Pack"
+        }
+    }
 }
 
 struct PhotoFilter: Identifiable, Hashable {
@@ -45,7 +56,7 @@ enum CIFilterType {
     case none // Original image
 }
 
-struct FilterAdjustment {
+struct FilterAdjustment: Equatable {
     var id: String = UUID().uuidString
     var title: String
     var intensity: Double = 0.6 // 0-1
@@ -543,3 +554,4 @@ class FilterManager {
         return "Filter Cache: \(filterCacheCount) items, LUT Cache: \(lutInfo.count) items (~\(String(format: "%.1f", lutInfo.estimatedMemoryMB))MB)"
     }
 }
+

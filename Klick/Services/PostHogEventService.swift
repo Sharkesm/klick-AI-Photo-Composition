@@ -36,7 +36,9 @@ class PostHogEventService: EventTrackingService {
     }
     
     func setUserProperty(_ key: String, value: Any?) async {
-        // Do nothing for now
+        await MainActor.run {
+            PostHogSDK.shared.setValue(value, forKey: key)
+        }
     }
     
     func identify(userId: String?) async {

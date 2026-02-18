@@ -152,6 +152,12 @@ struct ZoomControlsView: View {
                                 showZoomChange = true
                             }
                             
+                            // Track zoom changed
+                            Task {
+                                let trackingZoomLevel = TrackingZoomLevel(fromFactor: zoomLevel.zoomFactor)
+                                await EventTrackingManager.shared.trackZoomChanged(level: trackingZoomLevel)
+                            }
+                            
                             // Collapse after selection with unified animation
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {

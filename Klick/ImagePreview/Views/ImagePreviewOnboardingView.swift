@@ -36,10 +36,7 @@ struct ImagePreviewOnboardingView: View {
         .onAppear {
             // Track image preview intro viewed
             Task {
-                await EventTrackingManager.shared.trackOnboardingGuideViewed(
-                    guideType: .imagePreview,
-                    trigger: "first_filter"
-                )
+                await EventTrackingManager.shared.trackOnboardingGuideViewed(guideType: .imagePreview)
             }
             
             startAnimations()

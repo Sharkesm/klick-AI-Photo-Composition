@@ -9,6 +9,8 @@ struct ImagePreviewView: View {
     let originalImage: UIImage?
     let rawImage: UIImage? // New: RAW image for Pro mode
     let cameraQuality: CameraQuality // New: Camera quality used for capture
+    let compositionType: String?
+    
     @Binding var isProcessing: Bool
     @ObservedObject var featureManager: FeatureManager
     
@@ -55,6 +57,11 @@ struct ImagePreviewView: View {
     // Save indicator state
     @State private var showSaveIndicator = false
     @State private var saveIndicatorStatus: SaveIndicatorStatus = .saving
+    
+    // Tracking state
+    @State private var viewStartTime: Date?
+    @State private var effectsPanelOpenTime: Date?
+    @State private var hasTrackedEffectsOpen = false
     
     enum SaveIndicatorStatus {
         case saving
@@ -204,6 +211,11 @@ struct ImagePreviewView: View {
                                 FilterPackSelectorView(
                                     selectedPack: $selectedPack,
                                     onPackSelected: { pack in
+                                        // Track filter pack selected
+                                        Task {
+                                            await EventTrackingManager.shared.trackFilterPackSelected(packName: pack)
+                                        }
+                                        
                                         // Save current state before changing pack (which clears filter)
                                         // Only save if we currently have a filter applied
                                         if effectState.filter != nil {
@@ -232,7 +244,22 @@ struct ImagePreviewView: View {
                             Spacer()
                             
                             // Dismiss button
-                            Button(action: onDiscard) {
+                            Button(action: {
+                                // Track photo discarded
+                                if let startTime = viewStartTime {
+                                    let timeSpent = Date().timeIntervalSince(startTime)
+                                    Task {
+                                        let filterApplied = effectState.filter?.filter.name
+                                        let blurApplied = effectState.backgroundBlur.isEnabled
+                                        await EventTrackingManager.shared.trackPhotoDiscarded(
+                                            timeSpent: timeSpent,
+                                            filterApplied: filterApplied,
+                                            blurApplied: blurApplied
+                                        )
+                                    }
+                                }
+                                onDiscard()
+                            }) {
                                 Image(systemName: "xmark")
                                     .foregroundColor(Color.white)
                                     .font(.system(size: 16, weight: .medium))
@@ -255,6 +282,27 @@ struct ImagePreviewView: View {
                                     
                                     if !shouldShrinkImage {
                                         shouldShrinkImage = true
+                                    }
+                                    
+                                    // Track effects panel opened/closed
+                                    if !showingEffects {
+                                        // Opening effects panel
+                                        effectsPanelOpenTime = Date()
+                                        hasTrackedEffectsOpen = false
+                                        Task {
+                                            await EventTrackingManager.shared.trackEffectsPanelOpened()
+                                        }
+                                    } else if let openTime = effectsPanelOpenTime, !hasTrackedEffectsOpen {
+                                        // Closing effects panel
+                                        let timeSpent = Date().timeIntervalSince(openTime)
+                                        let filterApplied = effectState.filter?.filter.name
+                                        Task {
+                                            await EventTrackingManager.shared.trackEffectsPanelClosed(
+                                                filterApplied: filterApplied,
+                                                timeSpent: timeSpent
+                                            )
+                                        }
+                                        hasTrackedEffectsOpen = true
                                     }
                                     
                                     withAnimation(.spring) {
@@ -426,6 +474,15 @@ struct ImagePreviewView: View {
         }
         .background(Color.black)
         .onAppear {
+            // Track image preview viewed
+            viewStartTime = Date()
+            Task {
+                await EventTrackingManager.shared.trackImagePreviewViewed(
+                    compositionType: compositionType,
+                    cameraQuality: cameraQuality
+                )
+            }
+            
             // Reset the state on appear
             resetEffectState()
             
@@ -514,6 +571,11 @@ struct ImagePreviewView: View {
     // MARK: - ProRaw Mode Handling
     
     private func handleProcessingModeChange(_ newMode: ImageProcessingMode) {
+        // Track ProRAW toggle
+        Task {
+            await EventTrackingManager.shared.trackProRawToggled(toMode: newMode)
+        }
+        
         // Save current state before switching modes
         saveCurrentStateToHistory()
         
@@ -531,11 +593,43 @@ struct ImagePreviewView: View {
         // Check if filter is available (feature gating)
         if let filter = filter {
             // Check if user can use this filter (using pack-aware method)
-            if !featureManager.canUseFilter(id: filter.id, pack: filter.pack) {
+            let wasGated = !featureManager.canUseFilter(id: filter.id, pack: filter.pack)
+            if wasGated {
                 print("🔒 Filter selection blocked - premium filter requires Pro")
+                // Track filter applied (gated)
+                Task {
+                    let filterPack = FilterPack(rawValue: filter.pack.rawValue) ?? .glow
+                    await EventTrackingManager.shared.trackFilterApplied(
+                        filterName: filter.name,
+                        filterPack: filterPack,
+                        isPremium: true,
+                        wasGated: true
+                    )
+                }
                 // Show sales page directly when locked filter is clicked
                 onShowSalesPage?(.imagePreviewPremiumFilter)
                 return
+            }
+            
+            // Track filter applied (not gated)
+            Task {
+                let filterPack = FilterPack(rawValue: filter.pack.rawValue) ?? .glow
+                let isPremium = !featureManager.canUseFilter(id: filter.id, pack: filter.pack)
+                await EventTrackingManager.shared.trackFilterApplied(
+                    filterName: filter.name,
+                    filterPack: filterPack,
+                    isPremium: isPremium,
+                    wasGated: false
+                )
+            }
+        } else {
+            // Track filter removed
+            if let previousFilter = effectState.filter?.filter {
+                Task {
+                    await EventTrackingManager.shared.trackFilterRemoved(
+                        previousFilter: previousFilter.name
+                    )
+                }
             }
         }
         
@@ -632,6 +726,15 @@ struct ImagePreviewView: View {
     }
 
     private func toggleBlurAdjustment() {
+        // Track blur toggled
+        let wasGated = !featureManager.canUseBackgroundBlur
+        Task {
+            await EventTrackingManager.shared.trackBlurToggled(
+                enabled: !effectState.backgroundBlur.isEnabled,
+                wasGated: wasGated
+            )
+        }
+        
         // Always save state when toggling blur (structural change)
         // This creates a new baseline for future comparisons
         if showingBlurAdjustment {
@@ -877,6 +980,23 @@ struct ImagePreviewView: View {
                         BackgroundBlurManager.shared.endEditingSession(clearAll: true)
                         FilterManager.shared.clearEditingCache()
                         
+                        // Track photo saved
+                        if let startTime = self.viewStartTime {
+                            let timeToSave = Date().timeIntervalSince(startTime)
+                            let filterApplied = self.effectState.filter?.filter.name
+                            let blurApplied = self.effectState.backgroundBlur.isEnabled
+                            let adjustmentsMade = self.effectState.filter?.adjustments != .balanced
+                            
+                            Task {
+                                await EventTrackingManager.shared.trackPhotoSaved(
+                                    filterApplied: filterApplied,
+                                    blurApplied: blurApplied,
+                                    adjustmentsMade: adjustmentsMade,
+                                    timeToSave: timeToSave
+                                )
+                            }
+                        }
+                        
                         // Call onSave with compressed image after indicator shows "Saved"
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
                             self.onSave(compressedImage)
@@ -1008,19 +1128,3 @@ extension UIImage {
         }
     }
 }
-
-#Preview {
-    ImagePreviewView(
-        image: .constant(UIImage(resource: .rectangle10)),
-        originalImage: UIImage(resource: .rectangle10),
-        rawImage: nil, // No RAW for preview
-        cameraQuality: .standard,
-        isProcessing: .constant(false),
-        featureManager: .init(),
-        onSave: {_ in },
-        onDiscard: {},
-        onShowSalesPage: nil
-    )
-    .preferredColorScheme(.dark)
-}
-
