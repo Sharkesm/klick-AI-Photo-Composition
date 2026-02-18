@@ -12,6 +12,7 @@ struct CameraQualityIntroView: View {
     
     @Binding var isPresented: Bool
     let onDismiss: () -> Void
+    @State private var viewStartTime: Date?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -93,6 +94,14 @@ struct CameraQualityIntroView: View {
                 
                 // Got It button
                 Button(action: {
+                    // Track intro dismissed
+                    if let startTime = viewStartTime {
+                        let timeSpent = Date().timeIntervalSince(startTime)
+                        Task {
+                            await EventTrackingManager.shared.trackCameraQualityIntroDismissed(timeSpent: timeSpent)
+                        }
+                    }
+                    
                     withAnimation {
                         isPresented = false
                     }
@@ -118,14 +127,21 @@ struct CameraQualityIntroView: View {
             .padding(.top, 10)
         }
         .onAppear {
+            viewStartTime = Date()
+            
             if !hasShowedCameraQualityIntro {
                 hasShowedCameraQualityIntro = true
                 print("✅ Camera Quality intro marked as shown")
             }
             
-            // Track camera quality intro viewed
+            // Track camera quality intro viewed (onboarding event)
             Task {
                 await EventTrackingManager.shared.trackOnboardingGuideViewed(guideType: .cameraQuality)
+            }
+            
+            // Track camera quality intro viewed (dedicated event)
+            Task {
+                await EventTrackingManager.shared.trackCameraQualityIntroViewed()
             }
         }
     }

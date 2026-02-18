@@ -96,3 +96,43 @@ enum LegalEvent: String {
         return "legal_\(rawValue)"
     }
 }
+
+// MARK: - Practice Event Names
+
+/// Feature-level event names for composition practice mode
+enum PracticeEvent: String {
+    case viewed = "viewed"
+    case dismissed = "dismissed"
+    case exampleSelected = "example_selected"
+    
+    /// Generate full event name with practice prefix
+    var eventName: String {
+        return "practice_\(rawValue)"
+    }
+}
+
+// MARK: - Camera Quality Intro Event Names
+
+/// Feature-level event names for camera quality intro
+enum CameraQualityIntroEvent: String {
+    case viewed = "viewed"
+    case dismissed = "dismissed"
+    
+    /// Generate full event name with camera_quality_intro prefix
+    var eventName: String {
+        return "camera_quality_intro_\(rawValue)"
+    }
+}
+
+// MARK: - Error/Alert Event Names
+
+/// Feature-level event names for errors and alerts
+enum AlertEvent: String {
+    case storageFullShown = "storage_full_alert_shown"
+    case cameraPermissionDenied = "camera_permission_denied"
+    
+    /// Generate full event name (already complete)
+    var eventName: String {
+        return rawValue
+    }
+}

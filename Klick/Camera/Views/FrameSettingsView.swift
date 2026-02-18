@@ -351,16 +351,3 @@ struct InfoSection: View {
         )
     }
 }
-
-#Preview {
-    FrameSettingsView(
-        isPresented: .constant(true),
-        isFacialRecognitionEnabled: .constant(true),
-        isCompositionAnalysisEnabled: .constant(true),
-        areOverlaysHidden: .constant(false),
-        isLiveFeedbackEnabled: .constant(true),
-        compositionManager: CompositionManager(),
-        featureManager: .init(),
-        onShowSalesPage: nil
-    )
-} 

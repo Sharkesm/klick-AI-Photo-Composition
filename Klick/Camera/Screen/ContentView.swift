@@ -656,6 +656,11 @@ struct ContentView: View {
             hasCameraPermission = false
             cameraLoading = false
             
+            // Track camera permission denied
+            Task {
+                await EventTrackingManager.shared.trackCameraPermissionDenied(source: "camera_screen")
+            }
+            
         @unknown default:
             print("❓ Unknown camera permission status")
             hasCameraPermission = false

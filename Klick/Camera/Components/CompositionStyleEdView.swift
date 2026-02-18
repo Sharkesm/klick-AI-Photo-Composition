@@ -11,10 +11,12 @@ struct CompositionStyleEdView: View {
     @State private var selectedSection: CompositionSection? = nil
     @State private var showContent = false
     @State private var animateSections = false
+    @State private var viewStartTime: Date?
     @ObservedObject var featureManager: FeatureManager
     @State private var showUpgradePrompt = false
     @State private var upgradeContext: FeatureManager.UpgradeContext = .portraitPractices
     let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
+    @Environment(\.dismiss) private var dismiss
     
     // Portrait essentials sections
     private let sections = [
@@ -95,7 +97,22 @@ struct CompositionStyleEdView: View {
             }
         }
         .onAppear {
+            viewStartTime = Date()
+            Task {
+                await EventTrackingManager.shared.trackPracticeViewed(compositionType: "portrait_essentials")
+            }
             startAnimation()
+        }
+        .onDisappear {
+            if let startTime = viewStartTime {
+                let timeSpent = Date().timeIntervalSince(startTime)
+                Task {
+                    await EventTrackingManager.shared.trackPracticeDismissed(
+                        compositionType: "portrait_essentials",
+                        timeSpent: timeSpent
+                    )
+                }
+            }
         }
         .ngBottomSheet(isPresented: $showUpgradePrompt, sheetContent: {
             UpgradePromptAlert(
@@ -155,6 +172,14 @@ extension CompositionStyleEdView {
                             // Show sales page directly when locked practice is clicked
                             onShowSalesPage?()
                             return
+                        }
+                        
+                        // Track example selected
+                        Task {
+                            await EventTrackingManager.shared.trackPracticeExampleSelected(
+                                compositionType: "portrait_essentials",
+                                exampleType: section.id
+                            )
                         }
                         
                         withAnimation(.easeInOut(duration: 0.3)) {

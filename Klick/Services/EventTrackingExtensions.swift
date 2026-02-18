@@ -758,4 +758,72 @@ extension EventTrackingManager {
             parameters: ["source": source]
         )
     }
+    
+    // MARK: - Practice Events
+    
+    /// Track practice mode viewed
+    func trackPracticeViewed(compositionType: String) async {
+        await track(
+            eventName: PracticeEvent.viewed.eventName,
+            parameters: ["composition_type": compositionType]
+        )
+    }
+    
+    /// Track practice mode dismissed
+    func trackPracticeDismissed(compositionType: String, timeSpent: TimeInterval) async {
+        await track(
+            eventName: PracticeEvent.dismissed.eventName,
+            parameters: [
+                "composition_type": compositionType,
+                "time_spent_seconds": Int(timeSpent)
+            ]
+        )
+    }
+    
+    /// Track practice example selected
+    func trackPracticeExampleSelected(compositionType: String, exampleType: String) async {
+        await track(
+            eventName: PracticeEvent.exampleSelected.eventName,
+            parameters: [
+                "composition_type": compositionType,
+                "example_type": exampleType
+            ]
+        )
+    }
+    
+    // MARK: - Camera Quality Intro Events
+    
+    /// Track camera quality intro viewed
+    func trackCameraQualityIntroViewed() async {
+        await track(eventName: CameraQualityIntroEvent.viewed.eventName)
+    }
+    
+    /// Track camera quality intro dismissed
+    func trackCameraQualityIntroDismissed(timeSpent: TimeInterval) async {
+        await track(
+            eventName: CameraQualityIntroEvent.dismissed.eventName,
+            parameters: ["time_spent_seconds": Int(timeSpent)]
+        )
+    }
+    
+    // MARK: - Error/Alert Events
+    
+    /// Track storage full alert shown
+    func trackStorageFullAlertShown(currentPhotoCount: Int, limit: Int) async {
+        await track(
+            eventName: AlertEvent.storageFullShown.eventName,
+            parameters: [
+                "current_photo_count": currentPhotoCount,
+                "limit": limit
+            ]
+        )
+    }
+    
+    /// Track camera permission denied
+    func trackCameraPermissionDenied(source: String) async {
+        await track(
+            eventName: AlertEvent.cameraPermissionDenied.eventName,
+            parameters: ["source": source]
+        )
+    }
 }

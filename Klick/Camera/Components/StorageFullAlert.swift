@@ -197,6 +197,16 @@ struct UpgradePromptAlert: View {
                     context: UpgradePromptContext(from: context)
                 )
             }
+            
+            // Track storage full alert specifically
+            if context == .photoLimit {
+                Task {
+                    await EventTrackingManager.shared.trackStorageFullAlertShown(
+                        currentPhotoCount: featureManager.capturedPhotoCount,
+                        limit: featureManager.maxFreePhotos
+                    )
+                }
+            }
         }
     }
 }
