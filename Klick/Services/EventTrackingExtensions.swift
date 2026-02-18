@@ -344,11 +344,16 @@ extension EventTrackingManager {
     }
     
     /// Track composition selected
-    func trackCompositionSelected(compositionType: CompositionType, selectionMethod: SelectionMethod) async {
+    func trackCompositionSelected(
+        fromComposition: CompositionType,
+        toComposition: CompositionType,
+        selectionMethod: SelectionMethod
+    ) async {
         await track(
             eventName: CameraEvent.compositionSelected.eventName,
             parameters: [
-                "composition_type": compositionType.rawValue,
+                "from_composition": fromComposition.rawValue,
+                "to_composition": toComposition.rawValue,
                 "selection_method": selectionMethod.rawValue
             ]
         )

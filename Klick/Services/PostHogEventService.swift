@@ -21,9 +21,12 @@ class PostHogEventService: EventTrackingService {
     
     func setup() {
         // Get API key and host from Info.plist or use defaults
-        let apiKey = Bundle.main.object(forInfoDictionaryKey: "PostHogAPIKey") as? String ?? ""
-        let host = Bundle.main.object(forInfoDictionaryKey: "PostHogHost") as? String ?? "https://us.i.posthog.com"
-
+//        let apiKey = Bundle.main.object(forInfoDictionaryKey: "PostHogAPIKey") as? String ?? ""
+//        let host = Bundle.main.object(forInfoDictionaryKey: "PostHogHost") as? String ?? "https://us.i.posthog.com"
+        
+        let apiKey = "phc_jvvDmABYtCxAsNhzvmSK7qVFXxqko31xdBzWL7rXOzr"
+        let host = "https://us.i.posthog.com"
+        
         // Configure PostHog SDK
         let config = PostHogConfig(apiKey: apiKey, host: host)
         PostHogSDK.shared.setup(config)

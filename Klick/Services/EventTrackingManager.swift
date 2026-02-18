@@ -32,6 +32,7 @@ class EventTrackingManager {
     /// - Parameter service: The tracking service to register
     func register(_ service: EventTrackingService) {
         services.append(service)
+        service.setup()
         print("📊 EventTrackingManager: Registered \(service.name)")
     }
     
@@ -161,16 +162,8 @@ class EventTrackingManager {
     static func configure() {
         print("📊 EventTrackingManager: Starting configuration...")
         
-        // Create services
-        let postHogService = PostHogEventService()
-        let consoleService = ConsoleEventService()
-        
-        // Setup each service
-        postHogService.setup()
-        consoleService.setup()
-        
         // Register services
-        shared.register([postHogService, consoleService])
+        shared.register([PostHogEventService(), ConsoleEventService()])
         
         let serviceNames = shared.registeredServices.joined(separator: ", ")
         print("""

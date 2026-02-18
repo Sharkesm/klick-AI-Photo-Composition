@@ -93,6 +93,7 @@ enum CameraPosition: String {
 /// Method used to select composition
 enum SelectionMethod: String {
     case tap = "tap"
+    case scroll = "scroll"
     case swipe = "swipe"
 }
 
