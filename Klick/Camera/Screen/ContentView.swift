@@ -388,7 +388,8 @@ struct ContentView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         showSalesPage = true
                     }
-                }
+                },
+                onDismiss: nil
             )
             .presentationDetents([.fraction(0.8), .large])
             .onAppear {

@@ -175,7 +175,15 @@ struct ImagePreviewView: View {
                                 ),
                                 isProcessing: isProcessing,
                                 onBlurChanged: { applyBlurPreset() },
-                                onDebouncedBlurChanged: { applyEffects(debounce: true) }
+                                onDebouncedBlurChanged: { 
+                                    // Track blur adjustment (debounced to avoid spam)
+                                    Task {
+                                        await EventTrackingManager.shared.trackBlurAdjusted(
+                                            intensity: Double(effectState.backgroundBlur.intensity)
+                                        )
+                                    }
+                                    applyEffects(debounce: true)
+                                }
                             )
                         }
                         
@@ -199,7 +207,33 @@ struct ImagePreviewView: View {
                                     }
                                 ),
                                 onAdjustmentChanged: { applyEffects() },
-                                onDebouncedAdjustmentChanged: { applyEffects(debounce: true) }
+                                onDebouncedAdjustmentChanged: { 
+                                    // Track filter adjustment (debounced to avoid spam)
+                                    if let currentAdjustments = effectState.filter?.adjustments {
+                                        Task {
+                                            // Track the adjustment type that changed most significantly
+                                            if abs(currentAdjustments.intensity - 0.5) > 0.1 {
+                                                await EventTrackingManager.shared.trackFilterAdjusted(
+                                                    adjustmentType: .intensity,
+                                                    value: Double(currentAdjustments.intensity)
+                                                )
+                                            }
+                                            if abs(currentAdjustments.brightness) > 0.05 {
+                                                await EventTrackingManager.shared.trackFilterAdjusted(
+                                                    adjustmentType: .brightness,
+                                                    value: Double(currentAdjustments.brightness)
+                                                )
+                                            }
+                                            if abs(currentAdjustments.warmth) > 0.05 {
+                                                await EventTrackingManager.shared.trackFilterAdjusted(
+                                                    adjustmentType: .warmth,
+                                                    value: Double(currentAdjustments.warmth)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    applyEffects(debounce: true)
+                                }
                             )
                         }
                     }

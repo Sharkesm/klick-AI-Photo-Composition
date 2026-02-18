@@ -9,7 +9,9 @@ struct FrameSettingsView: View {
     @ObservedObject var compositionManager: CompositionManager
     @ObservedObject var featureManager: FeatureManager
     @State private var showOnboarding = false
+    @State private var viewStartTime: Date?
     let onShowSalesPage: ((PaywallSource) -> Void)? // Callback to show sales page with source
+    let onDismiss: (() -> Void)? // Callback when view dismisses
     
     var body: some View {
         NavigationView {
@@ -46,6 +48,11 @@ struct FrameSettingsView: View {
                             isEnabled: $isFacialRecognitionEnabled,
                             accentColor: .green
                         )
+                        .onChange(of: isFacialRecognitionEnabled) { newValue in
+                            Task {
+                                await EventTrackingManager.shared.trackSettingsFacialRecognitionToggled(enabled: newValue)
+                            }
+                        }
                         
                         Divider()
                         
@@ -59,6 +66,9 @@ struct FrameSettingsView: View {
                         )
                         .onChange(of: isCompositionAnalysisEnabled) { newValue in
                             compositionManager.isEnabled = newValue
+                            Task {
+                                await EventTrackingManager.shared.trackSettingsLiveAnalysisToggled(enabled: newValue)
+                            }
                         }
                         
                         Divider()
@@ -81,6 +91,15 @@ struct FrameSettingsView: View {
                                 return true // Allow toggle
                             }
                         )
+                        .onChange(of: isLiveFeedbackEnabled) { newValue in
+                            let wasGated = !featureManager.canUseLiveFeedback
+                            Task {
+                                await EventTrackingManager.shared.trackSettingsLiveFeedbackToggled(
+                                    enabled: newValue,
+                                    wasGated: wasGated
+                                )
+                            }
+                        }
                         
                         Divider()
                         
@@ -102,6 +121,15 @@ struct FrameSettingsView: View {
                                 return true // Allow toggle
                             }
                         )
+                        .onChange(of: areOverlaysHidden) { newValue in
+                            let wasGated = !featureManager.canHideOverlays
+                            Task {
+                                await EventTrackingManager.shared.trackSettingsHideOverlaysToggled(
+                                    enabled: newValue,
+                                    wasGated: wasGated
+                                )
+                            }
+                        }
                         
                         Divider()
                     }
@@ -111,6 +139,9 @@ struct FrameSettingsView: View {
                     // How Klick Works Section
                     VStack(spacing: 16) {
                         Button(action: {
+                            Task {
+                                await EventTrackingManager.shared.trackSettingsHowKlickWorksTapped()
+                            }
                             showOnboarding = true
                         }) {
                             HStack(alignment: .center, spacing: 16) {
@@ -171,6 +202,23 @@ struct FrameSettingsView: View {
             .background(Color(hue: 232/255, saturation: 20/255, brightness: 18/255))
             .sheet(isPresented: $showOnboarding) {
                 OnboardingView(isPresented: $showOnboarding)
+            }
+            .onAppear {
+                // Track settings viewed
+                viewStartTime = Date()
+                Task {
+                    await EventTrackingManager.shared.trackSettingsFrameViewed()
+                }
+            }
+            .onDisappear {
+                // Track settings dismissed
+                if let startTime = viewStartTime {
+                    let timeSpent = Date().timeIntervalSince(startTime)
+                    Task {
+                        await EventTrackingManager.shared.trackSettingsFrameDismissed(timeSpent: timeSpent)
+                    }
+                }
+                onDismiss?()
             }
         }
     }

@@ -29,6 +29,9 @@ struct CompositionShareView: View {
     /// State for showing share sheet
     @State private var showingShareSheet = false
     
+    /// Track view start time for time spent calculation
+    @State private var viewStartTime: Date?
+    
     // MARK: - Animation States
     
     @State private var showHeader = false
@@ -132,9 +135,39 @@ struct CompositionShareView: View {
         .padding(.bottom, 40)
         .background(.black)
         .sheet(isPresented: $showingShareSheet) {
-            ShareSheet(items: [photo])
+            ShareSheet(items: [photo]) { completed, destination in
+                if completed {
+                    // Track successful share
+                    Task {
+                        await EventTrackingManager.shared.trackPhotoShared(shareDestination: destination)
+                    }
+                    
+                    // Track dismiss with sharing
+                    if let startTime = viewStartTime {
+                        let timeSpent = Date().timeIntervalSince(startTime)
+                        Task {
+                            await EventTrackingManager.shared.trackShareScreenDismissed(
+                                timeSpent: timeSpent,
+                                shared: true
+                            )
+                        }
+                    }
+                    
+                    // Dismiss the share view after successful share
+                    dismiss()
+                }
+            }
         }
         .onAppear {
+            // Track share screen viewed
+            viewStartTime = Date()
+            Task {
+                await EventTrackingManager.shared.trackShareScreenViewed(
+                    compositionType: compositionTechnique,
+                    filterApplied: nil
+                )
+            }
+            
             // Sequential reveal animations mimicking onboarding flow
             
             // 1. Header (logo + close button)
@@ -185,6 +218,16 @@ struct CompositionShareView: View {
                 Spacer()
                 
                 Button(action: {
+                    // Track dismiss without sharing
+                    if let startTime = viewStartTime {
+                        let timeSpent = Date().timeIntervalSince(startTime)
+                        Task {
+                            await EventTrackingManager.shared.trackShareScreenDismissed(
+                                timeSpent: timeSpent,
+                                shared: false
+                            )
+                        }
+                    }
                     dismiss()
                 }) {
                     Image(systemName: "xmark")
@@ -397,12 +440,19 @@ struct CompositionShareView: View {
 /// UIKit ShareSheet wrapper for SwiftUI
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
+    var onComplete: ((Bool, String?) -> Void)?
     
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let controller = UIActivityViewController(
             activityItems: items,
             applicationActivities: nil
         )
+        
+        controller.completionWithItemsHandler = { activityType, completed, returnedItems, error in
+            let destination = activityType?.rawValue
+            onComplete?(completed, destination)
+        }
+        
         return controller
     }
     

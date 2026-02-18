@@ -591,6 +591,14 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             // Convert to camera coordinates (0,0 to 1,1)
             let focusPoint = previewLayer.captureDevicePointConverted(fromLayerPoint: tapPoint)
             
+            // Track focus tap
+            Task {
+                await EventTrackingManager.shared.trackFocusTapped(
+                    x: Double(focusPoint.x),
+                    y: Double(focusPoint.y)
+                )
+            }
+            
             // Update focus point for visual feedback
             DispatchQueue.main.async {
                 self.parent.focusPoint = tapPoint

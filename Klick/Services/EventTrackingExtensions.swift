@@ -684,4 +684,78 @@ extension EventTrackingManager {
             ]
         )
     }
+    
+    // MARK: - Settings Events
+    
+    /// Track settings frame viewed
+    func trackSettingsFrameViewed() async {
+        await track(eventName: SettingsEvent.frameViewed.eventName)
+    }
+    
+    /// Track settings frame dismissed
+    func trackSettingsFrameDismissed(timeSpent: TimeInterval) async {
+        await track(
+            eventName: SettingsEvent.frameDismissed.eventName,
+            parameters: ["time_spent_seconds": Int(timeSpent)]
+        )
+    }
+    
+    /// Track facial recognition toggled
+    func trackSettingsFacialRecognitionToggled(enabled: Bool) async {
+        await track(
+            eventName: SettingsEvent.facialRecognitionToggled.eventName,
+            parameters: ["enabled": enabled]
+        )
+    }
+    
+    /// Track live analysis toggled
+    func trackSettingsLiveAnalysisToggled(enabled: Bool) async {
+        await track(
+            eventName: SettingsEvent.liveAnalysisToggled.eventName,
+            parameters: ["enabled": enabled]
+        )
+    }
+    
+    /// Track live feedback toggled
+    func trackSettingsLiveFeedbackToggled(enabled: Bool, wasGated: Bool) async {
+        await track(
+            eventName: SettingsEvent.liveFeedbackToggled.eventName,
+            parameters: [
+                "enabled": enabled,
+                "was_gated": wasGated
+            ]
+        )
+    }
+    
+    /// Track hide overlays toggled
+    func trackSettingsHideOverlaysToggled(enabled: Bool, wasGated: Bool) async {
+        await track(
+            eventName: SettingsEvent.hideOverlaysToggled.eventName,
+            parameters: [
+                "enabled": enabled,
+                "was_gated": wasGated
+            ]
+        )
+    }
+    
+    /// Track how Klick works tapped
+    func trackSettingsHowKlickWorksTapped() async {
+        await track(eventName: SettingsEvent.howKlickWorksTapped.eventName)
+    }
+    
+    /// Track legal terms tapped
+    func trackLegalTermsTapped(source: String) async {
+        await track(
+            eventName: LegalEvent.termsTapped.eventName,
+            parameters: ["source": source]
+        )
+    }
+    
+    /// Track legal privacy tapped
+    func trackLegalPrivacyTapped(source: String) async {
+        await track(
+            eventName: LegalEvent.privacyTapped.eventName,
+            parameters: ["source": source]
+        )
+    }
 }

@@ -65,3 +65,34 @@ enum PhotoSelectionMethod: String {
     case single = "single"
     case bulk = "bulk"
 }
+
+// MARK: - Settings Event Names
+
+/// Feature-level event names for settings
+enum SettingsEvent: String {
+    case frameViewed = "frame_viewed"
+    case frameDismissed = "frame_dismissed"
+    case facialRecognitionToggled = "facial_recognition_toggled"
+    case liveAnalysisToggled = "live_analysis_toggled"
+    case liveFeedbackToggled = "live_feedback_toggled"
+    case hideOverlaysToggled = "hide_overlays_toggled"
+    case howKlickWorksTapped = "how_klick_works_tapped"
+    
+    /// Generate full event name with settings prefix
+    var eventName: String {
+        return "settings_\(rawValue)"
+    }
+}
+
+// MARK: - Legal Event Names
+
+/// Feature-level event names for legal links
+enum LegalEvent: String {
+    case termsTapped = "terms_tapped"
+    case privacyTapped = "privacy_tapped"
+    
+    /// Generate full event name with legal prefix
+    var eventName: String {
+        return "legal_\(rawValue)"
+    }
+}
