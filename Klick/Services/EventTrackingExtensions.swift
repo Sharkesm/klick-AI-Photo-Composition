@@ -653,6 +653,28 @@ extension EventTrackingManager {
         )
     }
     
+    /// Track before/after comparison toggled
+    func trackBeforeAfterComparisonToggled(
+        action: ComparisonAction,
+        currentState: String,
+        previousState: String,
+        hasFilter: Bool,
+        hasBlur: Bool,
+        hasAdjustments: Bool
+    ) async {
+        await track(
+            eventName: ImagePreviewEvent.comparisonToggled.eventName,
+            parameters: [
+                "action": action.rawValue,
+                "current_state": currentState,
+                "previous_state": previousState,
+                "has_filter": hasFilter,
+                "has_blur": hasBlur,
+                "has_adjustments": hasAdjustments
+            ]
+        )
+    }
+    
     /// Track share screen viewed
     func trackShareScreenViewed(compositionType: String?, filterApplied: String?) async {
         var parameters: [String: Any] = [:]

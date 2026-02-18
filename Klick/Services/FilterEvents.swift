@@ -18,6 +18,7 @@ enum ImagePreviewEvent: String {
     case blurToggled = "blur_toggled"
     case blurAdjusted = "blur_adjusted"
     case proRawToggled = "proraw_toggled"
+    case comparisonToggled = "comparison_toggled"
     
     /// Generate full event name with image_preview prefix
     var eventName: String {
@@ -47,4 +48,12 @@ enum AdjustmentType: String {
     case intensity = "intensity"
     case brightness = "brightness"
     case warmth = "warmth"
+}
+
+// MARK: - Comparison Action Enum
+
+/// Before/after comparison action
+enum ComparisonAction: String {
+    case shown = "shown"
+    case hidden = "hidden"
 }

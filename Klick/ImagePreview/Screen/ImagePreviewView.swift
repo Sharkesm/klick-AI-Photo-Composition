@@ -816,19 +816,51 @@ struct ImagePreviewView: View {
     }
     
     private func togglePreviousStatePreview() {
+        let currentStateDescription = getCurrentStateDescription(effectState)
+        let previousStateDescription = stateHistory.previousState != nil ? 
+            getCurrentStateDescription(stateHistory.previousState!) : "ORIGINAL"
+        
         if isShowingPreviousState {
             // Return to current state
             isShowingPreviousState = false
+            
+            // Track comparison hidden
+            Task {
+                let hasFilter = effectState.filter != nil
+                let hasBlur = effectState.backgroundBlur.isEnabled && effectState.backgroundBlur.intensity > 0
+                let hasAdjustments = effectState.filter?.adjustments != .balanced
+                
+                await EventTrackingManager.shared.trackBeforeAfterComparisonToggled(
+                    action: .hidden,
+                    currentState: currentStateDescription,
+                    previousState: previousStateDescription,
+                    hasFilter: hasFilter,
+                    hasBlur: hasBlur,
+                    hasAdjustments: hasAdjustments
+                )
+            }
         } else {
             // Show previous state
             isShowingPreviousState = true
             
+            // Track comparison shown
+            Task {
+                let hasFilter = effectState.filter != nil
+                let hasBlur = effectState.backgroundBlur.isEnabled && effectState.backgroundBlur.intensity > 0
+                let hasAdjustments = effectState.filter?.adjustments != .balanced
+                
+                await EventTrackingManager.shared.trackBeforeAfterComparisonToggled(
+                    action: .shown,
+                    currentState: currentStateDescription,
+                    previousState: previousStateDescription,
+                    hasFilter: hasFilter,
+                    hasBlur: hasBlur,
+                    hasAdjustments: hasAdjustments
+                )
+            }
+            
             // Log the history state access
             if stateHistory.hasPreviousState {
-                let currentStateDescription = getCurrentStateDescription(effectState)
-                let previousStateDescription = stateHistory.previousState != nil ? 
-                    getCurrentStateDescription(stateHistory.previousState!) : "ORIGINAL"
-                
                 print("------ Image History State --------")
                 print("")
                 print("Current State: \(currentStateDescription)")
