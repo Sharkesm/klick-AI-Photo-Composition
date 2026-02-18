@@ -59,6 +59,7 @@ struct ContentView: View {
     @State private var showUpgradePrompt = false
     @State private var upgradeContext: FeatureManager.UpgradeContext = .photoLimit
     @State private var showSalesPage = false
+    @State private var paywallSource: PaywallSource = .upgradePrompt
     
     // Camera quality intro
     @State private var showCameraQualityIntro = false
@@ -143,6 +144,7 @@ struct ContentView: View {
                                     showFrameSettings: $showFrameSettings,
                                     showCompositionPractice: $showCompositionPractice,
                                     showSalesPage: $showSalesPage,
+                                    paywallSource: $paywallSource,
                                     showUpgradePrompt: $showUpgradePrompt,
                                     showCameraQualityIntro: $showCameraQualityIntro,
                                     shouldAutoExpandCameraQuality: $shouldAutoExpandCameraQuality,
@@ -304,6 +306,7 @@ struct ContentView: View {
                 featureManager: featureManager,
                 onShowSalesPage: {
                     // Close practice view and show sales page
+                    paywallSource = .compositionPractice
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showCompositionPractice = false
                     }
@@ -337,8 +340,9 @@ struct ContentView: View {
                 isLiveFeedbackEnabled: $isLiveFeedbackEnabled,
                 compositionManager: compositionManager,
                 featureManager: featureManager,
-                onShowSalesPage: {
+                onShowSalesPage: { source in
                     // Close frame settings and show sales page
+                    paywallSource = source
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showFrameSettings = false
                     }
@@ -351,7 +355,7 @@ struct ContentView: View {
             .presentationDetents([.fraction(0.8), .large])
         }
         .fullScreenCover(isPresented: $showSalesPage) {
-            SalesPageView()
+            SalesPageView(source: paywallSource)
         }
         .ngBottomSheet(isPresented: $showUpgradePrompt, sheetContent: {
             UpgradePromptAlert(
@@ -431,7 +435,9 @@ struct ContentView: View {
                         capturedPhotoData = nil
                     }
                 },
-                onShowSalesPage: {
+                onShowSalesPage: { source in
+                    // Set paywall source and show sales page
+                    paywallSource = source
                     // Small delay to allow preview to dismiss before showing sales page
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         showSalesPage = true
@@ -470,6 +476,10 @@ struct ContentView: View {
             if let contextString = notification.userInfo?["context"] as? String,
                let context = FeatureManager.UpgradeContext(rawValue: contextString) {
                 upgradeContext = context
+                
+                // Map context to paywall source
+                paywallSource = mapUpgradeContextToPaywallSource(context)
+                
                 withAnimation {
                     showUpgradePrompt = true
                 }
@@ -493,6 +503,7 @@ struct ContentView: View {
             // Show warning before last free photo
             print("⚠️ Last free photo warning triggered")
             upgradeContext = .lastFreePhoto
+            paywallSource = .photoLimit
             withAnimation {
                 showUpgradePrompt = true
             }
@@ -802,6 +813,36 @@ struct ContentView: View {
         print("🔍 getAdjacentComposition - Result: \(result.displayName) (index: \(newIndex))")
         
         return result
+    }
+    
+    // MARK: - Helper Functions
+    
+    /// Map upgrade context to paywall source for event tracking
+    private func mapUpgradeContextToPaywallSource(_ context: FeatureManager.UpgradeContext) -> PaywallSource {
+        switch context {
+        case .photoLimit:
+            return .photoLimit
+        case .lastFreePhoto:
+            return .photoLimit
+        case .advancedComposition:
+            return .advancedComposition
+        case .premiumFilter:
+            return .imagePreviewPremiumFilter
+        case .backgroundBlur:
+            return .imagePreviewBackgroundBlur
+        case .portraitPractices:
+            return .compositionPractice
+        case .liveFeedback:
+            return .frameSettingsLiveFeedback
+        case .hideOverlays:
+            return .frameSettingsHideOverlays
+        case .proCameraQuality:
+            return .cameraQualityPro
+        case .batchDelete:
+            return .upgradePrompt
+        case .filterAdjustments:
+            return .upgradePrompt
+        }
     }
 }
 

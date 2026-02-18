@@ -13,7 +13,7 @@ struct FilterSelectionStripView: View {
     let originalImage: UIImage?
     @ObservedObject var featureManager: FeatureManager
     let onFilterSelected: (PhotoFilter?) -> Void
-    let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
+    let onShowSalesPage: ((PaywallSource) -> Void)? // Optional callback to show sales page with source
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -35,7 +35,7 @@ struct FilterSelectionStripView: View {
                         action: {
                             // If filter is locked, show sales page; otherwise select filter
                             if !featureManager.canUseFilter(id: filter.id, pack: selectedPack) {
-                                onShowSalesPage?()
+                                onShowSalesPage?(.imagePreviewPremiumFilter)
                             } else {
                                 onFilterSelected(filter)
                             }

@@ -9,7 +9,7 @@ struct FrameSettingsView: View {
     @ObservedObject var compositionManager: CompositionManager
     @ObservedObject var featureManager: FeatureManager
     @State private var showOnboarding = false
-    let onShowSalesPage: (() -> Void)? // Callback to show sales page
+    let onShowSalesPage: ((PaywallSource) -> Void)? // Callback to show sales page with source
     
     var body: some View {
         NavigationView {
@@ -75,7 +75,7 @@ struct FrameSettingsView: View {
                                 // If user tries to enable while locked
                                 if !featureManager.canUseLiveFeedback && isLiveFeedbackEnabled == false {
                                     print("🔒 Live Feedback blocked - requires Pro")
-                                    onShowSalesPage?()
+                                    onShowSalesPage?(.frameSettingsLiveFeedback)
                                     return false // Prevent toggle
                                 }
                                 return true // Allow toggle
@@ -96,7 +96,7 @@ struct FrameSettingsView: View {
                                 // If user tries to enable while locked
                                 if !featureManager.canHideOverlays && areOverlaysHidden == false {
                                     print("🔒 Hide Overlays blocked - requires Pro")
-                                    onShowSalesPage?()
+                                    onShowSalesPage?(.frameSettingsHideOverlays)
                                     return false // Prevent toggle
                                 }
                                 return true // Allow toggle

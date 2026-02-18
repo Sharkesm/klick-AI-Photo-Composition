@@ -14,6 +14,9 @@ struct UpgradePromptAlert: View {
     @ObservedObject var featureManager: FeatureManager
     let onUpgrade: () -> Void
     
+    // Event tracking state
+    @State private var viewStartTime: Date = Date()
+    
     private var title: String {
         switch context {
         case .photoLimit:
@@ -133,6 +136,15 @@ struct UpgradePromptAlert: View {
                 
                 // Upgrade button
                 Button(action: {
+                    // Track upgrade tapped
+                    let timeOnScreen = Date().timeIntervalSince(viewStartTime)
+                    Task {
+                        await EventTrackingManager.shared.trackUpgradePromptUpgradeTapped(
+                            context: UpgradePromptContext(from: context),
+                            timeOnScreen: timeOnScreen
+                        )
+                    }
+                    
                     isPresented = false
                     onUpgrade()
                 }) {
@@ -155,6 +167,15 @@ struct UpgradePromptAlert: View {
                 
                 // Dismiss button
                 Button(action: {
+                    // Track dismissed
+                    let timeOnScreen = Date().timeIntervalSince(viewStartTime)
+                    Task {
+                        await EventTrackingManager.shared.trackUpgradePromptDismissed(
+                            context: UpgradePromptContext(from: context),
+                            timeOnScreen: timeOnScreen
+                        )
+                    }
+                    
                     withAnimation {
                         isPresented = false
                     }
@@ -166,6 +187,16 @@ struct UpgradePromptAlert: View {
                 .padding(.bottom, 8)
             }
             .background(.black)
+        }
+        .onAppear {
+            viewStartTime = Date()
+            
+            // Track upgrade prompt viewed
+            Task {
+                await EventTrackingManager.shared.trackUpgradePromptViewed(
+                    context: UpgradePromptContext(from: context)
+                )
+            }
         }
     }
 }

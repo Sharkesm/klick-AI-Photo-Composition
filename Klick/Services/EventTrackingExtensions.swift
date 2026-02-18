@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import RevenueCat
 
 // MARK: - Convenience Extensions
 
@@ -385,6 +386,238 @@ extension EventTrackingManager {
             parameters: [
                 "guide_type": guideType.rawValue,
                 "time_spent_seconds": Int(timeSpent)
+            ]
+        )
+    }
+}
+
+// MARK: - Paywall Event Tracking Extensions
+
+extension EventTrackingManager {
+    
+    // MARK: Paywall Lifecycle
+    
+    /// Track paywall viewed
+    /// - Parameters:
+    ///   - source: Entry point that led to paywall
+    ///   - offeringsCount: Number of available offerings
+    ///   - defaultPackage: Default selected package type
+    func trackPaywallViewed(
+        source: PaywallSource,
+        offeringsCount: Int,
+        defaultPackage: PackageType?
+    ) async {
+        await track(
+            eventName: PaywallEvent.viewed.eventName,
+            parameters: [
+                "source": source.rawValue,
+                "offerings_count": offeringsCount,
+                "default_package": defaultPackage?.rawValue ?? "none"
+            ]
+        )
+    }
+    
+    /// Track paywall dismissed
+    /// - Parameters:
+    ///   - source: Entry point that led to paywall
+    ///   - timeSpent: Time spent on paywall
+    ///   - packageSelected: Whether user selected a package before dismissing
+    func trackPaywallDismissed(
+        source: PaywallSource,
+        timeSpent: TimeInterval,
+        packageSelected: Bool
+    ) async {
+        await track(
+            eventName: PaywallEvent.dismissed.eventName,
+            parameters: [
+                "source": source.rawValue,
+                "time_spent_seconds": Int(timeSpent),
+                "package_selected": packageSelected
+            ]
+        )
+    }
+    
+    // MARK: Package Selection
+    
+    /// Track package selected
+    /// - Parameter package: RevenueCat package that was selected
+    func trackPaywallPackageSelected(package: Package) async {
+        await track(
+            eventName: PaywallEvent.packageSelected.eventName,
+            parameters: [
+                "package_id": package.identifier,
+                "package_type": PackageType(from: package.packageType).rawValue,
+                "price": package.storeProduct.price,
+                "currency": package.storeProduct.currencyCode ?? "USD"
+            ]
+        )
+    }
+    
+    // MARK: Purchase Flow
+    
+    /// Track subscribe button tapped
+    /// - Parameter package: Package being purchased
+    func trackPaywallSubscribeTapped(package: Package) async {
+        await track(
+            eventName: PaywallEvent.subscribeTapped.eventName,
+            parameters: [
+                "package_id": package.identifier,
+                "package_type": PackageType(from: package.packageType).rawValue,
+                "price": package.storeProduct.price,
+                "currency": package.storeProduct.currencyCode ?? "USD"
+            ]
+        )
+    }
+    
+    /// Track purchase completed successfully
+    /// - Parameters:
+    ///   - package: Package that was purchased
+    ///   - timeToComplete: Time from package selection to purchase completion
+    func trackPaywallPurchaseCompleted(
+        package: Package,
+        timeToComplete: TimeInterval
+    ) async {
+        await track(
+            eventName: PaywallEvent.purchaseCompleted.eventName,
+            parameters: [
+                "product_id": package.storeProduct.productIdentifier,
+                "package_id": package.identifier,
+                "package_type": PackageType(from: package.packageType).rawValue,
+                "price": package.storeProduct.price,
+                "currency": package.storeProduct.currencyCode ?? "USD",
+                "time_to_purchase_seconds": Int(timeToComplete)
+            ]
+        )
+    }
+    
+    /// Track purchase failed
+    /// - Parameters:
+    ///   - error: Error that occurred
+    ///   - packageId: Package identifier that failed
+    func trackPaywallPurchaseFailed(error: Error, packageId: String) async {
+        await track(
+            eventName: PaywallEvent.purchaseFailed.eventName,
+            parameters: [
+                "error_message": error.localizedDescription,
+                "package_id": packageId
+            ]
+        )
+    }
+    
+    /// Track purchase interrupted (user cancelled)
+    /// - Parameter package: Package that was being purchased
+    func trackPaywallPurchaseInterrupted(package: Package) async {
+        await track(
+            eventName: PaywallEvent.purchaseInterrupted.eventName,
+            parameters: [
+                "package_id": package.identifier,
+                "package_type": PackageType(from: package.packageType).rawValue
+            ]
+        )
+    }
+    
+    // MARK: Restore Purchases
+    
+    /// Track restore purchases button tapped
+    func trackPaywallRestoreTapped() async {
+        await track(
+            eventName: PaywallEvent.restoreTapped.eventName,
+            parameters: nil
+        )
+    }
+    
+    /// Track restore purchases completed successfully
+    /// - Parameter entitlements: List of restored entitlements
+    func trackPaywallRestoreCompleted(entitlements: [String]) async {
+        await track(
+            eventName: PaywallEvent.restoreCompleted.eventName,
+            parameters: [
+                "entitlements_restored": entitlements.joined(separator: ", ")
+            ]
+        )
+    }
+    
+    /// Track restore purchases failed
+    /// - Parameter error: Error message
+    func trackPaywallRestoreFailed(error: String) async {
+        await track(
+            eventName: PaywallEvent.restoreFailed.eventName,
+            parameters: ["error_message": error]
+        )
+    }
+    
+    // MARK: Success Screen
+    
+    /// Track success screen viewed
+    /// - Parameters:
+    ///   - packageType: Type of package purchased
+    ///   - source: Entry point that led to purchase
+    func trackPaywallSuccessViewed(
+        packageType: PackageType,
+        source: PaywallSource
+    ) async {
+        await track(
+            eventName: PaywallEvent.successViewed.eventName,
+            parameters: [
+                "package_type": packageType.rawValue,
+                "source": source.rawValue
+            ]
+        )
+    }
+    
+    /// Track success screen continue button tapped
+    /// - Parameter packageType: Type of package purchased
+    func trackPaywallSuccessContinueTapped(packageType: PackageType) async {
+        await track(
+            eventName: PaywallEvent.successContinueTapped.eventName,
+            parameters: ["package_type": packageType.rawValue]
+        )
+    }
+}
+
+// MARK: - Upgrade Prompt Event Tracking Extensions
+
+extension EventTrackingManager {
+    
+    /// Track upgrade prompt viewed
+    /// - Parameter context: Context/reason for showing prompt
+    func trackUpgradePromptViewed(context: UpgradePromptContext) async {
+        await track(
+            eventName: UpgradePromptEvent.viewed.eventName,
+            parameters: ["context": context.rawValue]
+        )
+    }
+    
+    /// Track upgrade button tapped in prompt
+    /// - Parameters:
+    ///   - context: Context/reason for prompt
+    ///   - timeOnScreen: Time spent viewing prompt
+    func trackUpgradePromptUpgradeTapped(
+        context: UpgradePromptContext,
+        timeOnScreen: TimeInterval
+    ) async {
+        await track(
+            eventName: UpgradePromptEvent.upgradeTapped.eventName,
+            parameters: [
+                "context": context.rawValue,
+                "time_on_screen_seconds": Int(timeOnScreen)
+            ]
+        )
+    }
+    
+    /// Track upgrade prompt dismissed
+    /// - Parameters:
+    ///   - context: Context/reason for prompt
+    ///   - timeOnScreen: Time spent viewing prompt
+    func trackUpgradePromptDismissed(
+        context: UpgradePromptContext,
+        timeOnScreen: TimeInterval
+    ) async {
+        await track(
+            eventName: UpgradePromptEvent.dismissed.eventName,
+            parameters: [
+                "context": context.rawValue,
+                "time_on_screen_seconds": Int(timeOnScreen)
             ]
         )
     }

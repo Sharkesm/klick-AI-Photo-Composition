@@ -80,6 +80,8 @@ enum EventGroup {
     static let filter = "filter"
     static let purchase = "purchase"
     static let screen = "screen"
+    static let paywall = "paywall"
+    static let upgrade = "upgrade"
 }
 
 // MARK: - Common Event Actions

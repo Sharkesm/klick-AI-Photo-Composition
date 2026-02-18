@@ -10,6 +10,7 @@ import SwiftUI
 struct PhotoCounterBadge: View {
     @ObservedObject var featureManager: FeatureManager
     @Binding var showSalesPage: Bool
+    @Binding var paywallSource: PaywallSource
     
     var remainingPhotos: Int {
         max(0, featureManager.maxFreePhotos - featureManager.capturedPhotoCount)
@@ -20,6 +21,7 @@ struct PhotoCounterBadge: View {
         // Only show for free users
         if !featureManager.isPro {
             Button {
+                paywallSource = .photoCounterBadge
                 showSalesPage = true
             } label: {
                 Text("\(remainingPhotos)")

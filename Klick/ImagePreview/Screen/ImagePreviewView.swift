@@ -14,7 +14,7 @@ struct ImagePreviewView: View {
     
     let onSave: (UIImage) -> Void // Callback with saved image for share screen
     let onDiscard: () -> Void
-    let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
+    let onShowSalesPage: ((PaywallSource) -> Void)? // Optional callback to show sales page with source
 
     @State private var showingShareSheet = false
 
@@ -181,7 +181,7 @@ struct ImagePreviewView: View {
                                         if !featureManager.canUseFilterAdjustments {
                                             print("🔒 Filter adjustments blocked - requires Pro")
                                             // Show sales page when free tier user tries to interact with adjustments
-                                            onShowSalesPage?()
+                                            onShowSalesPage?(.upgradePrompt)
                                             return
                                         }
                                         
@@ -503,7 +503,9 @@ struct ImagePreviewView: View {
                 isPresented: $showUpgradePrompt,
                 featureManager: featureManager,
                 onUpgrade: {
-                    onShowSalesPage?()
+                    // Map upgrade context to paywall source
+                    let source: PaywallSource = upgradeContext == .backgroundBlur ? .imagePreviewBackgroundBlur : .upgradePrompt
+                    onShowSalesPage?(source)
                 }
             )
         })
@@ -532,7 +534,7 @@ struct ImagePreviewView: View {
             if !featureManager.canUseFilter(id: filter.id, pack: filter.pack) {
                 print("🔒 Filter selection blocked - premium filter requires Pro")
                 // Show sales page directly when locked filter is clicked
-                onShowSalesPage?()
+                onShowSalesPage?(.imagePreviewPremiumFilter)
                 return
             }
         }

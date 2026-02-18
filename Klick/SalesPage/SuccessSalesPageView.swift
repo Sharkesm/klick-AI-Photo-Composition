@@ -10,6 +10,9 @@ import DotLottie
 
 struct SuccessSalesPageView: View {
     
+    let packageType: PackageType
+    let source: PaywallSource
+    
     @Environment(\.dismiss) var dismiss
     var onComplete: (() -> Void)?
     
@@ -98,6 +101,14 @@ struct SuccessSalesPageView: View {
             .padding(.bottom, 40)
         }
         .onAppear {
+            // Track success page viewed
+            Task {
+                await EventTrackingManager.shared.trackPaywallSuccessViewed(
+                    packageType: packageType,
+                    source: source
+                )
+            }
+            
             startAnimationSequence()
         }
     }
@@ -200,6 +211,14 @@ struct SuccessSalesPageView: View {
     private var ctaButton: some View {
         Button(action: {
             HapticFeedback.success.generate()
+            
+            // Track continue tapped
+            Task {
+                await EventTrackingManager.shared.trackPaywallSuccessContinueTapped(
+                    packageType: packageType
+                )
+            }
+            
             dismiss()
             // Dismiss the sales page underneath after a short delay
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -307,9 +326,5 @@ struct SuccessSalesPageView: View {
             glowRotation = 360
         }
     }
-}
-
-#Preview {
-    SuccessSalesPageView()
 }
 

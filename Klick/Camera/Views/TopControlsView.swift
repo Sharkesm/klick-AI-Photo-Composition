@@ -11,6 +11,7 @@ struct TopControlsView: View {
     @Binding var showFrameSettings: Bool
     @Binding var showCompositionPractice: Bool
     @Binding var showSalesPage: Bool
+    @Binding var paywallSource: PaywallSource
     @Binding var showUpgradePrompt: Bool
     @Binding var showCameraQualityIntro: Bool
     @Binding var shouldAutoExpandCameraQuality: Bool
@@ -74,7 +75,7 @@ struct TopControlsView: View {
                          
                          // Photo counter badge (free tier only)
                          if hasCameraPermission && !cameraLoading {
-                             PhotoCounterBadge(featureManager: featureManager, showSalesPage: $showSalesPage)
+                             PhotoCounterBadge(featureManager: featureManager, showSalesPage: $showSalesPage, paywallSource: $paywallSource)
                          }
                          
                          Spacer()
@@ -87,9 +88,10 @@ struct TopControlsView: View {
                          HStack {
                              Spacer()
                              
-                             Button {
-                                 showSalesPage = true
-                             } label: {
+                            Button {
+                                paywallSource = .topBarUpgrade
+                                showSalesPage = true
+                            } label: {
                                  HStack {
                                      Image(systemName: "crown.fill")
                                          .font(.system(size: 10, weight: .medium))

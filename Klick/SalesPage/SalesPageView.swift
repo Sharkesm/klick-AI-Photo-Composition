@@ -8,7 +8,9 @@
 import SwiftUI
 import RevenueCat
 
-struct SalesPageView: View {
+public struct SalesPageView: View {
+    
+    private let source: PaywallSource
     
     @Environment(\.dismiss) var dismiss
     
@@ -21,7 +23,15 @@ struct SalesPageView: View {
     @State private var showSuccessPage: Bool = false
     @State private var fadeOutSalesContent: Bool = false
     
-    var body: some View {
+    // Event tracking state
+    @State private var viewStartTime: Date = Date()
+    @State private var selectedPackageTime: Date?
+    
+    init(source: PaywallSource) {
+        self.source = source
+    }
+    
+    public var body: some View {
         ZStack {
             // Background
             Color.black
@@ -34,15 +44,21 @@ struct SalesPageView: View {
                     .animation(.easeOut(duration: 0.6), value: fadeOutSalesContent)
             } else {
                 // Success page content
-                SuccessSalesPageView(onComplete: {
-                    dismiss()
-                })
+                SuccessSalesPageView(
+                    packageType: selectedPackage.map { PackageType(from: $0.packageType) } ?? .unknown,
+                    source: source,
+                    onComplete: {
+                        dismiss()
+                    }
+                )
                 .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .onAppear {
+            viewStartTime = Date()
+            
             /// Fetch subscription offerings
             currentOffering = purchaseService.offerings?.current
             currentPlan = purchaseService.currentPlan
@@ -50,6 +66,15 @@ struct SalesPageView: View {
             /// Set default selection to annual/yearly package
             if let offering = currentOffering {
                 selectedPackage = offering.annual ?? offering.availablePackages.first
+            }
+            
+            // Track paywall viewed
+            Task {
+                await EventTrackingManager.shared.trackPaywallViewed(
+                    source: source,
+                    offeringsCount: currentOffering?.availablePackages.count ?? 0,
+                    defaultPackage: selectedPackage.map { PackageType(from: $0.packageType) }
+                )
             }
         }
     }
@@ -99,6 +124,15 @@ struct SalesPageView: View {
             Spacer()
             
             Button(action: {
+                // Track paywall dismissed
+                let timeSpent = Date().timeIntervalSince(viewStartTime)
+                Task {
+                    await EventTrackingManager.shared.trackPaywallDismissed(
+                        source: source,
+                        timeSpent: timeSpent,
+                        packageSelected: selectedPackage != nil
+                    )
+                }
                 dismiss()
             }) {
                 Image(systemName: "xmark")
@@ -162,6 +196,12 @@ struct SalesPageView: View {
                     isHighlighted: selectedPackage?.identifier == package.identifier,
                     onSelect: {
                         selectedPackage = package
+                        selectedPackageTime = Date()
+                        
+                        // Track package selected
+                        Task {
+                            await EventTrackingManager.shared.trackPaywallPackageSelected(package: package)
+                        }
                     }
                 )
             }
@@ -180,8 +220,8 @@ struct SalesPageView: View {
     private func sortPackages(_ packages: [Package]) -> [Package] {
         let order: [PackageType] = [.weekly, .monthly, .annual, .lifetime]
         return packages.sorted { package1, package2 in
-            let index1 = order.firstIndex(of: package1.packageType) ?? Int.max
-            let index2 = order.firstIndex(of: package2.packageType) ?? Int.max
+            let index1 = order.firstIndex(of: PackageType(from: package1.packageType)) ?? Int.max
+            let index2 = order.firstIndex(of: PackageType(from: package2.packageType)) ?? Int.max
             return index1 < index2
         }
     }
@@ -266,17 +306,39 @@ extension SalesPageView {
         /// - Set purchasing state as true before initiating a subscription purchase
         isPurchasing = true
         
+        // Track subscribe tapped
+        await EventTrackingManager.shared.trackPaywallSubscribeTapped(package: package)
+        
         let purchaseStatus = await purchaseService.purchase(package: package)
         isPurchasing = false
         
         guard purchaseStatus != .interrupted else {
             /// Failed to subscribed and experienced an interruption
             print("FAILED - Subscription purchase interrupted")
+            
+            // Track interrupted
+            await EventTrackingManager.shared.trackPaywallPurchaseInterrupted(package: package)
             return
         }
 
         if purchaseStatus == .subscribed {
             print("SUCCESS - Subscribed")
+            
+            // Track purchase completed
+            let timeToComplete = selectedPackageTime.map { Date().timeIntervalSince($0) } ?? 0
+            await EventTrackingManager.shared.trackPaywallPurchaseCompleted(
+                package: package,
+                timeToComplete: timeToComplete
+            )
+            
+            // Set user properties
+            await EventTrackingManager.shared.setUserProperty("is_pro", value: true)
+            await EventTrackingManager.shared.setUserProperty(
+                "subscription_type",
+                value: PackageType(from: package.packageType).rawValue
+            )
+            await EventTrackingManager.shared.setUserProperty("last_purchase_source", value: source.rawValue)
+            
             // Smooth transition to success page
             withAnimation(.easeOut(duration: 0.6)) {
                 fadeOutSalesContent = true
@@ -294,11 +356,23 @@ extension SalesPageView {
     private func restorePurchases() async {
         isPurchasing = true
         
+        // Track restore tapped
+        await EventTrackingManager.shared.trackPaywallRestoreTapped()
+        
         let purchaseStatus = await purchaseService.restorePurchases()
-            isPurchasing = false
+        isPurchasing = false
             
         if purchaseStatus == .subscribed {
             print("SUCCESS - Purchases restored")
+            
+            // Track restore completed
+            await EventTrackingManager.shared.trackPaywallRestoreCompleted(
+                entitlements: ["Klick Premium"]
+            )
+            
+            // Set user properties
+            await EventTrackingManager.shared.setUserProperty("is_pro", value: true)
+            
             // Smooth transition to success page
             withAnimation(.easeOut(duration: 0.6)) {
                 fadeOutSalesContent = true
@@ -312,9 +386,19 @@ extension SalesPageView {
             }
         } else if purchaseStatus == .notSubscribed {
             print("INFO - No purchases to restore")
-                // TODO: Show alert to user
-            } else {
+            
+            // Track restore failed
+            await EventTrackingManager.shared.trackPaywallRestoreFailed(
+                error: "No active subscriptions found"
+            )
+            // TODO: Show alert to user
+        } else {
             print("FAILED - Restore interrupted")
+            
+            // Track restore failed
+            await EventTrackingManager.shared.trackPaywallRestoreFailed(
+                error: "Restore interrupted"
+            )
             // TODO: Show error alert
         }
     }
@@ -454,7 +538,7 @@ extension Package {
             return 0.0
         }
         
-        return 0.0
+        return pricePerWeek
     }
     
     /// Check if package has an introductory discount
@@ -500,6 +584,3 @@ extension SubscriptionPeriod {
     }
 }
 
-#Preview {
-    SalesPageView()
-}
