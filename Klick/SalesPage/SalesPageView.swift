@@ -13,6 +13,7 @@ public struct SalesPageView: View {
     private let source: PaywallSource
     
     @Environment(\.dismiss) var dismiss
+    @Environment(\.openURL) private var openURL
     
     private var purchaseService: PurchaseService = .main
     
@@ -263,9 +264,12 @@ public struct SalesPageView: View {
  
             HStack(spacing: 15) {
                 Button {
-                    
+                    if let url = URL(string: "https://www.klickphoto.app/terms") {
+                        openURL(url)
+                    }
                 } label: {
                     Text("Terms of Use")
+                        .underline(color: .white)
                         .foregroundStyle(Color.white)
                         .font(.system(size: 11, weight: .medium))
                 }
@@ -275,9 +279,12 @@ public struct SalesPageView: View {
                     .font(.system(size: 11, weight: .medium))
                 
                 Button {
-                    
+                    if let url = URL(string: "https://www.klickphoto.app/privacy") {
+                        openURL(url)
+                    }
                 } label: {
                     Text("Privacy Policy")
+                        .underline(color: .white)
                         .foregroundStyle(Color.white)
                         .font(.system(size: 11, weight: .medium))
                 }
@@ -292,6 +299,7 @@ public struct SalesPageView: View {
                     }
                 } label: {
                     Text("Restore")
+                        .underline(color: .white)
                         .foregroundStyle(Color.white)
                         .font(.system(size: 11, weight: .medium))
                 }
