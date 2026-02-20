@@ -753,6 +753,9 @@ struct ContentView: View {
         if abs(translation) > threshold {
             // Apply composition change AFTER visual animations complete (smoother performance)
             if let newComposition = swipeCompositionPreview {
+                // Capture current composition BEFORE switching
+                let previousComposition = compositionManager.currentCompositionType
+                
                 // Delay composition change until after slam animation settles
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     print("🎨 Applying composition change to: \(newComposition.displayName)")
@@ -760,11 +763,11 @@ struct ContentView: View {
                     // Selection haptic when composition actually changes
                     HapticFeedback.selection.generate()
                     
-                    // Track composition swiped
+                    // Track composition swiped (use captured previous composition)
                     let direction = translation > 0 ? "right" : "left"
                     Task {
                         await EventTrackingManager.shared.trackCompositionSwiped(
-                            fromComposition: compositionManager.currentCompositionType,
+                            fromComposition: previousComposition,
                             toComposition: newComposition,
                             swipeDirection: direction
                         )
