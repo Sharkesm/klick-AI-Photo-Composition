@@ -309,22 +309,37 @@ extension SalesPageView {
         // Track subscribe tapped
         await EventTrackingManager.shared.trackPaywallSubscribeTapped(package: package)
         
-        let purchaseStatus = await purchaseService.purchase(package: package)
+        let purchaseResult = await purchaseService.purchase(package: package)
         isPurchasing = false
         
-        guard purchaseStatus != .interrupted else {
+        guard purchaseResult.status != .interrupted else {
             // Track interrupted
             await EventTrackingManager.shared.trackPaywallPurchaseInterrupted(package: package)
             return
         }
 
-        if purchaseStatus == .subscribed {
+        if purchaseResult.status == .subscribed {
             
-            // Track purchase completed
+            // Track purchase completed (custom event for PostHog/internal analytics)
             let timeToComplete = selectedPackageTime.map { Date().timeIntervalSince($0) } ?? 0
             await EventTrackingManager.shared.trackPaywallPurchaseCompleted(
                 package: package,
                 timeToComplete: timeToComplete
+            )
+
+            // Log the GA4 reserved `purchase` event so Firebase revenue dashboards populate.
+            // Firebase only counts revenue from events named exactly "purchase" with value as
+            // a Double, a valid ISO 4217 currency code, and a unique transaction_id.
+            let price = package.storeProduct.priceDecimalNumber.doubleValue
+            let currency = package.storeProduct.currencyCode ?? "USD"
+            let transactionId = purchaseResult.transaction?.transactionIdentifier
+                ?? "\(package.storeProduct.productIdentifier)-\(Int(Date().timeIntervalSince1970))"
+            await EventTrackingManager.shared.logFirebasePurchase(
+                value: price,
+                currency: currency,
+                transactionId: transactionId,
+                productId: package.storeProduct.productIdentifier,
+                productName: package.storeProduct.localizedTitle
             )
             
             // Set user properties

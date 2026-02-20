@@ -49,7 +49,11 @@ class PostHogEventService: EventTrackingService {
     
     func setUserProperty(_ key: String, value: Any?) async {
         await MainActor.run {
-            PostHogSDK.shared.setValue(value, forKey: key)
+            if let value {
+                PostHogSDK.shared.setPersonProperties(userPropertiesToSet: [key: value])
+            } else {
+                PostHogSDK.shared.setPersonProperties(userPropertiesToSet: [key: NSNull()])
+            }
         }
     }
     

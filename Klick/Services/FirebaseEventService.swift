@@ -89,6 +89,53 @@ class FirebaseEventService: EventTrackingService {
         }
     }
     
+    /// Log a GA4-compliant purchase event so Firebase revenue dashboards populate correctly.
+    ///
+    /// Firebase/Google Analytics revenue metrics (Total Revenue, Purchase Revenue,
+    /// Avg Purchase per Active User) are ONLY populated by the reserved `purchase`
+    /// event with exactly these parameters:
+    ///   - `value`          – purchase price as a Double (NOT a String)
+    ///   - `currency`       – ISO 4217 3-letter code, e.g. "USD"
+    ///   - `transaction_id` – unique identifier to prevent duplicate counting
+    ///   - `items`          – array of item dictionaries
+    ///
+    /// Custom event names (e.g. "paywall_purchase_completed") are never counted
+    /// toward revenue regardless of the parameters they carry.
+    ///
+    /// - Parameters:
+    ///   - value: Purchase price as a Double
+    ///   - currency: ISO 4217 currency code (e.g. "USD", "EUR", "MYR")
+    ///   - transactionId: Unique transaction identifier from RevenueCat/StoreKit
+    ///   - productId: The App Store product identifier
+    ///   - productName: Human-readable product name for the `items` array
+    func logPurchaseEvent(
+        value: Double,
+        currency: String,
+        transactionId: String,
+        productId: String,
+        productName: String
+    ) async {
+        guard !debugModeEnabled else { return }
+        await MainActor.run {
+            Analytics.logEvent(
+                AnalyticsEventPurchase,
+                parameters: [
+                    AnalyticsParameterValue: value,
+                    AnalyticsParameterCurrency: currency,
+                    AnalyticsParameterTransactionID: transactionId,
+                    AnalyticsParameterItems: [
+                        [
+                            AnalyticsParameterItemID: productId,
+                            AnalyticsParameterItemName: productName,
+                            AnalyticsParameterPrice: value,
+                            AnalyticsParameterQuantity: 1
+                        ]
+                    ]
+                ]
+            )
+        }
+    }
+
     /// Reset Firebase Analytics user data
     /// Note: Firebase doesn't have a full reset like PostHog
     /// This clears the user ID, but session data persists

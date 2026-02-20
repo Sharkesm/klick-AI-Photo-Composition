@@ -25,6 +25,13 @@ class PurchaseService: ObservableObject {
     
     init() {}
     
+    struct PurchaseResult {
+        let status: PurchaseStatus
+        /// The StoreKit transaction returned by RevenueCat on a successful purchase.
+        /// Use this to log the GA4 `purchase` event with the correct transaction ID and price.
+        let transaction: StoreTransaction?
+    }
+
     enum PurchaseStatus {
         case subscribed
         case notSubscribed
@@ -83,31 +90,29 @@ class PurchaseService: ObservableObject {
         return offerings
     }
     
-    func purchase(package: Package) async -> PurchaseStatus {
-        let status: PurchaseStatus = await withCheckedContinuation { continuation in
+    func purchase(package: Package) async -> PurchaseResult {
+        let result: PurchaseResult = await withCheckedContinuation { continuation in
             Purchases.shared.purchase(package: package) { transaction, customer, error, userCancelled in
                 let didPurchase = customer?.entitlements.all[self.entitlement.rawValue]?.isActive ?? false
-                
+
                 DispatchQueue.main.async { [unowned self] in
                     self.isSubscribed = didPurchase
                 }
-                
+
                 if didPurchase {
-                    // 🤑 Subscription purchase was successfully
-                    continuation.resume(returning: .subscribed)
+                    continuation.resume(returning: PurchaseResult(status: .subscribed, transaction: transaction))
                 } else {
-                    // 😭 If user didn't cancel and there wasn't any error with the purchase, then proceed to close paywall
                     if !userCancelled && error == nil {
-                        continuation.resume(returning: .notSubscribed)
+                        continuation.resume(returning: PurchaseResult(status: .notSubscribed, transaction: nil))
                     } else {
-                        continuation.resume(returning: .interrupted)
+                        continuation.resume(returning: PurchaseResult(status: .interrupted, transaction: nil))
                     }
                 }
             }
         }
-        
-        await handlePurchaseStatusUpdates(status)
-        return status
+
+        await handlePurchaseStatusUpdates(result.status)
+        return result
     }
     
     func restorePurchases() async -> PurchaseStatus  {

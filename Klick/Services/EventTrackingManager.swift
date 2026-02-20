@@ -139,6 +139,41 @@ class EventTrackingManager {
         }
     }
     
+    // MARK: - Firebase Revenue Tracking
+
+    /// Log a GA4-compliant `purchase` event directly to Firebase so revenue dashboards populate.
+    ///
+    /// This must be called in addition to (not instead of) your custom `paywall_purchase_completed`
+    /// event. Firebase revenue metrics only count events whose name is exactly `purchase`
+    /// (the GA4 reserved event), carrying `value` as a Double, `currency`, `transaction_id`, and `items`.
+    ///
+    /// - Parameters:
+    ///   - value: Purchase price as a Double
+    ///   - currency: ISO 4217 currency code (e.g. "USD", "MYR")
+    ///   - transactionId: Unique transaction ID from StoreKit/RevenueCat (prevents double-counting)
+    ///   - productId: App Store product identifier
+    ///   - productName: Human-readable product name
+    func logFirebasePurchase(
+        value: Double,
+        currency: String,
+        transactionId: String,
+        productId: String,
+        productName: String
+    ) async {
+        guard isEnabled else { return }
+        for service in services {
+            if let firebaseService = service as? FirebaseEventService {
+                await firebaseService.logPurchaseEvent(
+                    value: value,
+                    currency: currency,
+                    transactionId: transactionId,
+                    productId: productId,
+                    productName: productName
+                )
+            }
+        }
+    }
+
     // MARK: - Configuration
     
     /// Configure all available event tracking services
