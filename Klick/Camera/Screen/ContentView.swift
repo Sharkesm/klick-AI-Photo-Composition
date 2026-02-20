@@ -122,7 +122,7 @@ struct ContentView: View {
                                     }
                                     
                                     // Camera is ready, hide loading
-                                    print("Camera ready callback triggered - init time: \(initTime)s")
+                                    SVLogger.main.log(message: "Camera ready - init time: \(String(format: "%.2f", initTime))s", logLevel: .info)
                                     withAnimation(.easeOut(duration: 0.5)) {
                                         cameraLoading = false
                                     }
@@ -302,7 +302,6 @@ struct ContentView: View {
                                  .cornerRadius(30)
                                  .allowsHitTesting(false)
                                  .onAppear {
-                                     print("🖼️ Overlay appeared with composition: \(displayComposition.displayName)")
                                  }
                              }
                         })
@@ -445,7 +444,6 @@ struct ContentView: View {
                     let compositionType = photoData.compositionType
                     let compositionScore = compositionManager.lastResult?.score ?? 0.7
                     photoManager.savePhoto(savedImage, compositionType: compositionType, compositionScore: compositionScore)
-                    print("📸 Processed photo saved with metadata")
                     
                     // Show photo album glimpse
                     if !photoAlbumSnapshot {
@@ -523,7 +521,6 @@ struct ContentView: View {
             
             // Add small delay to ensure transition completes before requesting camera
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                print("ContentView onAppear - requesting camera permission")
                 requestCameraPermission()
                 
                 // Request photo library permission for saving photos
@@ -555,22 +552,19 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .autoDisableLiveFeedback)) { _ in
-            // Auto-disable live feedback when trial ends
-            print("🔒 Auto-disabling Live Feedback - trial ended")
+            SVLogger.main.log(message: "Auto-disabling Live Feedback - trial ended", logLevel: .warning)
             withAnimation {
                 isLiveFeedbackEnabled = false
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .autoDisableHideOverlays)) { _ in
-            // Auto-disable hide overlays when trial ends
-            print("🔒 Auto-disabling Hide Overlays - trial ended")
+            SVLogger.main.log(message: "Auto-disabling Hide Overlays - trial ended", logLevel: .warning)
             withAnimation {
                 areOverlaysHidden = false
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .lastFreePhotoWarning)) { _ in
-            // Show warning before last free photo
-            print("⚠️ Last free photo warning triggered")
+            SVLogger.main.log(message: "Last free photo warning triggered", logLevel: .warning)
             upgradeContext = .lastFreePhoto
             paywallSource = .photoLimit
             withAnimation {
@@ -617,7 +611,7 @@ struct ContentView: View {
         
         // First check: Photo count limit
         guard featureManager.canCapture || currentComposition == .ruleOfThirds else {
-            print("🔒 Photo capture blocked - storage limit reached")
+            SVLogger.main.log(message: "Photo capture blocked - storage limit reached", logLevel: .warning)
             featureManager.showUpgradePrompt(context: .photoLimit)
             return
         }
@@ -625,7 +619,7 @@ struct ContentView: View {
         // Second check: Advanced composition gating
         // Rule of Thirds is always free, but Center Framing and Symmetry require Pro or trial period
         if currentComposition != .ruleOfThirds && !featureManager.canUseAdvancedComposition {
-            print("🔒 Photo capture blocked - advanced composition (\(currentComposition.displayName)) requires Pro")
+            SVLogger.main.log(message: "Photo capture blocked - \(currentComposition.displayName) requires Pro", logLevel: .warning)
             featureManager.showUpgradePrompt(context: .advancedComposition)
             return
         }
@@ -642,11 +636,8 @@ struct ContentView: View {
         let currentStatus = AVCaptureDevice.authorizationStatus(for: .video)
         permissionStatus = currentStatus
         
-        print("🎥 Camera permission status: \(currentStatus)")
-        
         switch currentStatus {
         case .authorized:
-            print("✅ Camera permission already granted")
             hasCameraPermission = true
             // Camera loading will be handled by the camera view callback
             cameraLoading = true
@@ -662,13 +653,12 @@ struct ContentView: View {
             }
             
         case .notDetermined:
-            // This should not happen if flow is correct, but handle it anyway
-            print("⚠️ Permission not determined - user may have skipped flow")
+            SVLogger.main.log(message: "Camera permission not determined - user may have skipped flow", logLevel: .warning)
             hasCameraPermission = false
             cameraLoading = false
             
         case .denied, .restricted:
-            print("❌ Camera permission denied or restricted")
+            SVLogger.main.log(message: "Camera permission denied or restricted", logLevel: .error)
             hasCameraPermission = false
             cameraLoading = false
             
@@ -678,7 +668,7 @@ struct ContentView: View {
             }
             
         @unknown default:
-            print("❓ Unknown camera permission status")
+            SVLogger.main.log(message: "Unknown camera permission status", logLevel: .warning)
             hasCameraPermission = false
             cameraLoading = false
         }
@@ -712,12 +702,9 @@ struct ContentView: View {
         // Calculate which composition to preview based on drag direction
         let threshold: CGFloat = 80
         if abs(translation) > threshold {
-            print("⚡️ Threshold crossed - translation: \(translation), direction: \(direction)")
-            
             // Show and slam the label when threshold is crossed (only once)
             if !hasTriggeredThreshold {
                 let newComposition = getAdjacentComposition(direction: direction)
-                print("⚡️ Setting swipeCompositionPreview to: \(newComposition.displayName)")
                 
                 // Haptic feedback when threshold crossed
                 HapticFeedback.medium.generate()
@@ -725,7 +712,6 @@ struct ContentView: View {
                 // Set preview for overlay display (synchronous)
                 swipeCompositionPreview = newComposition
                 hasTriggeredThreshold = true
-                print("🎨 Swipe threshold crossed - showing label for: \(newComposition.displayName)")
                 
                 // Only trigger visual animations - NO composition manager update yet
                 DispatchQueue.main.async {
@@ -774,7 +760,6 @@ struct ContentView: View {
                 
                 // Delay composition change until after slam animation settles
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    print("🎨 Applying composition change to: \(newComposition.displayName)")
                     
                     // Selection haptic when composition actually changes
                     HapticFeedback.selection.generate()
@@ -884,8 +869,6 @@ struct ContentView: View {
             return compositionManager.currentCompositionType
         }
         
-        print("🔍 getAdjacentComposition - Current: \(compositionManager.currentCompositionType.displayName) (index: \(currentIndex)), Direction: \(direction)")
-        
         // direction: 1 = right swipe (go to previous/left), -1 = left swipe (go to next/right)
         let newIndex: Int
         if direction > 0 {
@@ -896,10 +879,7 @@ struct ContentView: View {
             newIndex = min(compositions.count - 1, currentIndex + 1)
         }
         
-        let result = compositions[newIndex]
-        print("🔍 getAdjacentComposition - Result: \(result.displayName) (index: \(newIndex))")
-        
-        return result
+        return compositions[newIndex]
     }
     
     // MARK: - Helper Functions
@@ -975,12 +955,6 @@ struct CompositionSwipeOverlay: View {
                         .scaleEffect(isAnimatingOut ? 0.3 : labelScale)
                         .opacity(isAnimatingOut ? 0.0 : (labelScale > 0 ? 1.0 : 0.0))
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: isAnimatingOut)
-                        .onAppear {
-                            print("📱 Overlay showing label: \(composition.displayName) (scale: \(labelScale))")
-                        }
-                        .onChange(of: labelScale) { newScale in
-                            print("📱 Label scale changed to: \(newScale) for \(composition.displayName)")
-                        }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

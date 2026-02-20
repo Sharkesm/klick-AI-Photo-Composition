@@ -49,7 +49,7 @@ class PurchaseService: ObservableObject {
     
     func refreshSubscriptionStatus() async {
         guard let customer = try? await Purchases.shared.customerInfo() else {
-            print("\(#function) - Failed to fetch customer info")
+            SVLogger.main.log(message: "Failed to fetch customer info", logLevel: .error)
             return
         }
         
@@ -67,12 +67,11 @@ class PurchaseService: ObservableObject {
         let offerings: Offerings? = await withCheckedContinuation { continuation in
             Purchases.shared.getOfferings { offerings, error in
                 if let offerings = offerings {
-                    print("\(#function) - Fetched offerings: \(offerings)")
                     continuation.resume(returning: offerings)
                     return
                 }
                 
-                print("\(#function) - Failed to fetch offerings: \(error?.localizedDescription ?? "No error description")")
+                SVLogger.main.log(message: "Failed to fetch offerings", info: error?.localizedDescription ?? "No error description", logLevel: .error)
                 continuation.resume(returning: nil)
             }
         }
@@ -115,12 +114,12 @@ class PurchaseService: ObservableObject {
         let status: PurchaseStatus = await withCheckedContinuation { continuation in
             Purchases.shared.restorePurchases { transactions, error in
                 if let error = error {
+                    SVLogger.main.log(message: "Error restoring purchases", info: error.localizedDescription, logLevel: .error)
                     continuation.resume(returning: .interrupted)
-//                    SVLogger.main.log(message: "Error restoring purchases", info: error.localizedDescription, logLevel: .error)
                 } else {
                     let didPurchase = transactions?.entitlements.all[self.entitlement.rawValue]?.isActive ?? false
+                    SVLogger.main.log(message: "Purchases restored successfully", logLevel: .success)
                     continuation.resume(returning: didPurchase ? .subscribed : .notSubscribed)
-//                    SVLogger.main.log(message: "Successfully restored purchases", logLevel: .success)
                 }
             }
         }
@@ -133,7 +132,5 @@ class PurchaseService: ObservableObject {
     func handlePurchaseStatusUpdates(_ status: PurchaseStatus) {
         isSubscribed = status == .subscribed
         UserPreferenceKeys.eligibleForPremium.save(status == .subscribed)
-        
-        print("\(#function) - isSubscribed: \(isSubscribed)")
     }
 }

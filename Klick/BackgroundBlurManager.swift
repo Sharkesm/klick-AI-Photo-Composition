@@ -90,16 +90,13 @@ class BackgroundBlurManager {
         // If session is expired or no active session, clear everything
         if currentEditingSessionId == nil || isSessionExpired() {
             endEditingSession(clearAll: true)
-            print("⏰ Periodic cleanup: Session expired, cleared all caches")
         } else {
-            // Clean up old preview caches but keep current session
             clearSessionCaches(keepCurrentImage: true)
-            print("⏰ Periodic cleanup: Cleaned old caches, kept current session")
         }
     }
     
     @objc private func handleMemoryWarning() {
-        print("⚠️ Memory warning received - clearing subject masking caches")
+        SVLogger.main.log(message: "Memory warning received - clearing subject masking caches", logLevel: .warning)
         clearAllCaches()
     }
     
@@ -171,8 +168,6 @@ class BackgroundBlurManager {
         
         // Check cache first
         if useCache, let cachedImage = blurCache.object(forKey: cacheKey) {
-            let cacheTime = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-            print("💾 Full-size blur from cache in \(String(format: "%.1f", cacheTime))ms")
             return cachedImage
         }
         
@@ -189,17 +184,12 @@ class BackgroundBlurManager {
             
             if useCache, let cachedMask = maskCache.object(forKey: maskCacheKey) {
                 maskImage = cachedMask
-                let maskTime = (CFAbsoluteTimeGetCurrent() - maskStartTime) * 1000
-                print("💾 Full-size mask from cache in \(String(format: "%.1f", maskTime))ms")
             } else {
                 maskImage = generatePersonSegmentationMask(for: ciImage)
                 if let mask = maskImage, useCache {
-                    // Calculate approximate memory cost for the mask
-                    let maskCost = Int(ciImage.extent.width * ciImage.extent.height * 4) // Approximate bytes
+                    let maskCost = Int(ciImage.extent.width * ciImage.extent.height * 4)
                     maskCache.setObject(mask, forKey: maskCacheKey, cost: maskCost)
                 }
-                let maskTime = (CFAbsoluteTimeGetCurrent() - maskStartTime) * 1000
-                print("🔍 Full-size mask generated in \(String(format: "%.1f", maskTime))ms")
             }
             
             // If no mask was generated, return original image
@@ -225,9 +215,6 @@ class BackgroundBlurManager {
                 // Track this cache key for the image
                 trackCacheKey(cacheKey, forImageIdentifier: imageIdentifier)
             }
-            
-            let totalTime = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-            print("🏁 Full-size blur completed in \(String(format: "%.1f", totalTime))ms")
             
             return resultImage
         }
@@ -255,9 +242,6 @@ class BackgroundBlurManager {
             // OPTIMIZATION: Use preview-specific blur application for better performance
             return applyBackgroundBlurForPreview(to: resizedImage, originalImage: image, blurIntensity: blurIntensity, useCache: !enhancedEdges)
         }
-        
-        let processingTime = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-        print("🚀 Preview generation completed in \(String(format: "%.1f", processingTime))ms")
         
         return result
     }
@@ -296,16 +280,11 @@ class BackgroundBlurManager {
                 let scaleX = previewCIImage.extent.width / fullSizeMask.extent.width
                 let scaleY = previewCIImage.extent.height / fullSizeMask.extent.height
                 maskImage = fullSizeMask.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
-                
-                let maskTime = (CFAbsoluteTimeGetCurrent() - maskStartTime) * 1000
-                print("📐 Reused full-size mask (resized in \(String(format: "%.1f", maskTime))ms)")
-                
                 } else {
                     // STRATEGY 2: Generate mask at preview resolution for maximum speed
                     let previewMaskKey = previewIdentifier as NSString
                     if useCache, let cachedPreviewMask = maskCache.object(forKey: previewMaskKey) {
                         maskImage = cachedPreviewMask
-                        print("🎯 Using cached preview mask")
                     } else {
                         // Generate new mask at preview resolution
                         maskImage = generatePersonSegmentationMask(for: previewCIImage)
@@ -318,9 +297,6 @@ class BackgroundBlurManager {
                             maskCache.setObject(mask, forKey: previewMaskKey, cost: maskCost)
                             trackCacheKey(previewMaskKey, forImageIdentifier: previewIdentifier)
                         }
-                        
-                        let maskTime = (CFAbsoluteTimeGetCurrent() - maskStartTime) * 1000
-                        print("⚡ Generated preview mask in \(String(format: "%.1f", maskTime))ms")
                     }
                 }
             
@@ -373,7 +349,7 @@ class BackgroundBlurManager {
             try handler.perform([request])
             
             guard let result = request.results?.first else {
-                print("⚠️ Person segmentation failed - no mask generated")
+                SVLogger.main.log(message: "Person segmentation failed - no mask generated", logLevel: .warning)
                 return nil
             }
             
@@ -664,7 +640,6 @@ class BackgroundBlurManager {
         currentEditingSessionId = imageId
         sessionStartTime = Date()
         
-        print("🎬 Started editing session for image: \(imageId)")
     }
     
     /// End current editing session and clear all caches
@@ -677,8 +652,6 @@ class BackgroundBlurManager {
         
         currentEditingSessionId = nil
         sessionStartTime = nil
-        
-        print("🎬 Ended editing session - caches cleared")
     }
     
     /// Check if current session has expired
@@ -713,14 +686,11 @@ class BackgroundBlurManager {
                     self.imageKeyTracker[currentId] = keysToKeep
                 }
                 
-                print("🧹 Session cleanup: Kept \(keysToKeep.count) caches for current image")
             } else {
                 // Clear everything
                 self.maskCache.removeAllObjects()
                 self.blurCache.removeAllObjects()
                 self.imageKeyTracker.removeAll()
-                
-                print("🧹 Full session cleanup completed")
             }
         }
     }
@@ -756,7 +726,6 @@ class BackgroundBlurManager {
         keyTrackerQueue.async(flags: .barrier) {
             self.imageKeyTracker.removeAll()
         }
-        print("🗑️ Subject masking and blur caches cleared")
     }
     
     /// Clear cache for a specific image to force regeneration
@@ -764,21 +733,14 @@ class BackgroundBlurManager {
         let imageIdentifier = "\(image.size.width)x\(image.size.height)_\(image.contentHash)"
         let maskCacheKey = imageIdentifier as NSString
         
-        // Clear the mask cache for this image
         maskCache.removeObject(forKey: maskCacheKey)
         
-        // Get all blur cache keys for this specific image
         let blurKeysToRemove = getCacheKeys(forImageIdentifier: imageIdentifier)
-        
-        // Remove only the blur cache entries for this specific image
         for cacheKey in blurKeysToRemove {
             blurCache.removeObject(forKey: cacheKey)
         }
         
-        // Clean up the key tracking for this image
         removeKeyTracking(forImageIdentifier: imageIdentifier)
-        
-        print("🗑️ Cleared cache for specific image (removed \(blurKeysToRemove.count) blur entries)")
     }
     
     /// Get cache information for debugging

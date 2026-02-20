@@ -131,7 +131,6 @@ struct CameraQualityIntroView: View {
             
             if !hasShowedCameraQualityIntro {
                 hasShowedCameraQualityIntro = true
-                print("✅ Camera Quality intro marked as shown")
             }
             
             // Track camera quality intro viewed (onboarding event)

@@ -33,7 +33,6 @@ class EventTrackingManager {
     func register(_ service: EventTrackingService) {
         services.append(service)
         service.setup()
-        print("📊 EventTrackingManager: Registered \(service.name)")
     }
     
     /// Register multiple tracking services
@@ -46,7 +45,6 @@ class EventTrackingManager {
     /// - Parameter serviceName: Name of the service to remove
     func unregister(serviceName: String) {
         services.removeAll { $0.name == serviceName }
-        print("📊 EventTrackingManager: Unregistered \(serviceName)")
     }
     
     /// Get list of registered service names
@@ -160,20 +158,10 @@ class EventTrackingManager {
     /// 
     /// Reference: https://posthog.com/docs/libraries/ios
     static func configure() {
-        print("📊 EventTrackingManager: Starting configuration...")
-        
-        // Register services
         shared.register([
             PostHogEventService(),
             ConsoleEventService(),
             FirebaseEventService()
         ])
-        
-        let serviceNames = shared.registeredServices.joined(separator: ", ")
-        print("""
-            ✅ EventTrackingManager: Configuration complete. 
-            - Registered \(shared.services.count)
-            - Service(s): \(serviceNames)
-        """)
     }
 }

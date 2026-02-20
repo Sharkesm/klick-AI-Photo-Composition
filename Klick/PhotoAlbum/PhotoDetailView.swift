@@ -310,30 +310,22 @@ struct PhotoDetailView: View {
     }
     
     private func loadFullResolutionImage() {
-        // Don't start loading if we already have the full resolution image
         guard fullResolutionImage == nil else {
-            print("📷 Full resolution image already loaded for photo: \(photo.id)")
             isLoadingFullResolution = false
             return
         }
         
-        // Don't start loading if already loading
-        guard !isLoadingFullResolution else {
-            print("📷 Already loading full resolution image for photo: \(photo.id)")
-            return
-        }
+        guard !isLoadingFullResolution else { return }
         
-        print("📷 Starting to load full resolution image for photo: \(photo.id)")
         isLoadingFullResolution = true
         
         photoManager.loadFullResolutionImage(for: photo) { image in
             DispatchQueue.main.async {
                 withAnimation(.easeOut(duration: 0.3)) {
                     if let image = image {
-                        print("✅ Full resolution image loaded successfully for photo: \(self.photo.id), size: \(image.size)")
                         self.fullResolutionImage = image
                     } else {
-                        print("❌ Failed to load full resolution image for photo: \(self.photo.id)")
+                        SVLogger.main.log(message: "Failed to load full resolution image", info: self.photo.id, logLevel: .error)
                     }
                     self.isLoadingFullResolution = false
                 }

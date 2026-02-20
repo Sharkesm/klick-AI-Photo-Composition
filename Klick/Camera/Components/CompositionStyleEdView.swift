@@ -168,8 +168,7 @@ extension CompositionStyleEdView {
                     onTap: {
                         // Check if practice is locked
                         if !isPracticeUnlocked(section.id) {
-                            print("🔒 Practice '\(section.title)' blocked - requires Pro")
-                            // Show sales page directly when locked practice is clicked
+                            SVLogger.main.log(message: "Practice '\(section.title)' blocked - requires Pro", logLevel: .warning)
                             onShowSalesPage?()
                             return
                         }

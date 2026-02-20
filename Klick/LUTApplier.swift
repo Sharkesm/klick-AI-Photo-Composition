@@ -26,19 +26,19 @@ class LUTApplier {
         }
         
         guard let ciImage = CIImage(image: image) else {
-            print("❌ Failed to create CIImage from UIImage")
+            SVLogger.main.log(message: "Failed to create CIImage from UIImage", logLevel: .error)
             return nil
         }
         
         // Get LUT data (from cache or parse)
         guard let (cubeData, size) = getLUTData(fileName: lutFileName) else {
-            print("❌ Failed to load LUT: \(lutFileName)")
-            return image // Return original image as fallback
+            SVLogger.main.log(message: "Failed to load LUT", info: lutFileName, logLevel: .error)
+            return image
         }
         
         // Create and configure the CIColorCube filter
         guard let filter = CIFilter(name: "CIColorCube") else {
-            print("❌ Failed to create CIColorCube filter")
+            SVLogger.main.log(message: "Failed to create CIColorCube filter", logLevel: .error)
             return image
         }
         
@@ -47,7 +47,7 @@ class LUTApplier {
         filter.setValue(ciImage, forKey: kCIInputImageKey)
         
         guard let lutOutput = filter.outputImage else {
-            print("❌ Failed to get LUT filter output")
+            SVLogger.main.log(message: "Failed to get LUT filter output", logLevel: .error)
             return image
         }
         
@@ -57,7 +57,7 @@ class LUTApplier {
         if intensity < 1.0 {
             // Use source over compositing for better performance
             guard let blendFilter = CIFilter(name: "CISourceOverCompositing") else {
-                print("❌ Failed to create blend filter, using dissolve transition")
+                SVLogger.main.log(message: "Failed to create blend filter, using dissolve transition", logLevel: .error)
                 // Fallback to dissolve transition
                 if let dissolveFilter = CIFilter(name: "CIDissolveTransition") {
                     dissolveFilter.setValue(ciImage, forKey: kCIInputImageKey)
@@ -95,7 +95,7 @@ class LUTApplier {
     /// Convert CIImage to UIImage with error handling
     private func convertToUIImage(_ ciImage: CIImage, fallback: UIImage) -> UIImage {
         guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else {
-            print("❌ Failed to create CGImage from filtered output, returning fallback")
+            SVLogger.main.log(message: "Failed to create CGImage from filtered output", logLevel: .error)
             return fallback
         }
         
@@ -116,12 +116,12 @@ class LUTApplier {
         }
         
         guard let fileURL = url, let data = try? Data(contentsOf: fileURL) else {
-            print("❌ Failed to load .cube file: \(fileName)")
+            SVLogger.main.log(message: "Failed to load .cube file", info: fileName, logLevel: .error)
             return nil
         }
         
         guard let parsedData = parseCubeFile(data: data) else {
-            print("❌ Failed to parse .cube file: \(fileName)")
+            SVLogger.main.log(message: "Failed to parse .cube file", info: fileName, logLevel: .error)
             return nil
         }
         
@@ -133,7 +133,7 @@ class LUTApplier {
     /// Parse a .cube LUT file and extract the color data
     private func parseCubeFile(data: Data) -> (NSData, Int)? {
         guard let content = String(data: data, encoding: .utf8) else {
-            print("❌ Failed to decode .cube file as UTF-8")
+            SVLogger.main.log(message: "Failed to decode .cube file as UTF-8", logLevel: .error)
             return nil
         }
         
@@ -179,7 +179,7 @@ class LUTApplier {
         // Validate the parsed data
         let expectedCount = size * size * size * 4 // RGBA
         guard size > 0, cubeValues.count == expectedCount else {
-            print("❌ Invalid LUT data: size=\(size), values=\(cubeValues.count), expected=\(expectedCount)")
+            SVLogger.main.log(message: "Invalid LUT data: size=\(size), values=\(cubeValues.count), expected=\(expectedCount)", logLevel: .error)
             return nil
         }
         
@@ -201,17 +201,12 @@ class LUTApplier {
             for lutName in commonLUTs {
                 _ = self?.getLUTData(fileName: lutName)
             }
-            
-            DispatchQueue.main.async {
-                print("✅ Preloaded \(commonLUTs.count) common LUTs")
-            }
         }
     }
     
     /// Clear the LUT cache to free memory
     func clearCache() {
         lutCache.removeAll()
-        print("🗑️ LUT cache cleared")
     }
     
     /// Get cache statistics
@@ -237,7 +232,7 @@ class LUTApplier {
                 return nil
             }.sorted()
         } catch {
-            print("❌ Failed to list LUT files: \(error)")
+            SVLogger.main.log(message: "Failed to list LUT files", info: error.localizedDescription, logLevel: .error)
             return []
         }
     }

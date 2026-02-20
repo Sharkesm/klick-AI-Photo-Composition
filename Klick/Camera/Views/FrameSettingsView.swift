@@ -84,7 +84,7 @@ struct FrameSettingsView: View {
                             onToggleAttempt: {
                                 // If user tries to enable while locked
                                 if !featureManager.canUseLiveFeedback && isLiveFeedbackEnabled == false {
-                                    print("🔒 Live Feedback blocked - requires Pro")
+                                    SVLogger.main.log(message: "Live Feedback blocked - requires Pro", logLevel: .warning)
                                     onShowSalesPage?(.frameSettingsLiveFeedback)
                                     return false // Prevent toggle
                                 }
@@ -114,7 +114,7 @@ struct FrameSettingsView: View {
                             onToggleAttempt: {
                                 // If user tries to enable while locked
                                 if !featureManager.canHideOverlays && areOverlaysHidden == false {
-                                    print("🔒 Hide Overlays blocked - requires Pro")
+                                    SVLogger.main.log(message: "Hide Overlays blocked - requires Pro", logLevel: .warning)
                                     onShowSalesPage?(.frameSettingsHideOverlays)
                                     return false // Prevent toggle
                                 }

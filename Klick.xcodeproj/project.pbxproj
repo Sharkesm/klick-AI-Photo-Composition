@@ -11,6 +11,7 @@
 		11742F8F2F489DDB00B432B6 /* FirebaseAnalyticsIdentitySupport in Frameworks */ = {isa = PBXBuildFile; productRef = 11742F8E2F489DDB00B432B6 /* FirebaseAnalyticsIdentitySupport */; };
 		11742F902F489E0000B432B6 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 11742F8F2F489E0000B432B6 /* FirebaseCore */; };
 		11742F912F489E0100B432B6 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 11742F902F489E0100B432B6 /* FirebaseAnalytics */; };
+		11742F922F489E0200B432B6 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 11742F932F489E0200B432B6 /* FirebaseCrashlytics */; };
 		11908E1E2ED724DD009D026D /* DotLottie in Frameworks */ = {isa = PBXBuildFile; productRef = 11908E1D2ED724DD009D026D /* DotLottie */; };
 		1194B45C2F406D1B00218927 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 1194B45B2F406D1B00218927 /* PostHog */; };
 /* End PBXBuildFile section */
@@ -48,6 +49,7 @@
 				11742F8F2F489DDB00B432B6 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
 				11742F902F489E0000B432B6 /* FirebaseCore in Frameworks */,
 				11742F912F489E0100B432B6 /* FirebaseAnalytics in Frameworks */,
+				11742F922F489E0200B432B6 /* FirebaseCrashlytics in Frameworks */,
 				1194B45C2F406D1B00218927 /* PostHog in Frameworks */,
 				116063612ED6FEDE00F8ACBE /* RevenueCat in Frameworks */,
 				11908E1E2ED724DD009D026D /* DotLottie in Frameworks */,
@@ -99,6 +101,7 @@
 				11742F8E2F489DDB00B432B6 /* FirebaseAnalyticsIdentitySupport */,
 				11742F8F2F489E0000B432B6 /* FirebaseCore */,
 				11742F902F489E0100B432B6 /* FirebaseAnalytics */,
+				11742F932F489E0200B432B6 /* FirebaseCrashlytics */,
 			);
 			productName = Klick;
 			productReference = 11E45EBE2E224E8700B252F3 /* Klick.app */;
@@ -448,6 +451,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 11742F8D2F489DDB00B432B6 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAnalytics;
+		};
+		11742F932F489E0200B432B6 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 11742F8D2F489DDB00B432B6 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
 		};
 		11908E1D2ED724DD009D026D /* DotLottie */ = {
 			isa = XCSwiftPackageProductDependency;

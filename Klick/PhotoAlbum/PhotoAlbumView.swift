@@ -103,10 +103,8 @@ struct PhotoAlbumView: View {
                                     if isSelectionMode {
                                         togglePhotoSelection(photo)
                                     } else {
-                                        print("🔍 Selecting photo: \(photo.id)")
                                         selectedPhoto = photo
                                         photosViewedCount += 1
-                                        print("✅ Selected photo set to: \(photo.id)")
                                         
                                         // Track photo selected
                                         Task {
@@ -172,9 +170,7 @@ struct PhotoAlbumView: View {
             }
         })
         .background(Color.yellow)
-        .sheet(item: $selectedPhoto, onDismiss: {
-            print("📱 Sheet dismissed, clearing selectedPhoto")
-        }) { photo in
+        .sheet(item: $selectedPhoto, onDismiss: {}) { photo in
             PhotoDetailView(photo: photo, photoManager: photoManager, isPresented: .constant(true)) {
                 // Dismiss callback
                 selectedPhoto = nil
@@ -246,15 +242,11 @@ struct PhotoAlbumView: View {
     }
     
     func resetSelectionMode() {
-        // Only reset selectedPhoto when we're actually closing the photo album
-        // Don't reset it when just managing selection mode
-        print("🔄 Resetting selection mode")
         isSelectionMode = false
         selectedPhotos.removeAll()
     }
     
     func clearSelectedPhoto() {
-        print("🧹 Clearing selected photo")
         selectedPhoto = nil
         resetSelectionMode()
     }

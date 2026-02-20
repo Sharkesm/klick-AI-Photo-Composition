@@ -14,6 +14,14 @@ import FirebaseAnalytics
 class FirebaseEventService: EventTrackingService {
     let name = "Firebase"
     
+    var debugModeEnabled: Bool {
+        #if DEBUG || DEVELOPMENT
+            return true
+        #else
+            return false
+        #endif
+    }
+    
     /// Initialize Firebase service
     init() {
         // Firebase configuration happens in setup()
@@ -34,6 +42,7 @@ class FirebaseEventService: EventTrackingService {
     ///   - eventName: Event name (Firebase allows up to 40 characters)
     ///   - parameters: Optional event parameters (keys up to 40 chars, values up to 100 chars)
     func trackEvent(name eventName: String, parameters: [String: Any]? = nil) async {
+        guard !debugModeEnabled else { return }
         await MainActor.run {
             Analytics.logEvent(eventName, parameters: parameters)
         }

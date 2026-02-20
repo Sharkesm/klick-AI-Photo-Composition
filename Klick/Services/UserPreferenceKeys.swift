@@ -31,7 +31,7 @@ enum UserPreferenceKeys: String, CaseIterable {
     
     func save(_ value: Any) {
         UserDefaults.standard.set(value, forKey: rawValue)
-//        SVLogger.main.log(message: "User preference saved", info: "Key: \(rawValue), Value: \(value)", logLevel: .success)
+        SVLogger.main.log(message: "User preference saved", info: "Key: \(rawValue), Value: \(value)", logLevel: .success)
     }
     
     func loadDataValue() -> Data? {
@@ -48,7 +48,7 @@ enum UserPreferenceKeys: String, CaseIterable {
     
     func removeValue() {
         UserDefaults.standard.removeObject(forKey: rawValue)
-//        SVLogger.main.log(message: "User preference removed", info: "Key: \(rawValue)", logLevel: .success)
+        SVLogger.main.log(message: "User preference removed", info: "Key: \(rawValue)", logLevel: .success)
     }
 }
 

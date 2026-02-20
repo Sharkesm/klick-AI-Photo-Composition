@@ -313,16 +313,12 @@ extension SalesPageView {
         isPurchasing = false
         
         guard purchaseStatus != .interrupted else {
-            /// Failed to subscribed and experienced an interruption
-            print("FAILED - Subscription purchase interrupted")
-            
             // Track interrupted
             await EventTrackingManager.shared.trackPaywallPurchaseInterrupted(package: package)
             return
         }
 
         if purchaseStatus == .subscribed {
-            print("SUCCESS - Subscribed")
             
             // Track purchase completed
             let timeToComplete = selectedPackageTime.map { Date().timeIntervalSince($0) } ?? 0
@@ -363,8 +359,6 @@ extension SalesPageView {
         isPurchasing = false
             
         if purchaseStatus == .subscribed {
-            print("SUCCESS - Purchases restored")
-            
             // Track restore completed
             await EventTrackingManager.shared.trackPaywallRestoreCompleted(
                 entitlements: ["Klick Premium"]
@@ -385,16 +379,12 @@ extension SalesPageView {
                 }
             }
         } else if purchaseStatus == .notSubscribed {
-            print("INFO - No purchases to restore")
-            
             // Track restore failed
             await EventTrackingManager.shared.trackPaywallRestoreFailed(
                 error: NSError(domain: "PaywallRestore", code: 1, userInfo: [NSLocalizedDescriptionKey: "No active subscriptions found"])
             )
             // TODO: Show alert to user
         } else {
-            print("FAILED - Restore interrupted")
-            
             // Track restore failed
             await EventTrackingManager.shared.trackPaywallRestoreFailed(
                 error: NSError(domain: "PaywallRestore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restore interrupted"])

@@ -194,8 +194,7 @@ struct ImagePreviewView: View {
                                     set: { newValue in
                                         // Check if user can use filter adjustments before allowing changes
                                         if !featureManager.canUseFilterAdjustments {
-                                            print("🔒 Filter adjustments blocked - requires Pro")
-                                            // Show sales page when free tier user tries to interact with adjustments
+                                            SVLogger.main.log(message: "Filter adjustments blocked - requires Pro", logLevel: .warning)
                                             onShowSalesPage?(.upgradePrompt)
                                             return
                                         }
@@ -365,7 +364,7 @@ struct ImagePreviewView: View {
                                     
                                     // Check if user can use background blur
                                     if !featureManager.canUseBackgroundBlur {
-                                        print("🔒 Background blur blocked - requires Pro")
+                                        SVLogger.main.log(message: "Background blur blocked - requires Pro", logLevel: .warning)
                                         showUpgradePrompt = true
                                         return
                                     }
@@ -527,17 +526,13 @@ struct ImagePreviewView: View {
                 stateHistory.initializeWithOriginal(originalImage: imageToUse)
                 generateFilterPreviews()
                 checkPersonSegmentationSupport()
-                print("✅ ImagePreviewView initialized with image on appear")
             } else {
                 // Race condition protection: Image not available yet on first appear
-                // onChange handlers will initialize when image becomes available
-                print("⚠️ ImagePreviewView appeared but no image available yet - waiting for onChange")
+                SVLogger.main.log(message: "ImagePreviewView appeared but no image available yet - waiting for onChange", logLevel: .warning)
             }
         }
         .onChange(of: originalImage) { newValue in
             if let imageToUse = newValue ?? originalImage {
-                print("✅ ImagePreviewView originalImage changed - reinitializing")
-                
                 // MEMORY OPTIMIZATION: Start editing session for this image
                 BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 
@@ -550,8 +545,7 @@ struct ImagePreviewView: View {
                 generateFilterPreviews()
                 checkPersonSegmentationSupport()
             } else {
-                // Just reset state if image becomes nil
-                print("⚠️ ImagePreviewView originalImage became nil - resetting state")
+                SVLogger.main.log(message: "ImagePreviewView originalImage became nil - resetting state", logLevel: .warning)
                 resetEffectState()
             }
         }
@@ -559,7 +553,6 @@ struct ImagePreviewView: View {
             // Safety net: If we don't have state history initialized yet and we get an image, use it
             // This handles race conditions where the view appears before state is fully propagated
             if !stateHistory.isInitialized, let imageToUse = newValue ?? originalImage {
-                print("✅ ImagePreviewView initializing from image binding change (first capture fix)")
                 BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 stateHistory.initializeWithOriginal(originalImage: imageToUse)
                 generateFilterPreviews()
@@ -580,8 +573,6 @@ struct ImagePreviewView: View {
             // MEMORY OPTIMIZATION: Clear state to release image references
             processedImage = nil
             filterPreviews.removeAll()
-            
-            print("💾 ImagePreviewView dismissed - all caches cleared")
         }
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
         .onChange(of: showingEffects) { _ in checkForOnboardingTrigger() }
@@ -629,7 +620,7 @@ struct ImagePreviewView: View {
             // Check if user can use this filter (using pack-aware method)
             let wasGated = !featureManager.canUseFilter(id: filter.id, pack: filter.pack)
             if wasGated {
-                print("🔒 Filter selection blocked - premium filter requires Pro")
+                SVLogger.main.log(message: "Filter selection blocked - premium filter requires Pro", logLevel: .warning)
                 // Track filter applied (gated)
                 Task {
                     let filterPack = FilterPack(rawValue: filter.pack.rawValue) ?? .glow
@@ -859,15 +850,7 @@ struct ImagePreviewView: View {
                 )
             }
             
-            // Log the history state access
-            if stateHistory.hasPreviousState {
-                print("------ Image History State --------")
-                print("")
-                print("Current State: \(currentStateDescription)")
-                print("Previous State: \(previousStateDescription)")
-                print("")
-                print("-----------------------------------")
-            }
+            
             
             // Auto-return to current state after 1.5 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -892,16 +875,6 @@ struct ImagePreviewView: View {
         // Save the new state to history
         stateHistory.saveCurrentState(effectState: effectState, processedImage: currentDisplayedImage)
         
-        // Only log meaningful transitions (when there's an actual effect applied)
-        let currentStateDescription = getCurrentStateDescription(effectState)
-        if currentStateDescription != "ORIGINAL" {
-            print("------ Image Change State --------")
-            print("")
-            print("Current State: \(currentStateDescription)")
-            print("Previous State: \(previousStateDescription)")
-            print("")
-            print("-----------------------------------")
-        }
     }
     
     private func determineCorrectBaseline() -> String {

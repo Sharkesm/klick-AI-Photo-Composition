@@ -92,7 +92,6 @@ class CompositionManager: ObservableObject {
         // Allow switching to any composition type - capture will be gated separately
         currentCompositionType = type
         lastResult = nil // Clear previous result when switching
-        print("📐 Composition switched to: \(type.displayName)")
     }
     
     /// Toggle composition analysis on/off
