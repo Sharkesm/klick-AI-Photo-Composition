@@ -48,6 +48,10 @@ struct ContentView: View {
     // Onboarding
     @State private var showOnboarding = false
     
+    // Camera session tracking - persists across view reappears (sheets, etc.)
+    @State private var cameraSessionId: String = UUID().uuidString
+    @State private var cameraInitStartTime: Date = Date()
+    
     // Image Preview - Using item-based presentation to ensure fresh state
     @State private var capturedPhotoData: CapturedPhotoData?
     @State private var isProcessingImage = false
@@ -106,8 +110,19 @@ struct ContentView: View {
                                 zoomLevel: $selectedZoomLevel,
                                 isSessionActive: $isCameraSessionActive,
                                 onCameraReady: {
+                                    // Calculate initialization time
+                                    let initTime = Date().timeIntervalSince(cameraInitStartTime)
+                                    
+                                    // Track camera ready
+                                    Task {
+                                        await EventTrackingManager.shared.trackCameraReady(
+                                            sessionId: cameraSessionId,
+                                            initializationTime: initTime
+                                        )
+                                    }
+                                    
                                     // Camera is ready, hide loading
-                                    print("Camera ready callback triggered")
+                                    print("Camera ready callback triggered - init time: \(initTime)s")
                                     withAnimation(.easeOut(duration: 0.5)) {
                                         cameraLoading = false
                                     }
@@ -499,12 +514,15 @@ struct ContentView: View {
             )
         }
         .onAppear {
-            // Track camera screen viewed
+            // Track camera screen viewed (uses persistent session ID)
             Task {
                 await EventTrackingManager.shared.trackCameraScreenViewed(
-                    sessionId: UUID().uuidString
+                    sessionId: cameraSessionId
                 )
             }
+            
+            // Mark camera initialization start time
+            cameraInitStartTime = Date()
             
             // Inject FeatureManager into PhotoManager
             photoManager.setFeatureManager(featureManager)
@@ -523,6 +541,10 @@ struct ContentView: View {
             if permissionStatus == .denied || permissionStatus == .restricted {
                 requestCameraPermission()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            // Reset camera session ID when app backgrounds
+            cameraSessionId = UUID().uuidString
         }
         .onReceive(NotificationCenter.default.publisher(for: .showUpgradePrompt)) { notification in
             // Show upgrade prompt when triggered

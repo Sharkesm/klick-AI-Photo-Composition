@@ -77,7 +77,7 @@ struct OnboardingFlowView: View {
                         case .proUpsell:
                             OnboardingScreen6_ProUpsell(
                                 onUpgrade: handleProUpgrade,
-                                onMaybeLater: moveToNext
+                                onMaybeLater: handleProUpsellDeclined
                             )
                         case .personalization:
                             OnboardingScreen7_Personalization(
@@ -100,16 +100,26 @@ struct OnboardingFlowView: View {
             flowStartTime = Date()
             trackScreenView()
         }
-        .onChange(of: currentScreen) { _ in
-            trackScreenView()
+        .onDisappear {
+            // Track flow abandonment if user dismisses before completion
+            // Don't track if on personalization (last screen) or if flow was properly dismissed
+            if currentScreen != .personalization {
+                let totalTime = Date().timeIntervalSince(flowStartTime)
+                Task {
+                    await EventTrackingManager.shared.trackOnboardingFlowAbandoned(
+                        lastScreen: mapToEventScreen(currentScreen),
+                        completedScreens: screensViewed.count,
+                        timeSpent: totalTime
+                    )
+                }
+            }
         }
     }
     
     // MARK: - Navigation Actions
     
     private func moveToNext() {
-        // Track screen completion
-        trackScreenCompletion()
+        let previousScreen = currentScreen // Capture BEFORE changing
         
         guard let nextScreen = OnboardingScreen(rawValue: currentScreen.rawValue + 1) else {
             handleComplete()
@@ -120,6 +130,16 @@ struct OnboardingFlowView: View {
         cameFromSkip = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             currentScreen = nextScreen
+        }
+        
+        // Track completion AFTER screen change
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            trackScreenCompletion(for: previousScreen)
+        }
+        
+        // Track new screen view for forward navigation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            trackScreenView()
         }
     }
     
@@ -154,6 +174,16 @@ struct OnboardingFlowView: View {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             currentScreen = .proUpsell
         }
+        
+        // Track pro upsell screen view after skip navigation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            trackScreenView()
+            
+            // Track that user arrived via skip (not normal flow)
+            Task {
+                await EventTrackingManager.shared.trackOnboardingProUpsellSkipped()
+            }
+        }
     }
     
     private func shouldShowSkipButton() -> Bool {
@@ -173,6 +203,14 @@ struct OnboardingFlowView: View {
         }
         
         hasSeenProUpsell = true
+        moveToNext()
+    }
+    
+    private func handleProUpsellDeclined() {
+        // Track that user clicked "Maybe Later" (decline, not skip)
+        Task {
+            await EventTrackingManager.shared.trackOnboardingProUpsellDeclined()
+        }
         moveToNext()
     }
     
@@ -201,25 +239,21 @@ struct OnboardingFlowView: View {
         screensViewed.insert(currentScreen.rawValue)
         
         Task {
-            await EventTrackingManager.shared.trackOnboardingScreenViewed(screen: mapToEventScreen(currentScreen))
-            
-            // Track Pro upsell viewed
+            // Only track specific pro upsell event (more actionable)
             if currentScreen == .proUpsell {
                 await EventTrackingManager.shared.trackOnboardingProUpsellViewed()
+            } else {
+                // Generic event for other screens
+                await EventTrackingManager.shared.trackOnboardingScreenViewed(screen: mapToEventScreen(currentScreen))
             }
         }
     }
     
-    private func trackScreenCompletion() {
+    private func trackScreenCompletion(for screen: OnboardingScreen) {
         let timeOnScreen = Date().timeIntervalSince(screenStartTime)
         
         Task {
-            await EventTrackingManager.shared.trackOnboardingScreenCompleted(screen: mapToEventScreen(currentScreen))
-            
-            // Track Pro upsell skipped (Maybe later button)
-            if currentScreen == .proUpsell {
-                await EventTrackingManager.shared.trackOnboardingProUpsellSkipped()
-            }
+            await EventTrackingManager.shared.trackOnboardingScreenCompleted(screen: mapToEventScreen(screen))
         }
     }
     

@@ -29,6 +29,7 @@ enum OnboardingEvent: String {
     case proUpsellViewed = "proupsell_viewed"
     case proUpsellUpgradeTapped = "proupsell_upgrade_tapped"
     case proUpsellSkipped = "proupsell_skipped"
+    case proUpsellDeclined = "proupsell_declined"
     
     // Goal selection
     case goalSelected = "goal_selected"
