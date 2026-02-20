@@ -554,12 +554,15 @@ extension EventTrackingManager {
     
     /// Track photo saved to library
     func trackPhotoSavedToLibrary(photoId: String, format: String, fileSize: Int) async {
+        let fileSizeMB = Double(fileSize) / 1024.0 / 1024.0
+        let fileSizeMBRounded = round(fileSizeMB * 100) / 100
+        
         await track(
             eventName: PhotoEvent.savedToLibrary.eventName,
             parameters: [
                 "photo_id": photoId,
                 "format": format,
-                "file_size_bytes": fileSize
+                "file_size_mb": fileSizeMBRounded
             ]
         )
     }
