@@ -65,6 +65,18 @@ struct FlashControlView: View {
                 if let currentIndex = allCases.firstIndex(of: selectedFlashMode) {
                     let nextIndex = (currentIndex + 1) % allCases.count
                     selectedFlashMode = allCases[nextIndex]
+                    
+                    // Track flash changed
+                    Task {
+                        let trackingFlashMode: TrackingFlashMode = {
+                            switch selectedFlashMode {
+                            case .off: return .off
+                            case .auto: return .auto
+                            case .on: return .on
+                            }
+                        }()
+                        await EventTrackingManager.shared.trackFlashChanged(mode: trackingFlashMode)
+                    }
                 }
             }
         }) {

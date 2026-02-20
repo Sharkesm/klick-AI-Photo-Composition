@@ -1,13 +1,31 @@
 {
-  "originHash" : "ca3cf5f8f83d297b47d2cb0edff3e06f294951e2e06fa55cfc82831103499b2a",
+  "originHash" : "cef94182fcb8382206b695ce4858c44506667002b1f369b943b22fdb507d07a9",
   "pins" : [
     {
-      "identity" : "facebook-ios-sdk",
+      "identity" : "dotlottie-ios",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/facebook/facebook-ios-sdk",
+      "location" : "https://github.com/LottieFiles/dotlottie-ios",
       "state" : {
-        "revision" : "c19607d535864533523d1f437c84035e5fb101cf",
-        "version" : "14.1.0"
+        "branch" : "main",
+        "revision" : "f88d32df0e24b5dcefca052d0ea3ba0062e910bc"
+      }
+    },
+    {
+      "identity" : "posthog-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/PostHog/posthog-ios.git",
+      "state" : {
+        "revision" : "1ba3e8636d4f1ad9f18f5a4273e88d39a162466b",
+        "version" : "3.41.1"
+      }
+    },
+    {
+      "identity" : "purchases-ios-spm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RevenueCat/purchases-ios-spm",
+      "state" : {
+        "revision" : "2ae461666d96399aaab0207c6a941d8c130b1783",
+        "version" : "5.49.0"
       }
     }
   ],

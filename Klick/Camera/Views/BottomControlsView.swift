@@ -70,6 +70,16 @@ struct BottomControlsView: View {
                                 isInitializing = false
                             }
                         }
+                        .onChange(of: compositionManager.currentCompositionType) { newType in
+                            // Sync selectedIndex when composition changes externally (e.g., from swipe gesture)
+                            if let newIndex = compositionTypes.firstIndex(of: newType),
+                               newIndex != selectedIndex {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                    selectedIndex = newIndex
+                                    proxy.scrollTo(newIndex, anchor: .center)
+                                }
+                            }
+                        }
                     }
                     
                     // Fixed center border overlay (always stays in center)
@@ -96,6 +106,20 @@ struct BottomControlsView: View {
     }
     
     private func selectCompositionStyle(at index: Int, proxy: ScrollViewProxy) {
+        // Track composition selected via tap
+        let previousType = compositionTypes[selectedIndex]
+        let selectedType = compositionTypes[index]
+        
+        if previousType != selectedType {
+            Task {
+                await EventTrackingManager.shared.trackCompositionSelected(
+                    fromComposition: previousType,
+                    toComposition: selectedType,
+                    selectionMethod: .tap
+                )
+            }
+        }
+        
         withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0.2)) {
             selectedIndex = index
             
@@ -104,7 +128,6 @@ struct BottomControlsView: View {
         }
         
         // Update composition type outside of animation block to ensure immediate update
-        let selectedType = compositionTypes[index]
         compositionManager.switchToCompositionType(selectedType)
         
         // Force a UI update by publishing on main queue
@@ -124,9 +147,20 @@ struct BottomControlsView: View {
         
         // Only update if the index actually changed to avoid unnecessary updates
         if newIndex != selectedIndex {
+            // Track composition selected via scroll
+            let previousType = compositionTypes[selectedIndex]
+            let selectedType = compositionTypes[newIndex]
+            
+            Task {
+                await EventTrackingManager.shared.trackCompositionSelected(
+                    fromComposition: previousType,
+                    toComposition: selectedType,
+                    selectionMethod: .scroll
+                )
+            }
+            
             DispatchQueue.main.async {
                 self.selectedIndex = newIndex
-                let selectedType = self.compositionTypes[newIndex]
                 self.compositionManager.switchToCompositionType(selectedType)
                 
                 // Force UI update to ensure overlays react immediately

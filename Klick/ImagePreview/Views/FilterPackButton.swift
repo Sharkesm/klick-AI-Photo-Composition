@@ -17,7 +17,7 @@ struct FilterPackButton: View {
                 action()
             }
         }) {
-            Text(pack.rawValue)
+            Text(pack.displayName)
                 .font(.subheadline)
                 .foregroundColor(isSelected ? .black : .white)
                 .padding(.horizontal, 16)

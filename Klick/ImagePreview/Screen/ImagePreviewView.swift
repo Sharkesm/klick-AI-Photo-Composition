@@ -9,10 +9,14 @@ struct ImagePreviewView: View {
     let originalImage: UIImage?
     let rawImage: UIImage? // New: RAW image for Pro mode
     let cameraQuality: CameraQuality // New: Camera quality used for capture
+    let compositionType: String?
+    
     @Binding var isProcessing: Bool
-
-    let onSave: () -> Void
+    @ObservedObject var featureManager: FeatureManager
+    
+    let onSave: (UIImage) -> Void // Callback with saved image for share screen
     let onDiscard: () -> Void
+    let onShowSalesPage: ((PaywallSource) -> Void)? // Optional callback to show sales page with source
 
     @State private var showingShareSheet = false
 
@@ -46,6 +50,23 @@ struct ImagePreviewView: View {
     @AppStorage("hasSeenImagePreviewOnboarding") private var hasSeenImagePreviewOnboarding: Bool = false
     @State private var showOnboardingAnimation = false
     @State private var hasAppliedFirstFilter = false
+    
+    @State private var showUpgradePrompt: Bool = false
+    @State private var upgradeContext: FeatureManager.UpgradeContext = .backgroundBlur
+    
+    // Save indicator state
+    @State private var showSaveIndicator = false
+    @State private var saveIndicatorStatus: SaveIndicatorStatus = .saving
+    
+    // Tracking state
+    @State private var viewStartTime: Date?
+    @State private var effectsPanelOpenTime: Date?
+    @State private var hasTrackedEffectsOpen = false
+    
+    enum SaveIndicatorStatus {
+        case saving
+        case saved
+    }
     
     // Computed property for determining the base image to use for processing
     private var baseImage: UIImage? {
@@ -154,7 +175,15 @@ struct ImagePreviewView: View {
                                 ),
                                 isProcessing: isProcessing,
                                 onBlurChanged: { applyBlurPreset() },
-                                onDebouncedBlurChanged: { applyEffects(debounce: true) }
+                                onDebouncedBlurChanged: { 
+                                    // Track blur adjustment (debounced to avoid spam)
+                                    Task {
+                                        await EventTrackingManager.shared.trackBlurAdjusted(
+                                            intensity: Double(effectState.backgroundBlur.intensity)
+                                        )
+                                    }
+                                    applyEffects(debounce: true)
+                                }
                             )
                         }
                         
@@ -162,14 +191,49 @@ struct ImagePreviewView: View {
                             AdjustmentControlsView(
                                 adjustments: Binding(
                                     get: { effectState.filter?.adjustments ?? .balanced },
-                                    set: {
+                                    set: { newValue in
+                                        // Check if user can use filter adjustments before allowing changes
+                                        if !featureManager.canUseFilterAdjustments {
+                                            print("🔒 Filter adjustments blocked - requires Pro")
+                                            // Show sales page when free tier user tries to interact with adjustments
+                                            onShowSalesPage?(.upgradePrompt)
+                                            return
+                                        }
+                                        
+                                        // Allow the change if user has access
                                         if effectState.filter != nil {
-                                            effectState.filter!.adjustments = $0
+                                            effectState.filter!.adjustments = newValue
                                         }
                                     }
                                 ),
                                 onAdjustmentChanged: { applyEffects() },
-                                onDebouncedAdjustmentChanged: { applyEffects(debounce: true) }
+                                onDebouncedAdjustmentChanged: { 
+                                    // Track filter adjustment (debounced to avoid spam)
+                                    if let currentAdjustments = effectState.filter?.adjustments {
+                                        Task {
+                                            // Track the adjustment type that changed most significantly
+                                            if abs(currentAdjustments.intensity - 0.5) > 0.1 {
+                                                await EventTrackingManager.shared.trackFilterAdjusted(
+                                                    adjustmentType: .intensity,
+                                                    value: Double(currentAdjustments.intensity)
+                                                )
+                                            }
+                                            if abs(currentAdjustments.brightness) > 0.05 {
+                                                await EventTrackingManager.shared.trackFilterAdjusted(
+                                                    adjustmentType: .brightness,
+                                                    value: Double(currentAdjustments.brightness)
+                                                )
+                                            }
+                                            if abs(currentAdjustments.warmth) > 0.05 {
+                                                await EventTrackingManager.shared.trackFilterAdjusted(
+                                                    adjustmentType: .warmth,
+                                                    value: Double(currentAdjustments.warmth)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    applyEffects(debounce: true)
+                                }
                             )
                         }
                     }
@@ -181,6 +245,11 @@ struct ImagePreviewView: View {
                                 FilterPackSelectorView(
                                     selectedPack: $selectedPack,
                                     onPackSelected: { pack in
+                                        // Track filter pack selected
+                                        Task {
+                                            await EventTrackingManager.shared.trackFilterPackSelected(packName: pack)
+                                        }
+                                        
                                         // Save current state before changing pack (which clears filter)
                                         // Only save if we currently have a filter applied
                                         if effectState.filter != nil {
@@ -199,7 +268,9 @@ struct ImagePreviewView: View {
                                 selectedFilter: effectState.filter?.filter,
                                 filterPreviews: filterPreviews,
                                 originalImage: originalImage,
-                                onFilterSelected: selectFilter
+                                featureManager: featureManager,
+                                onFilterSelected: selectFilter,
+                                onShowSalesPage: onShowSalesPage
                             )
                         }
                         
@@ -207,7 +278,22 @@ struct ImagePreviewView: View {
                             Spacer()
                             
                             // Dismiss button
-                            Button(action: onDiscard) {
+                            Button(action: {
+                                // Track photo discarded
+                                if let startTime = viewStartTime {
+                                    let timeSpent = Date().timeIntervalSince(startTime)
+                                    Task {
+                                        let filterApplied = effectState.filter?.filter.name
+                                        let blurApplied = effectState.backgroundBlur.isEnabled
+                                        await EventTrackingManager.shared.trackPhotoDiscarded(
+                                            timeSpent: timeSpent,
+                                            filterApplied: filterApplied,
+                                            blurApplied: blurApplied
+                                        )
+                                    }
+                                }
+                                onDiscard()
+                            }) {
                                 Image(systemName: "xmark")
                                     .foregroundColor(Color.white)
                                     .font(.system(size: 16, weight: .medium))
@@ -232,6 +318,27 @@ struct ImagePreviewView: View {
                                         shouldShrinkImage = true
                                     }
                                     
+                                    // Track effects panel opened/closed
+                                    if !showingEffects {
+                                        // Opening effects panel
+                                        effectsPanelOpenTime = Date()
+                                        hasTrackedEffectsOpen = false
+                                        Task {
+                                            await EventTrackingManager.shared.trackEffectsPanelOpened()
+                                        }
+                                    } else if let openTime = effectsPanelOpenTime, !hasTrackedEffectsOpen {
+                                        // Closing effects panel
+                                        let timeSpent = Date().timeIntervalSince(openTime)
+                                        let filterApplied = effectState.filter?.filter.name
+                                        Task {
+                                            await EventTrackingManager.shared.trackEffectsPanelClosed(
+                                                filterApplied: filterApplied,
+                                                timeSpent: timeSpent
+                                            )
+                                        }
+                                        hasTrackedEffectsOpen = true
+                                    }
+                                    
                                     withAnimation(.spring) {
                                         showingEffects.toggle()
                                     }
@@ -251,6 +358,19 @@ struct ImagePreviewView: View {
                                 
                                 // Background Blur Button
                                 Button(action: {
+                                    // Check if person segmentation is available first
+                                    guard hasPersonSegmentation else {
+                                        return
+                                    }
+                                    
+                                    // Check if user can use background blur
+                                    if !featureManager.canUseBackgroundBlur {
+                                        print("🔒 Background blur blocked - requires Pro")
+                                        showUpgradePrompt = true
+                                        return
+                                    }
+                                    
+                                    // User can use background blur - proceed with toggle
                                     if showingAdjustments || showingEffects {
                                         withAnimation(.easeIn(duration: 0.35)) {
                                             showingAdjustments = false
@@ -271,18 +391,34 @@ struct ImagePreviewView: View {
                                        shouldShrinkImage = false
                                     }
                                 }) {
+                                    let blurButtonColor: Color = {
+                                        if !hasPersonSegmentation {
+                                            return .white.opacity(0.35)
+                                        } else if !featureManager.canUseBackgroundBlur {
+                                            return .white
+                                        } else if effectState.backgroundBlur.isEnabled {
+                                            return .yellow
+                                        } else {
+                                            return .white
+                                        }
+                                    }()
+                                    
                                     Image(systemName: "person.fill.and.arrow.left.and.arrow.right")
-                                        .foregroundColor(hasPersonSegmentation ? effectState.backgroundBlur.isEnabled ? .yellow : .white : .white.opacity(0.35))
+                                        .foregroundColor(blurButtonColor)
                                         .font(.system(size: 16, weight: .medium))
                                         .frame(width: 30, height: 30)
                                         .padding(8)
                                         .clipShape(Circle())
                                         .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                                 }
-                                .disabled(!hasPersonSegmentation)
+                                .disabled(!hasPersonSegmentation) // Only disable if no person detected
                                 
                                 // Filter Adjustments Button
                                 Button(action: {
+                                    // Allow opening adjustments view even for free users (they can see but not interact)
+                                    // Only require a filter to be selected
+                                    guard effectState.filter?.filter != nil else { return }
+                                    
                                     if showingBlurAdjustment || showingEffects {
                                         withAnimation(.easeIn(duration: 0.35)) {
                                             showingBlurAdjustment = false
@@ -303,7 +439,11 @@ struct ImagePreviewView: View {
                                     }
                                 }) {
                                     Image(systemName: "slider.horizontal.3")
-                                        .foregroundColor(effectState.filter?.filter != nil ? .white : .white.opacity(0.35))
+                                        .foregroundColor(
+                                            effectState.filter?.filter != nil
+                                                ? .white
+                                                : .white.opacity(0.35)
+                                        )
                                         .font(.system(size: 16, weight: .medium))
                                         .frame(width: 30, height: 30)
                                         .padding(8)
@@ -317,18 +457,44 @@ struct ImagePreviewView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 100))
                             .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
                             
-                            
                             // Save button
-                            Button(action: onSaveChanges) {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.black)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 30, height: 30)
-                                    .padding(8)
-                                    .background(.yellow)
-                                    .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                            Button {
+                                HapticFeedback.selection.generate()
+                                onSaveChanges()
+                            } label: {
+                                ZStack {
+                                    // Default checkmark icon (always present as base layer)
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.black)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .opacity(showSaveIndicator ? 0 : 1)
+                                    
+                                    // Saving spinner
+                                    if saveIndicatorStatus == .saving {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                            .scaleEffect(0.8)
+                                            .opacity(showSaveIndicator ? 1 : 0)
+                                    }
+                                    
+                                    // Saved checkmark (filled circle)
+                                    if saveIndicatorStatus == .saved {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.black)
+                                            .font(.system(size: 22, weight: .medium))
+                                            .opacity(showSaveIndicator ? 1 : 0)
+                                            .scaleEffect(showSaveIndicator ? 1 : 0.5)
+                                    }
+                                }
+                                .frame(width: 30, height: 30)
+                                .padding(8)
+                                .background(.yellow)
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSaveIndicator)
+                                .animation(.easeInOut(duration: 0.3), value: saveIndicatorStatus)
                             }
+                            .disabled(showSaveIndicator) // Disable button while saving
                             
                             Spacer()
                         }
@@ -342,6 +508,15 @@ struct ImagePreviewView: View {
         }
         .background(Color.black)
         .onAppear {
+            // Track image preview viewed
+            viewStartTime = Date()
+            Task {
+                await EventTrackingManager.shared.trackImagePreviewViewed(
+                    compositionType: compositionType,
+                    cameraQuality: cameraQuality
+                )
+            }
+            
             // Reset the state on appear
             resetEffectState()
             
@@ -352,10 +527,17 @@ struct ImagePreviewView: View {
                 stateHistory.initializeWithOriginal(originalImage: imageToUse)
                 generateFilterPreviews()
                 checkPersonSegmentationSupport()
+                print("✅ ImagePreviewView initialized with image on appear")
+            } else {
+                // Race condition protection: Image not available yet on first appear
+                // onChange handlers will initialize when image becomes available
+                print("⚠️ ImagePreviewView appeared but no image available yet - waiting for onChange")
             }
         }
         .onChange(of: originalImage) { newValue in
             if let imageToUse = newValue ?? originalImage {
+                print("✅ ImagePreviewView originalImage changed - reinitializing")
+                
                 // MEMORY OPTIMIZATION: Start editing session for this image
                 BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 
@@ -369,12 +551,15 @@ struct ImagePreviewView: View {
                 checkPersonSegmentationSupport()
             } else {
                 // Just reset state if image becomes nil
+                print("⚠️ ImagePreviewView originalImage became nil - resetting state")
                 resetEffectState()
             }
         }
         .onChange(of: image) { newValue in
-            // If we don't have state history initialized yet and we get an image, use it
+            // Safety net: If we don't have state history initialized yet and we get an image, use it
+            // This handles race conditions where the view appears before state is fully propagated
             if !stateHistory.isInitialized, let imageToUse = newValue ?? originalImage {
+                print("✅ ImagePreviewView initializing from image binding change (first capture fix)")
                 BackgroundBlurManager.shared.startEditingSession(for: imageToUse)
                 stateHistory.initializeWithOriginal(originalImage: imageToUse)
                 generateFilterPreviews()
@@ -385,20 +570,46 @@ struct ImagePreviewView: View {
             // MEMORY OPTIMIZATION: End editing session when leaving the view
             BackgroundBlurManager.shared.endEditingSession(clearAll: true)
             
+            // MEMORY OPTIMIZATION: Clear filter caches
+            FilterManager.shared.clearEditingCache()
+            
             // Clean up work items to prevent memory leaks
             effectWorkItem?.cancel()
             effectWorkItem = nil
+            
+            // MEMORY OPTIMIZATION: Clear state to release image references
+            processedImage = nil
+            filterPreviews.removeAll()
+            
+            print("💾 ImagePreviewView dismissed - all caches cleared")
         }
         .onChange(of: selectedPack) { _ in generateFilterPreviews() }
         .onChange(of: showingEffects) { _ in checkForOnboardingTrigger() }
         .onChange(of: showingBlurAdjustment) { _ in checkForOnboardingTrigger() }
         .onChange(of: showingAdjustments) { _ in checkForOnboardingTrigger() }
         .onChange(of: effectState.filter?.filter.id) { _ in markFirstFilterApplied() }
+        .ngBottomSheet(isPresented: $showUpgradePrompt, sheetContent: {
+            UpgradePromptAlert(
+                context: upgradeContext,
+                isPresented: $showUpgradePrompt,
+                featureManager: featureManager,
+                onUpgrade: {
+                    // Map upgrade context to paywall source
+                    let source: PaywallSource = upgradeContext == .backgroundBlur ? .imagePreviewBackgroundBlur : .upgradePrompt
+                    onShowSalesPage?(source)
+                }
+            )
+        })
     }
 
     // MARK: - ProRaw Mode Handling
     
     private func handleProcessingModeChange(_ newMode: ImageProcessingMode) {
+        // Track ProRAW toggle
+        Task {
+            await EventTrackingManager.shared.trackProRawToggled(toMode: newMode)
+        }
+        
         // Save current state before switching modes
         saveCurrentStateToHistory()
         
@@ -413,6 +624,49 @@ struct ImagePreviewView: View {
     // MARK: - Effect Functions
 
     private func selectFilter(_ filter: PhotoFilter?) {
+        // Check if filter is available (feature gating)
+        if let filter = filter {
+            // Check if user can use this filter (using pack-aware method)
+            let wasGated = !featureManager.canUseFilter(id: filter.id, pack: filter.pack)
+            if wasGated {
+                print("🔒 Filter selection blocked - premium filter requires Pro")
+                // Track filter applied (gated)
+                Task {
+                    let filterPack = FilterPack(rawValue: filter.pack.rawValue) ?? .glow
+                    await EventTrackingManager.shared.trackFilterApplied(
+                        filterName: filter.name,
+                        filterPack: filterPack,
+                        isPremium: true,
+                        wasGated: true
+                    )
+                }
+                // Show sales page directly when locked filter is clicked
+                onShowSalesPage?(.imagePreviewPremiumFilter)
+                return
+            }
+            
+            // Track filter applied (not gated)
+            Task {
+                let filterPack = FilterPack(rawValue: filter.pack.rawValue) ?? .glow
+                let isPremium = !featureManager.canUseFilter(id: filter.id, pack: filter.pack)
+                await EventTrackingManager.shared.trackFilterApplied(
+                    filterName: filter.name,
+                    filterPack: filterPack,
+                    isPremium: isPremium,
+                    wasGated: false
+                )
+            }
+        } else {
+            // Track filter removed
+            if let previousFilter = effectState.filter?.filter {
+                Task {
+                    await EventTrackingManager.shared.trackFilterRemoved(
+                        previousFilter: previousFilter.name
+                    )
+                }
+            }
+        }
+        
         withAnimation(.spring) {
             if let filter = filter {
                 // Always save state when applying any filter (styling choice)
@@ -506,6 +760,15 @@ struct ImagePreviewView: View {
     }
 
     private func toggleBlurAdjustment() {
+        // Track blur toggled
+        let wasGated = !featureManager.canUseBackgroundBlur
+        Task {
+            await EventTrackingManager.shared.trackBlurToggled(
+                enabled: !effectState.backgroundBlur.isEnabled,
+                wasGated: wasGated
+            )
+        }
+        
         // Always save state when toggling blur (structural change)
         // This creates a new baseline for future comparisons
         if showingBlurAdjustment {
@@ -553,19 +816,51 @@ struct ImagePreviewView: View {
     }
     
     private func togglePreviousStatePreview() {
+        let currentStateDescription = getCurrentStateDescription(effectState)
+        let previousStateDescription = stateHistory.previousState != nil ? 
+            getCurrentStateDescription(stateHistory.previousState!) : "ORIGINAL"
+        
         if isShowingPreviousState {
             // Return to current state
             isShowingPreviousState = false
+            
+            // Track comparison hidden
+            Task {
+                let hasFilter = effectState.filter != nil
+                let hasBlur = effectState.backgroundBlur.isEnabled && effectState.backgroundBlur.intensity > 0
+                let hasAdjustments = effectState.filter?.adjustments != .balanced
+                
+                await EventTrackingManager.shared.trackBeforeAfterComparisonToggled(
+                    action: .hidden,
+                    currentState: currentStateDescription,
+                    previousState: previousStateDescription,
+                    hasFilter: hasFilter,
+                    hasBlur: hasBlur,
+                    hasAdjustments: hasAdjustments
+                )
+            }
         } else {
             // Show previous state
             isShowingPreviousState = true
             
+            // Track comparison shown
+            Task {
+                let hasFilter = effectState.filter != nil
+                let hasBlur = effectState.backgroundBlur.isEnabled && effectState.backgroundBlur.intensity > 0
+                let hasAdjustments = effectState.filter?.adjustments != .balanced
+                
+                await EventTrackingManager.shared.trackBeforeAfterComparisonToggled(
+                    action: .shown,
+                    currentState: currentStateDescription,
+                    previousState: previousStateDescription,
+                    hasFilter: hasFilter,
+                    hasBlur: hasBlur,
+                    hasAdjustments: hasAdjustments
+                )
+            }
+            
             // Log the history state access
             if stateHistory.hasPreviousState {
-                let currentStateDescription = getCurrentStateDescription(effectState)
-                let previousStateDescription = stateHistory.previousState != nil ? 
-                    getCurrentStateDescription(stateHistory.previousState!) : "ORIGINAL"
-                
                 print("------ Image History State --------")
                 print("")
                 print("Current State: \(currentStateDescription)")
@@ -651,16 +946,19 @@ struct ImagePreviewView: View {
         guard let imageToUse = baseImage ?? image else { return }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            var newPreviews: [String: UIImage] = [:]
+            // MEMORY OPTIMIZATION: Use autoreleasepool for preview generation
+            autoreleasepool {
+                var newPreviews: [String: UIImage] = [:]
 
-            for filter in FilterManager.shared.filters(for: selectedPack) {
-                if let preview = FilterManager.shared.generateFilterPreview(filter, for: imageToUse) {
-                    newPreviews[filter.id] = preview
+                for filter in FilterManager.shared.filters(for: self.selectedPack) {
+                    if let preview = FilterManager.shared.generateFilterPreview(filter, for: imageToUse) {
+                        newPreviews[filter.id] = preview
+                    }
                 }
-            }
 
-            DispatchQueue.main.async {
-                filterPreviews = newPreviews
+                DispatchQueue.main.async {
+                    self.filterPreviews = newPreviews
+                }
             }
         }
     }
@@ -669,42 +967,107 @@ struct ImagePreviewView: View {
         guard let currentBaseImage = baseImage else { return }
 
         isProcessing = true
+        
+        // Show save indicator with delay for visibility
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                showSaveIndicator = true
+                saveIndicatorStatus = .saving
+            }
+        }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            var finalImage = currentBaseImage
-            
-            // Apply background blur first if enabled
-            if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
-                if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
-                    to: finalImage, 
-                    blurIntensity: self.effectState.backgroundBlur.intensity,
-                    useCache: false // Don't use cache for final export
-                ) {
-                    finalImage = blurredImage
+            // MEMORY OPTIMIZATION: Use autoreleasepool to immediately release intermediate images
+            autoreleasepool {
+                var finalImage = currentBaseImage
+                
+                // Apply background blur first if enabled
+                if self.effectState.backgroundBlur.isEnabled && self.effectState.backgroundBlur.intensity > 0 && self.hasPersonSegmentation {
+                    if let blurredImage = BackgroundBlurManager.shared.applyBackgroundBlur(
+                        to: finalImage, 
+                        blurIntensity: self.effectState.backgroundBlur.intensity,
+                        useCache: false // Don't use cache for final export
+                    ) {
+                        finalImage = blurredImage
+                    }
                 }
-            }
-            
-            // Apply filter second if selected
-            if let filterEffect = self.effectState.filter {
-                if let filteredImage = FilterManager.shared.applyFilter(
-                    filterEffect.filter, 
-                    to: finalImage, 
-                    adjustments: filterEffect.adjustments, 
-                    useCache: false // Don't use cache for final export
-                ) {
-                    finalImage = filteredImage
+                
+                // Apply filter second if selected
+                if let filterEffect = self.effectState.filter {
+                    if let filteredImage = FilterManager.shared.applyFilter(
+                        filterEffect.filter, 
+                        to: finalImage, 
+                        adjustments: filterEffect.adjustments, 
+                        useCache: false // Don't use cache for final export
+                    ) {
+                        finalImage = filteredImage
+                    }
                 }
-            }
-            
-            // Export the final processed image (no watermark)
-            let exportData = FilterManager.shared.exportImage(finalImage, withWatermark: false)
+                
+                // Export the final processed image (no watermark)
+                let exportData = FilterManager.shared.exportImage(finalImage, withWatermark: false)
+                
+                // Create compressed version for share screen
+                let maxDimension: CGFloat = 1200
+                let scale: CGFloat
+                if finalImage.size.width > finalImage.size.height {
+                    scale = maxDimension / finalImage.size.width
+                } else {
+                    scale = maxDimension / finalImage.size.height
+                }
+                
+                let newSize = CGSize(
+                    width: finalImage.size.width * scale,
+                    height: finalImage.size.height * scale
+                )
+                let compressedImage = finalImage.resized(to: newSize) ?? finalImage
 
-            DispatchQueue.main.async {
-                self.isProcessing = false
-                if exportData != nil {
-                    // MEMORY OPTIMIZATION: Clear all caches after successful save
-                    BackgroundBlurManager.shared.endEditingSession(clearAll: true)
-                    self.onSave()
+                DispatchQueue.main.async {
+                    self.isProcessing = false
+                    if exportData != nil {
+                        // Update save indicator to "Saved"
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            self.saveIndicatorStatus = .saved
+                        }
+                        
+                        // Hide indicator after 2 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                self.showSaveIndicator = false
+                            }
+                            
+                            // Reset status for next time
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                self.saveIndicatorStatus = .saving
+                            }
+                        }
+                        
+                        // MEMORY OPTIMIZATION: Clear all caches after successful save
+                        BackgroundBlurManager.shared.endEditingSession(clearAll: true)
+                        FilterManager.shared.clearEditingCache()
+                        
+                        // Track photo saved
+                        if let startTime = self.viewStartTime {
+                            let timeToSave = Date().timeIntervalSince(startTime)
+                            let filterApplied = self.effectState.filter?.filter.name
+                            let blurApplied = self.effectState.backgroundBlur.isEnabled
+                            let adjustmentsMade = self.effectState.filter?.adjustments != .balanced
+                            
+                            Task {
+                                await EventTrackingManager.shared.trackPhotoSaved(
+                                    filterApplied: filterApplied,
+                                    blurApplied: blurApplied,
+                                    adjustmentsMade: adjustmentsMade,
+                                    timeToSave: timeToSave
+                                )
+                            }
+                        }
+                        
+                        // Call onSave with compressed image after indicator shows "Saved"
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                            self.onSave(compressedImage)
+                        }
+                    }
                 }
             }
         }
@@ -831,17 +1194,3 @@ extension UIImage {
         }
     }
 }
-
-#Preview {
-    ImagePreviewView(
-        image: .constant(UIImage(resource: .rectangle10)),
-        originalImage: UIImage(resource: .rectangle10),
-        rawImage: nil, // No RAW for preview
-        cameraQuality: .standard,
-        isProcessing: .constant(false),
-        onSave: {},
-        onDiscard: {}
-    )
-    .preferredColorScheme(.dark)
-}
-

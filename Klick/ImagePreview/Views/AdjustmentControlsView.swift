@@ -11,6 +11,12 @@ struct AdjustmentControlsView: View {
     @Binding var adjustments: FilterAdjustment
     let onAdjustmentChanged: () -> Void
     let onDebouncedAdjustmentChanged: () -> Void
+    
+    // Separate debounce timers for visual updates and tracking
+    @State private var visualUpdateTimer: Timer?
+    @State private var trackingTimer: Timer?
+    private let visualUpdateDelay: TimeInterval = 0.15 // Quick visual feedback
+    private let trackingDelay: TimeInterval = 0.8 // Wait longer before tracking
 
     var body: some View {
         VStack(spacing: 16) {
@@ -31,11 +37,12 @@ struct AdjustmentControlsView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Slider(value: $adjustments.intensity, in: 0...1, step: 0.01)
-                        .accentColor(.white)
-                        .onChange(of: adjustments.intensity) { _ in
-                            onDebouncedAdjustmentChanged()
-                        }
+                    Slider(value: $adjustments.intensity, in: 0...1, step: 0.01, onEditingChanged: { editing in
+                        guard !editing else { return }
+                        debouncedTrackingCall()
+                        debouncedVisualUpdate()
+                    })
+                    .accentColor(.white)
                 }
 
                 // Brightness
@@ -50,11 +57,12 @@ struct AdjustmentControlsView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Slider(value: $adjustments.brightness, in: -0.2...0.2, step: 0.01)
-                        .accentColor(.white)
-                        .onChange(of: adjustments.brightness) { _ in
-                            onDebouncedAdjustmentChanged()
-                        }
+                    Slider(value: $adjustments.brightness, in: -0.2...0.2, step: 0.01, onEditingChanged: { editing in
+                        guard !editing else { return }
+                        debouncedTrackingCall()
+                        debouncedVisualUpdate()
+                    })
+                    .accentColor(.white)
                 }
 
                 // Warmth
@@ -69,15 +77,40 @@ struct AdjustmentControlsView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Slider(value: $adjustments.warmth, in: -0.2...0.2, step: 0.01)
-                        .accentColor(.white)
-                        .onChange(of: adjustments.warmth) { _ in
-                            onDebouncedAdjustmentChanged()
-                        }
+                    Slider(value: $adjustments.warmth, in: -0.2...0.2, step: 0.01, onEditingChanged: { editing in
+                        guard !editing else { return }
+                        debouncedTrackingCall()
+                        debouncedVisualUpdate()
+                    })
+                    .accentColor(.white)
                 }
             }
             .padding(.horizontal, 20)
         }
         .padding(.vertical, 20)
+    }
+    
+    // MARK: - Debounce Helpers
+    
+    /// Debounces visual updates to avoid janky scrolling while keeping UI responsive
+    private func debouncedVisualUpdate() {
+        // Cancel any existing timer
+        visualUpdateTimer?.invalidate()
+        
+        // Create new timer for visual update (short delay for responsiveness)
+        visualUpdateTimer = Timer.scheduledTimer(withTimeInterval: visualUpdateDelay, repeats: false) { _ in
+            onAdjustmentChanged()
+        }
+    }
+    
+    /// Debounces the tracking call to only fire once user stops adjusting
+    private func debouncedTrackingCall() {
+        // Cancel any existing timer
+        trackingTimer?.invalidate()
+        
+        // Create new timer that will fire after user stops adjusting (longer delay)
+        trackingTimer = Timer.scheduledTimer(withTimeInterval: trackingDelay, repeats: false) { _ in
+            onDebouncedAdjustmentChanged()
+        }
     }
 }

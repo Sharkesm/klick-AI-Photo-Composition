@@ -42,6 +42,12 @@ class CompositionManager: ObservableObject {
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult {
         guard isEnabled else {
             let context = CompositionContextAnalyzer.analyzeContext(observation: observation, frameSize: frameSize)
+            let disabledFeedback = CompositionFeedback(
+                label: "pause.circle",
+                suggestion: "Analysis disabled",
+                compositionLevel: 4,
+                color: .white
+            )
             return EnhancedCompositionResult(
                 composition: currentCompositionType.rawValue,
                 score: 0.0,
@@ -49,7 +55,8 @@ class CompositionManager: ObservableObject {
                 suggestion: "Analysis disabled",
                 context: context,
                 overlayElements: [],
-                feedbackIcon: "pause.circle"
+                feedbackIcon: "pause.circle",
+                feedback: disabledFeedback, achievementContext: "Mhhh, curious how your composition scored? Enable live feedback to find out next time."
             )
         }
         
@@ -79,9 +86,13 @@ class CompositionManager: ObservableObject {
     
     /// Switch to a different composition type
     /// - Parameter type: The new composition type to use
+    /// - Note: Allows switching to any composition type for UI purposes.
+    ///   Actual capture blocking is handled in ContentView.capturePhoto()
     func switchToCompositionType(_ type: CompositionType) {
+        // Allow switching to any composition type - capture will be gated separately
         currentCompositionType = type
         lastResult = nil // Clear previous result when switching
+        print("📐 Composition switched to: \(type.displayName)")
     }
     
     /// Toggle composition analysis on/off

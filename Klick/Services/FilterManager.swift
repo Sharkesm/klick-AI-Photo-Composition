@@ -11,9 +11,20 @@ import CoreImage.CIFilterBuiltins
 // MARK: - Filter System
 
 enum FilterPack: String, CaseIterable {
-    case glow = "😍 Glow Pack"
-    case cine = "🍿 Cine Pack"
-    case aesthetic = "🌹 Aesthetic Pack"
+    case glow = "glow_pack"
+    case cine = "cine_pack"
+    case aesthetic = "aesthetic_pack"
+    
+    var displayName: String {
+        switch self {
+        case .glow:
+            return "😍 Glow Pack"
+        case .cine:
+            return "🍿 Cine Pack"
+        case .aesthetic:
+            return "🌹 Aesthetic Pack"
+        }
+    }
 }
 
 struct PhotoFilter: Identifiable, Hashable {
@@ -45,7 +56,7 @@ enum CIFilterType {
     case none // Original image
 }
 
-struct FilterAdjustment {
+struct FilterAdjustment: Equatable {
     var id: String = UUID().uuidString
     var title: String
     var intensity: Double = 0.6 // 0-1
@@ -444,8 +455,9 @@ class FilterManager {
         return finalResult
     }
 
-    func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 70, height: 125)) -> UIImage? {
+    func generateFilterPreview(_ filter: PhotoFilter, for image: UIImage, size: CGSize = CGSize(width: 70, height: 93)) -> UIImage? {
         // Create a smaller version for preview
+        // Size matches 3:4 aspect ratio (70 * 4/3 ≈ 93) for portrait photos
         let previewImage = image.resized(to: size) ?? image
         return applyFilter(filter, to: previewImage, adjustments: .balanced, useCache: true)
     }
@@ -527,6 +539,14 @@ class FilterManager {
         print("🗑️ All filter caches cleared")
     }
     
+    /// Clear editing caches after saving photo (less aggressive than clearAllCaches)
+    /// MEMORY OPTIMIZATION: Called after user saves a photo to release intermediate results
+    func clearEditingCache() {
+        // Clear the main filter cache (preview and full-size cached results)
+        filterCache.removeAllObjects()
+        print("💾 Filter editing cache cleared")
+    }
+    
     /// Get memory usage information
     func getMemoryInfo() -> String {
         let filterCacheCount = filterCache.countLimit
@@ -534,3 +554,4 @@ class FilterManager {
         return "Filter Cache: \(filterCacheCount) items, LUT Cache: \(lutInfo.count) items (~\(String(format: "%.1f", lutInfo.estimatedMemoryMB))MB)"
     }
 }
+

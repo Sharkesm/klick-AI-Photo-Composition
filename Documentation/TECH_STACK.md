@@ -18,6 +18,7 @@
 | **Storage** | Photos Framework | iOS 16.0+ | Photo library integration |
 | **Local Storage** | FileManager | iOS 16.0+ | Document directory storage |
 | **Performance** | Accelerate | iOS 16.0+ | Vectorized operations |
+| **Analytics** | PostHog | ~3.0 | Event tracking and user analytics |
 
 ---
 
@@ -507,10 +508,14 @@ NotificationCenter.default.addObserver(
 - Project File: `Klick.xcodeproj/project.pbxproj`
 
 ### Swift Package Manager
-**Status**: No external dependencies
-- All functionality uses Apple frameworks
-- No third-party libraries required
-- Self-contained project
+**Dependencies**:
+- **PostHog** (~3.0) - Event tracking and analytics (optional)
+  - Purpose: User behavior analytics, event tracking
+  - Location: `Klick/Services/PostHogEventService.swift`
+  - Configuration: Via `EventTrackingManager.configure()`
+  - Reference: https://posthog.com/docs/libraries/ios
+
+**Note**: PostHog is conditionally compiled - app works without it using Console service for debugging.
 
 ---
 

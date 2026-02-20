@@ -21,6 +21,8 @@ struct PhotoAlbumView: View {
     @State private var isSelectionMode = false
     @State private var selectedPhotos: Set<String> = []
     @State private var showDeleteAlert = false
+    @State private var viewStartTime: Date?
+    @State private var photosViewedCount = 0
     
     var body: some View {
         ZStack {
@@ -103,7 +105,18 @@ struct PhotoAlbumView: View {
                                     } else {
                                         print("🔍 Selecting photo: \(photo.id)")
                                         selectedPhoto = photo
+                                        photosViewedCount += 1
                                         print("✅ Selected photo set to: \(photo.id)")
+                                        
+                                        // Track photo selected
+                                        Task {
+                                            if let index = photoManager.capturedPhotos.firstIndex(where: { $0.id == photo.id }) {
+                                                await EventTrackingManager.shared.trackGalleryPhotoSelected(
+                                                    photoId: photo.id,
+                                                    positionInGrid: index
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -125,6 +138,13 @@ struct PhotoAlbumView: View {
                             isSelectionMode.toggle()
                             if !isSelectionMode {
                                 selectedPhotos.removeAll()
+                            }
+                            
+                            // Track selection mode toggled
+                            Task {
+                                await EventTrackingManager.shared.trackGallerySelectionModeToggled(
+                                    enabled: isSelectionMode
+                                )
                             }
                         }
                     }) {
@@ -169,8 +189,29 @@ struct PhotoAlbumView: View {
             Text("Are you sure you want to delete \(selectedPhotos.count) photo\(selectedPhotos.count == 1 ? "" : "s")? This action cannot be undone.")
         }
         .onAppear {
+            // Track gallery viewed
+            viewStartTime = Date()
+            Task {
+                await EventTrackingManager.shared.trackGalleryViewed(
+                    photoCount: photoManager.photoCount,
+                    source: .button
+                )
+            }
+            
             // Trigger lazy loading when view appears in full screen mode
             photoManager.loadPhotosIfNeeded()
+        }
+        .onDisappear {
+            // Track gallery dismissed
+            if let startTime = viewStartTime {
+                let timeSpent = Date().timeIntervalSince(startTime)
+                Task {
+                    await EventTrackingManager.shared.trackGalleryDismissed(
+                        timeSpent: timeSpent,
+                        photosViewed: photosViewedCount
+                    )
+                }
+            }
         }
     }
     
@@ -184,6 +225,16 @@ struct PhotoAlbumView: View {
     
     func deleteSelectedPhotos() {
         let photosToDelete = photoManager.capturedPhotos.filter { selectedPhotos.contains($0.id) }
+        let deleteCount = photosToDelete.count
+        
+        // Track photos deleted
+        Task {
+            await EventTrackingManager.shared.trackPhotosDeleted(
+                count: deleteCount,
+                selectionMethod: .bulk
+            )
+        }
+        
         for photo in photosToDelete {
             photoManager.deletePhoto(photo)
         }

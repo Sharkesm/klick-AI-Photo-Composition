@@ -1,6 +1,5 @@
 import UIKit
 import SwiftUI
-import FBSDKShareKit
 
 class SceneDelegate: NSObject, UIWindowSceneDelegate {
     var window: UIWindow?

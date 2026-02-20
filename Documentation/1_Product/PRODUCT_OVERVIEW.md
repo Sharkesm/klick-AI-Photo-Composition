@@ -42,29 +42,38 @@
 ### User Journey Flow
 ```mermaid
 graph TD
-    A[Launch App] --> B[Onboarding Animation]
-    B --> C[Request Permissions]
-    C --> D[Camera Feed Active]
-    D --> E[Subject Detection]
-    E --> F[Composition Analysis]
-    F --> G[Live Feedback]
-    G --> H[User Adjusts Frame]
-    H --> F
+    A[Launch App] --> B[Landing Page Animation]
+    B --> C[7-Screen Onboarding]
+    C --> C1[Welcome & Value Prop]
+    C1 --> C2[Feature Introduction]
+    C2 --> C3[Social Proof]
+    C3 --> C4[Pro Upsell]
+    C4 --> C5[Goal Personalization]
+    C5 --> D[Request Permissions]
+    D --> E[Camera Feed Active]
+    E --> F[Subject Detection]
+    F --> G[Composition Analysis]
+    G --> H[Live Feedback]
+    H --> I[User Adjusts Frame]
+    I --> G
     
-    D --> I[Capture Photo]
-    I --> J[Save to Storage]
-    J --> K[Gallery Preview]
-    K --> L[View/Delete Photos]
+    E --> J[Capture Photo]
+    J --> K[Save to Storage]
+    K --> L[Gallery Preview]
+    L --> M[View/Delete Photos]
     
-    D --> I[Access Settings]
-    I --> J[Toggle Features]
-    J --> D
+    E --> N[Access Settings]
+    N --> O[Toggle Features]
+    O --> E
     
-    D --> K[Switch Composition Type]
-    K --> D
+    E --> P[Switch Composition Type]
+    P --> E
     
-    D --> L[Educational Content]
-    L --> D
+    E --> Q[Educational Content]
+    Q --> E
+    
+    C --> C6[Skip to Pro Upsell]
+    C6 --> C4
 ```
 
 ## 🧠 Core Concepts & Implementation

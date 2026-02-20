@@ -1,21 +1,17 @@
 import SwiftUI
 
 struct LandingPageView: View {
+    // TEST MODE: Set to true to always show onboarding
+    private let testMode = true
+    
     @AppStorage("onboardingIntroduction") var onboardingIntroduction: Bool = false
     @AppStorage("onboardingFlowCompleted") var onboardingFlowCompleted: Bool = false
     @AppStorage("permissionGranted") var permissionGranted: Bool = false
+    @AppStorage("hasSeenProUpsell") var hasSeenProUpsell: Bool = false
+    @AppStorage("userCreativeGoal") var userCreativeGoal: String = ""
     
     @State private var scrollOffset1: CGFloat = 0
     @State private var scrollOffset2: CGFloat = 0
-    @State private var isAnimating = false
-    
-    // Animation states
-    @State private var showHeadline = false
-    @State private var showSubtitle = false
-    @State private var showIcon1 = false
-    @State private var showIcon2 = false
-    @State private var showIcon3 = false
-    @State private var showButton = false
     
     // Navigation and transition states
     @State private var isTransitioning = false
@@ -45,7 +41,7 @@ struct LandingPageView: View {
                 landingPageContent
             } else if !onboardingFlowCompleted {
                 // Show onboarding flow
-                OnboardFlowView(isPresented: $showOnboardingFlow)
+                OnboardingFlowView(isPresented: $showOnboardingFlow)
                     .onAppear {
                         showOnboardingFlow = true
                     }
@@ -68,6 +64,12 @@ struct LandingPageView: View {
                 // Show ContentView after permissions are granted
                 ContentView()
             }
+        }
+        .onAppear {
+            // Reset all onboarding states in test mode on app launch
+//            if testMode {
+//                resetOnboardingStates()
+//            }
         }
     }
     
@@ -125,7 +127,6 @@ struct LandingPageView: View {
                 .frame(height: 400)
                 .onAppear {
                     startScrollingAnimations()
-                    startSequentialAnimations()
                 }
                 
                 
@@ -137,17 +138,11 @@ struct LandingPageView: View {
                         .font(.system(size: 48, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .tracking(2)
-                        .opacity(showHeadline ? 1 : 0)
-                        .offset(y: showHeadline ? 0 : 50)
-                        .animation(.easeOut(duration: 0.8), value: showHeadline)
                     
                     Text("those perfect frames")
                         .font(.system(size: 18, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.8))
                         .italic()
-                        .opacity(showSubtitle ? 1 : 0)
-                        .scaleEffect(showSubtitle ? 1 : 0.8)
-                        .animation(.easeOut(duration: 0.6).delay(0.3), value: showSubtitle)
                     
                     // Composition style icons
                     HStack(spacing: 14) {
@@ -155,20 +150,14 @@ struct LandingPageView: View {
                         Image(systemName: "squareshape.split.2x2.dotted")
                             .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.white.opacity(0.7))
-                            .opacity(showIcon1 ? 1 : 0)
-                            .animation(.easeOut(duration: 0.5).delay(0.8), value: showIcon1)
                         
                         Image(systemName: "plus.viewfinder") // dot.circle
                             .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.white.opacity(0.7))
-                            .opacity(showIcon2 ? 1 : 0)
-                            .animation(.easeOut(duration: 0.5).delay(1.0), value: showIcon2)
                         
                         Image(systemName: "rectangle.split.2x1") // arrow.left.arrow.right
                             .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.white.opacity(0.7))
-                            .opacity(showIcon3 ? 1 : 0)
-                            .animation(.easeOut(duration: 0.5).delay(1.2), value: showIcon3)
                         Spacer()
                     }
                     .padding(.top, 20)
@@ -194,14 +183,6 @@ struct LandingPageView: View {
                         .shadow(color: .white.opacity(0.3), radius: 10, x: 0, y: 5)
                 }
                 .padding(.bottom, 50)
-                .scaleEffect(isAnimating ? 1.05 : 1.0)
-                .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: isAnimating)
-                .opacity(showButton ? 1 : 0)
-                .offset(y: showButton ? 0 : 30)
-                .animation(.easeOut(duration: 0.8).delay(1.6), value: showButton)
-                .onAppear {
-                    isAnimating = true
-                }
             }
             .opacity(showRows ? 1 : 0)
             .animation(.easeOut(duration: 0.5), value: showRows)
@@ -211,14 +192,13 @@ struct LandingPageView: View {
     private func startTransition() {
         isTransitioning = true
         
+        // Track onboarding flow started
+        Task {
+            await EventTrackingManager.shared.trackOnboardingFlowStarted(source: "landing_page")
+        }
+        
         // Simple fade out animation
         withAnimation(.easeOut(duration: 0.5)) {
-            showButton = false
-            showIcon1 = false
-            showIcon2 = false
-            showIcon3 = false
-            showSubtitle = false
-            showHeadline = false
             showRows = false
         }
         
@@ -226,6 +206,14 @@ struct LandingPageView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             onboardingIntroduction = true
         }
+    }
+    
+    private func resetOnboardingStates() {
+        onboardingIntroduction = false
+        onboardingFlowCompleted = false
+        permissionGranted = false
+        hasSeenProUpsell = false
+        userCreativeGoal = ""
     }
     
     private func startScrollingAnimations() {
@@ -244,36 +232,6 @@ struct LandingPageView: View {
             withAnimation(.linear(duration: 15).repeatForever(autoreverses: true)) {
                 scrollOffset2 = -100
             }
-        }
-    }
-    
-    private func startSequentialAnimations() {
-        // Headline animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            showHeadline = true
-        }
-        
-        // Subtitle animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            showSubtitle = true
-        }
-        
-        // Icon animations (one by one)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
-            showIcon1 = true
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            showIcon2 = true
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.7) {
-            showIcon3 = true
-        }
-        
-        // Button animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.1) {
-            showButton = true
         }
     }
 }

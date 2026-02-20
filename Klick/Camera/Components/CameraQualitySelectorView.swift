@@ -19,8 +19,14 @@ enum CameraQuality: String, CaseIterable {
 // MARK: - Camera Quality Selector View
 struct CameraQualitySelectorView: View {
     @Binding var selectedQuality: CameraQuality
+    @Binding var shouldAutoExpand: Bool
     @State private var showQualityChange = false
     @State private var isRevealed = false
+    @State private var hasInteracted = false
+    
+    let shouldBlockExpansion: Bool
+    var onFirstInteraction: (() -> Void)?
+    var onSelectionCompletion: (() -> Void)?
     
     let impactFeedback = UIImpactFeedbackGenerator(style: .light)
     
@@ -33,6 +39,17 @@ struct CameraQualitySelectorView: View {
         VStack(spacing: 5) {
             // Main toggle button - always at the top
             Button {
+                // Trigger first interaction callback
+                if !hasInteracted {
+                    hasInteracted = true
+                    onFirstInteraction?()
+                    
+                    // Don't expand if we need to show intro first
+                    if shouldBlockExpansion {
+                        return
+                    }
+                }
+                
                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
                     isRevealed.toggle()
                 }
@@ -103,10 +120,21 @@ struct CameraQualitySelectorView: View {
                                 showQualityChange = true
                             }
                             
+                            // Track camera quality selected
+                            Task {
+                                let trackingQuality: CameraQuality = quality == .standard ? .standard : .pro
+                                let wasGated = quality == .pro && shouldBlockExpansion
+                                await EventTrackingManager.shared.trackCameraQualitySelected(
+                                    quality: trackingQuality,
+                                    wasGated: wasGated
+                                )
+                            }
+                            
                             // Collapse after selection with unified animation
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                                     isRevealed = false
+                                    onSelectionCompletion?()
                                 }
                             }
                         }) {
@@ -142,6 +170,18 @@ struct CameraQualitySelectorView: View {
         }
         .frame(width: controlWidth) // Fixed width to prevent parent layout shifts
         .animation(.spring(response: 0.8, dampingFraction: 0.9), value: isRevealed)
+        .onChange(of: shouldAutoExpand) { shouldExpand in
+            // Auto-expand after intro dismisses
+            if shouldExpand && !isRevealed {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
+                    isRevealed = true
+                }
+                // Reset the flag
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    shouldAutoExpand = false
+                }
+            }
+        }
         .onChange(of: showQualityChange) { newValue in
             if newValue {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {

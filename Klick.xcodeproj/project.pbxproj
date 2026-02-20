@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		11BB7D7E2E54DCC000407D8D /* FacebookShare in Frameworks */ = {isa = PBXBuildFile; productRef = 11BB7D7D2E54DCC000407D8D /* FacebookShare */; };
+		116063612ED6FEDE00F8ACBE /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 116063602ED6FEDE00F8ACBE /* RevenueCat */; };
+		11908E1E2ED724DD009D026D /* DotLottie in Frameworks */ = {isa = PBXBuildFile; productRef = 11908E1D2ED724DD009D026D /* DotLottie */; };
+		1194B45C2F406D1B00218927 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 1194B45B2F406D1B00218927 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,7 +42,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				11BB7D7E2E54DCC000407D8D /* FacebookShare in Frameworks */,
+				1194B45C2F406D1B00218927 /* PostHog in Frameworks */,
+				116063612ED6FEDE00F8ACBE /* RevenueCat in Frameworks */,
+				11908E1E2ED724DD009D026D /* DotLottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -83,7 +87,9 @@
 			);
 			name = Klick;
 			packageProductDependencies = (
-				11BB7D7D2E54DCC000407D8D /* FacebookShare */,
+				116063602ED6FEDE00F8ACBE /* RevenueCat */,
+				11908E1D2ED724DD009D026D /* DotLottie */,
+				1194B45B2F406D1B00218927 /* PostHog */,
 			);
 			productName = Klick;
 			productReference = 11E45EBE2E224E8700B252F3 /* Klick.app */;
@@ -114,7 +120,9 @@
 			mainGroup = 11E45EB52E224E8700B252F3;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				11BB7D7C2E54DCC000407D8D /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
+				1160635F2ED6FEDE00F8ACBE /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
+				11908E1C2ED724DD009D026D /* XCRemoteSwiftPackageReference "dotlottie-ios" */,
+				1194B45A2F406D1B00218927 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 11E45EBF2E224E8700B252F3 /* Products */;
@@ -376,21 +384,47 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		11BB7D7C2E54DCC000407D8D /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */ = {
+		1160635F2ED6FEDE00F8ACBE /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/facebook/facebook-ios-sdk";
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 14.1.0;
+				minimumVersion = 5.49.0;
+			};
+		};
+		11908E1C2ED724DD009D026D /* XCRemoteSwiftPackageReference "dotlottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/LottieFiles/dotlottie-ios";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		1194B45A2F406D1B00218927 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.41.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		11BB7D7D2E54DCC000407D8D /* FacebookShare */ = {
+		116063602ED6FEDE00F8ACBE /* RevenueCat */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 11BB7D7C2E54DCC000407D8D /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
-			productName = FacebookShare;
+			package = 1160635F2ED6FEDE00F8ACBE /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+		11908E1D2ED724DD009D026D /* DotLottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 11908E1C2ED724DD009D026D /* XCRemoteSwiftPackageReference "dotlottie-ios" */;
+			productName = DotLottie;
+		};
+		1194B45B2F406D1B00218927 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1194B45A2F406D1B00218927 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

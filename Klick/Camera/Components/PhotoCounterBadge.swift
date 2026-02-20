@@ -1,0 +1,48 @@
+//
+//  PhotoCounterBadge.swift
+//  Klick
+//
+//  Photo counter badge for free tier users
+//
+
+import SwiftUI
+
+struct PhotoCounterBadge: View {
+    @ObservedObject var featureManager: FeatureManager
+    @Binding var showSalesPage: Bool
+    @Binding var paywallSource: PaywallSource
+    
+    var remainingPhotos: Int {
+        max(0, featureManager.maxFreePhotos - featureManager.capturedPhotoCount)
+    }
+    
+    
+    var body: some View {
+        // Only show for free users
+        if !featureManager.isPro {
+            Button {
+                paywallSource = .photoCounterBadge
+                showSalesPage = true
+            } label: {
+                Text("\(remainingPhotos)")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+            .frame(width: 42, height: 42)
+            .background(Color.black.opacity(0.5))
+            .clipShape(Capsule())
+            .overlay(alignment: .bottom) {
+                Text("FREE")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.green)
+                    )
+                    .offset(y: 5)
+            }
+        }
+    }
+}

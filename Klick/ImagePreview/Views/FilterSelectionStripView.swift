@@ -11,8 +11,10 @@ struct FilterSelectionStripView: View {
     let selectedFilter: PhotoFilter?
     let filterPreviews: [String: UIImage]
     let originalImage: UIImage?
+    @ObservedObject var featureManager: FeatureManager
     let onFilterSelected: (PhotoFilter?) -> Void
-
+    let onShowSalesPage: ((PaywallSource) -> Void)? // Optional callback to show sales page with source
+    
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 12) {
@@ -20,15 +22,24 @@ struct FilterSelectionStripView: View {
                     filter: nil,
                     previewImage: originalImage,
                     isSelected: selectedFilter == nil,
+                    isLocked: false,
                     action: { onFilterSelected(nil) }
                 )
 
-                ForEach(FilterManager.shared.filters(for: selectedPack)) { filter in
+                ForEach(FilterManager.shared.filters(for: selectedPack), id: \.id) { filter in
                     FilterButton(
                         filter: filter,
                         previewImage: filterPreviews[filter.id] ?? originalImage,
                         isSelected: selectedFilter?.id == filter.id,
-                        action: { onFilterSelected(filter) }
+                        isLocked: !featureManager.canUseFilter(id: filter.id, pack: selectedPack),
+                        action: {
+                            // If filter is locked, show sales page; otherwise select filter
+                            if !featureManager.canUseFilter(id: filter.id, pack: selectedPack) {
+                                onShowSalesPage?(.imagePreviewPremiumFilter)
+                            } else {
+                                onFilterSelected(filter)
+                            }
+                        }
                     )
                 }
             }

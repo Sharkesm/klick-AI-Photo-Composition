@@ -19,6 +19,24 @@ protocol CompositionService {
     func evaluate(observation: VNDetectedObjectObservation, frameSize: CGSize, pixelBuffer: CVPixelBuffer?) -> EnhancedCompositionResult
 }
 
+// MARK: - Composition Feedback Model
+
+/// Structured feedback model for live suggestions
+struct CompositionFeedback {
+    let label: String           // SF Symbol name
+    let suggestion: String      // Text for suggestion
+    let compositionLevel: Int   // 1-6 grading (1 = best)
+    let color: Color           // Icon color
+    
+    /// Level descriptions for reference:
+    /// - Level 1: Perfect composition ✅ (green)
+    /// - Level 2: Good composition ✅ (blue)
+    /// - Level 3: Almost there / Minor adjustment (yellow)
+    /// - Level 4: Needs directional adjustment (orange)
+    /// - Level 5: Needs distance/framing adjustment (orange)
+    /// - Level 6: Critical issue (red)
+}
+
 // MARK: - Enhanced Result Types
 
 /// Enhanced result of composition evaluation with context awareness
@@ -30,6 +48,8 @@ struct EnhancedCompositionResult {
     let context: CompositionContext // Subject and scene analysis
     let overlayElements: [OverlayElement] // Visual guidance elements
     let feedbackIcon: String // SF Symbol for feedback UI
+    let feedback: CompositionFeedback // Structured feedback model
+    let achievementContext: String // Rich description for share screen (level-specific)
     
     // Legacy compatibility
     var isWellComposed: Bool {
@@ -53,8 +73,8 @@ enum CompositionStatus: String, CaseIterable {
     
     var icon: String {
         switch self {
-        case .perfect: return "checkmark.circle.fill"
-        case .good: return "checkmark.circle"
+        case .perfect: return "star.fill"
+        case .good: return "hand.thumbsup.fill"
         case .needsAdjustment: return "arrow.trianglehead.2.clockwise"
         }
     }
@@ -305,6 +325,13 @@ class CenterFramingService: CompositionService {
             overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
         }
         
+        // Get appropriate icon for the suggestion
+        let icon = getCenterFramingIcon(for: suggestion, status: status)
+        
+        // Create structured feedback model
+        let feedback = getCenterFramingFeedback(for: suggestion, status: status, icon: icon)
+        let achievementContext = getCenterFramingAchievementContext(for: suggestion)
+        
         return EnhancedCompositionResult(
             composition: CompositionType.centerFraming.rawValue,
             score: finalScore,
@@ -312,7 +339,9 @@ class CenterFramingService: CompositionService {
             suggestion: suggestion,
             context: context,
             overlayElements: overlayElements,
-            feedbackIcon: status.icon
+            feedbackIcon: icon,
+            feedback: feedback,
+            achievementContext: achievementContext
         )
     }
     
@@ -326,12 +355,12 @@ class CenterFramingService: CompositionService {
         
         // Handle edge proximity first (only if truly dangerous)
         if context.edgeProximity.safetyMargin < 0.03 {
-            return (.needsAdjustment, "Too close to edge")
+            return (.needsAdjustment, "Step back")
         }
         
         // Handle severe headroom issues
         if context.headroom.excessiveHeadroom && context.headroom.cutoffLimbs {
-            return (.needsAdjustment, "Move closer")
+            return (.needsAdjustment, "Get closer")
         }
         
         // Simple centering feedback
@@ -339,7 +368,7 @@ class CenterFramingService: CompositionService {
             if symmetryScore > 0.8 {
                 return (.perfect, "Perfect!")
             } else {
-                return (.good, "Centered")
+                return (.good, "Nice center!")
             }
         } else {
             // Provide simple directional guidance
@@ -368,13 +397,13 @@ class CenterFramingService: CompositionService {
         
         // Simple, clear guidance
         if horizontalMagnitude > directionThreshold && verticalMagnitude > directionThreshold {
-            return "Move \(horizontalDirection) and \(verticalDirection)"
+            return "Go \(verticalDirection)-\(horizontalDirection)"
         } else if horizontalMagnitude > directionThreshold {
-            return "Move \(horizontalDirection)"
+            return "Shift \(horizontalDirection)"
         } else if verticalMagnitude > directionThreshold {
-            return "Move \(verticalDirection)"
+            return "Shift \(verticalDirection)"
         } else {
-            return "Almost centered"
+            return "Almost there"
         }
     }
     
@@ -440,6 +469,89 @@ class CenterFramingService: CompositionService {
             opacity: 0.4,
             lineWidth: 1
         )
+    }
+    
+    /// Get appropriate SF Symbol for Center Framing feedback
+    private func getCenterFramingIcon(for suggestion: String, status: CompositionStatus) -> String {
+        switch suggestion {
+        case "Step back":
+            return "arrow.up.backward"
+        case "Get closer":
+            return "arrow.down.circle"
+        case "Perfect!":
+            return "checkmark.circle.fill"
+        case "Nice center!":
+            return "circle.circle.fill"
+        case let str where str.starts(with: "Go up-left"):
+            return "arrow.up.left"
+        case let str where str.starts(with: "Go down-left"):
+            return "arrow.down.left"
+        case let str where str.starts(with: "Go up-right"):
+            return "arrow.up.right"
+        case let str where str.starts(with: "Go down-right"):
+            return "arrow.down.right"
+        case "Shift left":
+            return "arrow.left"
+        case "Shift right":
+            return "arrow.right"
+        case "Shift up":
+            return "arrow.up"
+        case "Shift down":
+            return "arrow.down"
+        case "Almost there":
+            return "scope"
+        default:
+            return status.icon
+        }
+    }
+    
+    /// Get structured feedback model for Center Framing
+    private func getCenterFramingFeedback(for suggestion: String, status: CompositionStatus, icon: String) -> CompositionFeedback {
+        let level: Int
+        var color: Color = .white
+        
+        switch suggestion {
+        case "Perfect!":
+            level = 1
+            color = Color(red: 0x38 / 255.0, green: 0xb0 / 255.0, blue: 0x00 / 255.0) // Custom green #38b000
+        case "Nice center!":
+            level = 2
+        case "Almost there":
+            level = 3
+        case let str where str.starts(with: "Go "):
+            level = 4
+        case let str where str.starts(with: "Shift "):
+            level = 4
+        case "Step back", "Get closer":
+            level = 5
+        default:
+            level = 4
+        }
+        
+        return CompositionFeedback(
+            label: icon,
+            suggestion: suggestion,
+            compositionLevel: level,
+            color: color
+        )
+    }
+    
+    /// Get achievement context for Center Framing (share screen)
+    private func getCenterFramingAchievementContext(for suggestion: String) -> String {
+        switch suggestion {
+        case "Perfect!":
+            return "Boom! Perfectly centered 🎯 Your subject is right where it should be, and it totally works."
+        case "Nice center!":
+            return "Nice one! Your subject is sitting confidently in the middle. Simple, bold, and effective."
+        case "Almost there":
+            return "So close! A tiny shift and this would be perfectly centered. You're getting it!"
+        case let str where str.starts(with: "Go "), let str where str.starts(with: "Shift "):
+            return "Good eye! You found a great subject—just nudge it a bit closer to the center next time."
+        case "Step back", "Get closer":
+            return "Nice catch! The distance was a little off, but you're clearly spotting the right moments."
+        default:
+            return "Nice shot! Every photo helps train your framing instincts. Keep going—you're learning fast."
+        }
     }
     
     // Optimized symmetry calculation for real-time performance
@@ -581,6 +693,13 @@ class SymmetryService: CompositionService {
             overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
         }
         
+        // Get appropriate icon for the suggestion
+        let icon = getSymmetryIcon(for: suggestion, status: status)
+        
+        // Create structured feedback model
+        let feedback = getSymmetryFeedback(for: suggestion, status: status, icon: icon)
+        let achievementContext = getSymmetryAchievementContext(for: suggestion)
+        
         return EnhancedCompositionResult(
             composition: CompositionType.symmetry.rawValue,
             score: finalScore,
@@ -588,7 +707,9 @@ class SymmetryService: CompositionService {
             suggestion: suggestion,
             context: context,
             overlayElements: overlayElements,
-            feedbackIcon: status.icon
+            feedbackIcon: icon,
+            feedback: feedback,
+            achievementContext: achievementContext
         )
     }
     
@@ -704,26 +825,26 @@ class SymmetryService: CompositionService {
         
         // Handle edge proximity first
         if context.edgeProximity.tooCloseToEdge {
-            return (.needsAdjustment, "Too close to edge")
+            return (.needsAdjustment, "Step back")
         }
         
         // Symmetry-specific feedback
         if symmetryScore > 0.8 && centeringScore > 0.7 {
-            return (.perfect, "Perfect symmetry!")
+            return (.perfect, "So balanced!")
         } else if symmetryScore > 0.6 {
             if balanceAnalysis == "balanced" {
-                return (.good, "Good symmetry")
+                return (.good, "Well balanced")
             } else {
-                return (.good, "Looks \(balanceAnalysis)")
+                return (.good, "Good balance")
             }
         } else {
             switch balanceAnalysis {
             case "left-weighted":
-                return (.needsAdjustment, "Move right")
+                return (.needsAdjustment, "Shift right")
             case "right-weighted":
-                return (.needsAdjustment, "Move left")
+                return (.needsAdjustment, "Shift left")
             default:
-                return (.needsAdjustment, "Center for balance")
+                return (.needsAdjustment, "Find center")
             }
         }
     }
@@ -765,6 +886,85 @@ class SymmetryService: CompositionService {
             opacity: 0.0,
             lineWidth: 1
         )
+    }
+    
+    /// Get appropriate SF Symbol for Symmetry feedback
+    private func getSymmetryIcon(for suggestion: String, status: CompositionStatus) -> String {
+        switch suggestion {
+        case "Step back":
+            return "arrow.up.backward"
+        case "So balanced!":
+            return "checkmark.circle.fill"
+        case "Well balanced":
+            return "checkmark.seal.fill"
+        case "Good balance":
+            return "equal.circle"
+        case "Shift right":
+            return "arrow.right"
+        case "Shift left":
+            return "arrow.left"
+        case "Find center":
+            return "plus.viewfinder"
+        default:
+            return status.icon
+        }
+    }
+    
+    /// Get structured feedback model for Symmetry
+    private func getSymmetryFeedback(for suggestion: String, status: CompositionStatus, icon: String) -> CompositionFeedback {
+        let level: Int
+        let color: Color
+        
+        switch suggestion {
+        case "So balanced!":
+            level = 1
+            color = Color(red: 0x38 / 255.0, green: 0xb0 / 255.0, blue: 0x00 / 255.0) // Custom green #38b000
+        case "Well balanced":
+            level = 2
+            color = .white
+        case "Good balance":
+            level = 3
+            color = .white
+        case let str where str.starts(with: "Shift "):
+            level = 4
+            color = .white
+        case "Find center":
+            level = 4
+            color = .white
+        case "Step back":
+            level = 5
+            color = .white
+        default:
+            level = 4
+            color = .white
+        }
+        
+        return CompositionFeedback(
+            label: icon,
+            suggestion: suggestion,
+            compositionLevel: level,
+            color: color
+        )
+    }
+    
+    /// Get achievement context for Symmetry (share screen)
+    private func getSymmetryAchievementContext(for suggestion: String) -> String {
+        switch suggestion {
+        case "So balanced!":
+            return "Ooo, satisfying 😌 The symmetry here is spot-on and super pleasing to look at."
+        case "Well balanced":
+            return "Looking good! The frame feels steady and centered. Your balance game is strong."
+        case "Good balance":
+            return "Nice! You're seeing the symmetry. One small tweak and this would be perfect."
+        case let str where str.starts(with: "Shift "):
+            return "Good instinct! You spotted a symmetrical scene—just a tiny shift would lock it in."
+        case "Find center":
+            return "You're on the right track! Symmetry takes practice, and you're learning to see it."
+        case "Step back":
+            return "Nice shot! A bit more space would help, but your sense of balance is growing."
+        default:
+            return "Nice capture! Every try sharpens your eye for balance. Keep experimenting!"
+        }
     }
 }
 
@@ -849,6 +1049,13 @@ class RuleOfThirdsService: CompositionService {
             overlayElements.append(createSafetyZoneOverlay(frameSize: frameSize))
         }
         
+        // Get appropriate icon for the suggestion
+        let icon = getRuleOfThirdsIcon(for: suggestion, status: status)
+        
+        // Create structured feedback model
+        let feedback = getRuleOfThirdsFeedback(for: suggestion, status: status, icon: icon)
+        let achievementContext = getRuleOfThirdsAchievementContext(for: suggestion)
+        
         return EnhancedCompositionResult(
             composition: CompositionType.ruleOfThirds.rawValue,
             score: finalScore,
@@ -856,7 +1063,9 @@ class RuleOfThirdsService: CompositionService {
             suggestion: suggestion,
             context: context,
             overlayElements: overlayElements,
-            feedbackIcon: status.icon
+            feedbackIcon: icon,
+            feedback: feedback,
+            achievementContext: achievementContext
         )
     }
     
@@ -941,12 +1150,12 @@ class RuleOfThirdsService: CompositionService {
         
         // Handle edge proximity first
         if context.edgeProximity.tooCloseToEdge {
-            return (.needsAdjustment, "Too close to edge")
+            return (.needsAdjustment, "Step back")
         }
         
         // Handle headroom issues
         if context.headroom.excessiveHeadroom {
-            return (.needsAdjustment, "Too much headroom")
+            return (.needsAdjustment, "Get closer")
         }
         
         if context.headroom.cutoffLimbs {
@@ -955,11 +1164,11 @@ class RuleOfThirdsService: CompositionService {
         
         // More realistic composition-based feedback
         if intersectionScore > 0.7 {  // Lowered from 0.8
-            return (.perfect, "Perfect thirds!")
+            return (.perfect, "Nailed it!")
         } else if intersectionScore > 0.4 || lineScore > 0.7 {  // More achievable thresholds
-            return (.good, "Good thirds")
+            return (.good, "Looking good!")
         } else if lineScore > 0.4 {  // Lowered from 0.6
-            return (.good, "On thirds line")
+            return (.good, "Almost there")
         } else {
             // Provide directional guidance
             let suggestion = generateDirectionalGuidance(centerX: centerX, centerY: centerY)
@@ -969,10 +1178,10 @@ class RuleOfThirdsService: CompositionService {
     
     private func generateDirectionalGuidance(centerX: Double, centerY: Double) -> String {
         let intersections = [
-            (1.0/3.0, 1.0/3.0, "bottom-left"),
-            (1.0/3.0, 2.0/3.0, "top-left"), 
-            (2.0/3.0, 1.0/3.0, "bottom-right"),
-            (2.0/3.0, 2.0/3.0, "top-right")
+            (1.0/3.0, 1.0/3.0, "lower-left"),
+            (1.0/3.0, 2.0/3.0, "upper-left"), 
+            (2.0/3.0, 1.0/3.0, "lower-right"),
+            (2.0/3.0, 2.0/3.0, "upper-right")
         ]
         
         let distances = intersections.map { intersection in
@@ -983,10 +1192,10 @@ class RuleOfThirdsService: CompositionService {
         }
         
         guard let nearest = distances.min(by: { $0.0 < $1.0 }) else {
-            return "Move subject to align with thirds intersection."
+            return "Find your spot"
         }
         
-        return "Move to \(nearest.1) third"
+        return "Go \(nearest.1)"
     }
     
     private func createSafetyZoneOverlay(frameSize: CGSize) -> OverlayElement {
@@ -1009,6 +1218,89 @@ class RuleOfThirdsService: CompositionService {
             opacity: 0.0,
             lineWidth: 2
         )
+    }
+    
+    /// Get appropriate SF Symbol for Rule of Thirds feedback
+    private func getRuleOfThirdsIcon(for suggestion: String, status: CompositionStatus) -> String {
+        switch suggestion {
+        case "Step back":
+            return "arrow.up.backward"
+        case "Get closer":
+            return "arrow.down.circle"
+        case "Subject cut off":
+            return "person.fill.viewfinder"
+        case "Nailed it!":
+            return "checkmark.circle.fill"
+        case "Looking good!":
+            return "hand.thumbsup.fill"
+        case "Almost there":
+            return "target"
+        case let str where str.starts(with: "Go lower-left"):
+            return "arrow.down.left"
+        case let str where str.starts(with: "Go upper-left"):
+            return "arrow.up.left"
+        case let str where str.starts(with: "Go lower-right"):
+            return "arrow.down.right"
+        case let str where str.starts(with: "Go upper-right"):
+            return "arrow.up.right"
+        default:
+            return status.icon
+        }
+    }
+    
+    /// Get structured feedback model for Rule of Thirds
+    private func getRuleOfThirdsFeedback(for suggestion: String, status: CompositionStatus, icon: String) -> CompositionFeedback {
+        let level: Int
+        let color: Color
+        
+        switch suggestion {
+        case "Nailed it!":
+            level = 1
+            color = Color(red: 0x38 / 255.0, green: 0xb0 / 255.0, blue: 0x00 / 255.0) // Custom green #38b000
+        case "Looking good!":
+            level = 2
+            color = .white
+        case "Almost there":
+            level = 3
+            color = .white
+        case let str where str.starts(with: "Go "):
+            level = 4
+            color = .white
+        case "Step back", "Get closer":
+            level = 5
+            color = .white
+        case "Subject cut off":
+            level = 6
+            color = .white
+        default:
+            level = 4
+            color = .white
+        }
+        
+        return CompositionFeedback(
+            label: icon,
+            suggestion: suggestion,
+            compositionLevel: level,
+            color: color
+        )
+    }
+    
+    /// Get achievement context for Rule of Thirds (share screen)
+    private func getRuleOfThirdsAchievementContext(for suggestion: String) -> String {
+        switch suggestion {
+        case "Nailed it!":
+            return "Nailed it! 🙌 Your subject sits right on the sweet spot. This frame feels balanced and natural."
+        case "Looking good!":
+            return "Looking good! You placed your subject nicely along the grid—easy on the eyes."
+        case "Almost there":
+            return "Almost! You've got the idea—just a little tweak and it'll really shine."
+        case let str where str.starts(with: "Go "):
+            return "Nice try! You caught the moment. A small move would make this even stronger."
+        case "Step back", "Get closer":
+            return "Good shot! The distance wasn't perfect, but you're choosing interesting subjects."
+        default:
+            return "You took the shot! Every photo helps you get better—keep playing with the frame."
+        }
     }
     
     private func calculateRuleOfThirdsScore(centerX: Double, centerY: Double) -> Double {

@@ -522,6 +522,63 @@ class BackgroundBlurManager {
 
 ---
 
+## 📊 Event Tracking Architecture
+
+### Protocol-Oriented Event Tracking
+
+Klick uses a protocol-oriented architecture for event tracking that supports multiple analytics platforms:
+
+```swift
+protocol EventTrackingService {
+    var name: String { get }
+    func trackEvent(name: String, parameters: [String: Any]?) async
+    func setUserProperty(_ key: String, value: Any?) async
+    func identify(userId: String?) async
+    func reset() async
+}
+```
+
+**EventTrackingManager (Orchestrator)**:
+```swift
+class EventTrackingManager {
+    static let shared = EventTrackingManager()
+    private var services: [EventTrackingService] = []
+    
+    func track(eventName: String, parameters: [String: Any]?) async {
+        // Broadcasts to all registered services concurrently
+        await withTaskGroup(of: Void.self) { group in
+            for service in services {
+                group.addTask {
+                    await service.trackEvent(name: eventName, parameters: parameters)
+                }
+            }
+        }
+    }
+    
+    static func configure() {
+        // Auto-configures all available services
+        #if canImport(PostHog)
+        configurePostHog()
+        #endif
+        #if DEBUG
+        configureConsole()
+        #endif
+    }
+}
+```
+
+**Current Implementations**:
+- `PostHogEventService` - Production analytics (PostHog SDK)
+- `ConsoleEventService` - Development debugging (prints to console)
+
+**Event Naming Convention**:
+- Follows Braze conventions: `group_noun_action` (lowercase, snake_case)
+- Example: `user_signup`, `photo_captured`, `onboarding_completed`
+
+**Location**: `Klick/Services/EventTracking*.swift`
+
+---
+
 ## ⚡ Performance Architecture
 
 ### Threading Model
