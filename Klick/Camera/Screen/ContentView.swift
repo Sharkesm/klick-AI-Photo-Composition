@@ -407,12 +407,6 @@ struct ContentView: View {
                 onDismiss: nil
             )
             .presentationDetents([.fraction(0.8), .large])
-            .onAppear {
-                // Track settings opened
-                Task {
-                    await EventTrackingManager.shared.trackCameraSettingsOpened()
-                }
-            }
         }
         .fullScreenCover(isPresented: $showSalesPage) {
             SalesPageView(source: paywallSource)
