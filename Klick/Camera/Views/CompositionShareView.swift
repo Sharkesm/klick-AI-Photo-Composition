@@ -32,6 +32,9 @@ struct CompositionShareView: View {
     /// Track view start time for time spent calculation
     @State private var viewStartTime: Date?
     
+    /// Track if we've already logged the screen viewed event (prevents duplicates)
+    @State private var hasLoggedViewEvent = false
+    
     // MARK: - Animation States
     
     @State private var showHeader = false
@@ -159,13 +162,16 @@ struct CompositionShareView: View {
             }
         }
         .onAppear {
-            // Track share screen viewed
-            viewStartTime = Date()
-            Task {
-                await EventTrackingManager.shared.trackShareScreenViewed(
-                    compositionType: compositionTechnique,
-                    filterApplied: nil
-                )
+            // Track share screen viewed (only once to prevent duplicates)
+            if !hasLoggedViewEvent {
+                hasLoggedViewEvent = true
+                viewStartTime = Date()
+                Task {
+                    await EventTrackingManager.shared.trackShareScreenViewed(
+                        compositionType: compositionTechnique,
+                        filterApplied: nil
+                    )
+                }
             }
             
             // Sequential reveal animations mimicking onboarding flow
