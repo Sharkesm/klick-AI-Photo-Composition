@@ -16,6 +16,9 @@ struct OnboardingFlowView: View {
     @AppStorage("hasSeenProUpsell") private var hasSeenProUpsell: Bool = false
     @AppStorage("userCreativeGoal") private var userCreativeGoal: String = ""
     
+    // Sales page presentation
+    @State private var showSalesPage: Bool = false
+    
     // Event tracking state
     @State private var flowStartTime: Date = Date()
     @State private var screenStartTime: Date = Date()
@@ -95,6 +98,12 @@ struct OnboardingFlowView: View {
                 }
                 .frame(maxHeight: .infinity)
             }
+        }
+        .fullScreenCover(isPresented: $showSalesPage) {
+            SalesPageView(source: .onboarding, onComplete: {
+                hasSeenProUpsell = true
+                moveToNext()
+            })
         }
         .onAppear {
             flowStartTime = Date()
@@ -197,13 +206,12 @@ struct OnboardingFlowView: View {
     }
     
     private func handleProUpgrade() {
-        // Track Pro upgrade tapped
+        // Track Pro upgrade tapped (button tap, not actual subscription)
         Task {
             await EventTrackingManager.shared.trackOnboardingProUpsellUpgradeTapped()
         }
         
-        hasSeenProUpsell = true
-        moveToNext()
+        showSalesPage = true
     }
     
     private func handleProUpsellDeclined() {

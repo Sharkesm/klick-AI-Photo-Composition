@@ -11,6 +11,7 @@ import RevenueCat
 public struct SalesPageView: View {
     
     private let source: PaywallSource
+    private let onComplete: (() -> Void)?
     
     @Environment(\.dismiss) var dismiss
     @Environment(\.openURL) private var openURL
@@ -28,8 +29,9 @@ public struct SalesPageView: View {
     @State private var viewStartTime: Date = Date()
     @State private var selectedPackageTime: Date?
     
-    init(source: PaywallSource) {
+    init(source: PaywallSource, onComplete: (() -> Void)? = nil) {
         self.source = source
+        self.onComplete = onComplete
     }
     
     public var body: some View {
@@ -49,7 +51,7 @@ public struct SalesPageView: View {
                     packageType: selectedPackage.map { PackageType(from: $0.packageType) } ?? .unknown,
                     source: source,
                     onComplete: {
-                        dismiss()
+                        onComplete?()
                     }
                 )
                 .transition(.opacity)
@@ -359,12 +361,15 @@ extension SalesPageView {
             await EventTrackingManager.shared.setUserProperty("last_purchase_source", value: source.rawValue)
             
             // Smooth transition to success page
-            withAnimation(.easeOut(duration: 0.6)) {
-                fadeOutSalesContent = true
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    fadeOutSalesContent = true
+                }
             }
             
-            // Show success page after fade out
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            // Show success page after fade out completes
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            await MainActor.run {
                 withAnimation(.easeIn(duration: 0.6)) {
                     showSuccessPage = true
                 }
@@ -391,12 +396,15 @@ extension SalesPageView {
             await EventTrackingManager.shared.setUserProperty("is_pro", value: true)
             
             // Smooth transition to success page
-            withAnimation(.easeOut(duration: 0.6)) {
-                fadeOutSalesContent = true
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    fadeOutSalesContent = true
+                }
             }
             
-            // Show success page after fade out
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            // Show success page after fade out completes
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            await MainActor.run {
                 withAnimation(.easeIn(duration: 0.6)) {
                     showSuccessPage = true
                 }
