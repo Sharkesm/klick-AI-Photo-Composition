@@ -56,7 +56,7 @@ struct CompositionPickerView: View {
                                     if isCompositionLocked(type) {
                                         // Note: We don't show prompt here since user can still preview
                                         // The prompt will show when they try to capture
-                                        print("ℹ️ Selected advanced composition (\(type.displayName)) - capture will require Pro")
+                                        // Capture will be gated when user attempts to shoot
                                     }
                                 }
                             )

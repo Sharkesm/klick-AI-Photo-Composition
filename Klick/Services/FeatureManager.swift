@@ -173,11 +173,8 @@ class FeatureManager: ObservableObject {
         PurchaseService.main.$isSubscribed
             .sink { [weak self] isSubscribed in
                 self?.isPro = isSubscribed
-                print("📊 FeatureManager: Pro status updated to \(isSubscribed)")
             }
             .store(in: &cancellables)
-        
-        print("📊 FeatureManager initialized - Photo count: \(capturedPhotoCount), Trial ended: \(hasTrialEnded), Pro: \(isPro)")
     }
     
     // MARK: - Photo Count Management
@@ -189,8 +186,6 @@ class FeatureManager: ObservableObject {
         capturedPhotoCount = count
         userDefaults.set(count, forKey: photoCountKey)
         
-        print("📊 FeatureManager: Photo count updated to \(count)")
-        
         // Post notification for UI updates
         NotificationCenter.default.post(
             name: .photoCountDidChange,
@@ -201,14 +196,14 @@ class FeatureManager: ObservableObject {
         // Check if we're on the last free photo (one before limit)
         // Only show warning if trial hasn't ended yet
         if count == maxFreePhotos - 1 && !isPro && !hasTrialEnded {
-            print("⚠️ Last free photo warning: \(count)/\(maxFreePhotos)")
+            SVLogger.main.log(message: "Last free photo warning: \(count)/\(maxFreePhotos)", logLevel: .warning)
             NotificationCenter.default.post(name: .lastFreePhotoWarning, object: nil)
         }
         
         // Check if user just hit the limit for the FIRST time
         // Once trial ends, it never resets (even if photos deleted)
         if count >= maxFreePhotos && !isPro && !hasTrialEnded {
-            print("🚨 Free photo limit reached: \(count)/\(maxFreePhotos) - Ending trial PERMANENTLY")
+            SVLogger.main.log(message: "Free photo limit reached: \(count)/\(maxFreePhotos) - Ending trial PERMANENTLY", logLevel: .warning)
             
             // Mark trial as ended (permanent, won't reset if photos deleted)
             hasTrialEnded = true
@@ -252,8 +247,6 @@ class FeatureManager: ObservableObject {
     
     /// Show upgrade prompt for specific context
     func showUpgradePrompt(context: UpgradeContext) {
-        print("💎 FeatureManager: Showing upgrade prompt for \(context.rawValue)")
-        
         NotificationCenter.default.post(
             name: .showUpgradePrompt,
             object: nil,
@@ -266,7 +259,6 @@ class FeatureManager: ObservableObject {
     /// Reset photo count (for testing)
     func resetPhotoCount() {
         updatePhotoCount(0)
-        print("🔄 FeatureManager: Photo count reset to 0")
     }
     
     /// Print current feature status

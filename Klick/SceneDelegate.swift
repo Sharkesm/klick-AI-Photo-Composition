@@ -17,6 +17,6 @@ class SceneDelegate: NSObject, UIWindowSceneDelegate {
         }
         
         // For now, just log the URL - full handling requires FacebookCore
-        print("Received URL: \(url)")
+        SVLogger.main.log(message: "Received URL", info: url.absoluteString, logLevel: .info)
     }
 }

@@ -15,6 +15,9 @@ protocol EventTrackingService {
     /// The name of the tracking service (e.g., "Firebase", "PostHog")
     var name: String { get }
     
+    /// Determines whether it SHOULD log event in debug mode
+    var debugModeEnabled: Bool { get }
+    
     /// Configures the services with the API credentials
     func setup()
     

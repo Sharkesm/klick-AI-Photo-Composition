@@ -11,8 +11,10 @@ import RevenueCat
 public struct SalesPageView: View {
     
     private let source: PaywallSource
+    private let onComplete: (() -> Void)?
     
     @Environment(\.dismiss) var dismiss
+    @Environment(\.openURL) private var openURL
     
     private var purchaseService: PurchaseService = .main
     
@@ -27,8 +29,9 @@ public struct SalesPageView: View {
     @State private var viewStartTime: Date = Date()
     @State private var selectedPackageTime: Date?
     
-    init(source: PaywallSource) {
+    init(source: PaywallSource, onComplete: (() -> Void)? = nil) {
         self.source = source
+        self.onComplete = onComplete
     }
     
     public var body: some View {
@@ -48,7 +51,7 @@ public struct SalesPageView: View {
                     packageType: selectedPackage.map { PackageType(from: $0.packageType) } ?? .unknown,
                     source: source,
                     onComplete: {
-                        dismiss()
+                        onComplete?()
                     }
                 )
                 .transition(.opacity)
@@ -263,9 +266,12 @@ public struct SalesPageView: View {
  
             HStack(spacing: 15) {
                 Button {
-                    
+                    if let url = URL(string: "https://www.klickphoto.app/terms") {
+                        openURL(url)
+                    }
                 } label: {
                     Text("Terms of Use")
+                        .underline(color: .white)
                         .foregroundStyle(Color.white)
                         .font(.system(size: 11, weight: .medium))
                 }
@@ -275,9 +281,12 @@ public struct SalesPageView: View {
                     .font(.system(size: 11, weight: .medium))
                 
                 Button {
-                    
+                    if let url = URL(string: "https://www.klickphoto.app/privacy") {
+                        openURL(url)
+                    }
                 } label: {
                     Text("Privacy Policy")
+                        .underline(color: .white)
                         .foregroundStyle(Color.white)
                         .font(.system(size: 11, weight: .medium))
                 }
@@ -292,6 +301,7 @@ public struct SalesPageView: View {
                     }
                 } label: {
                     Text("Restore")
+                        .underline(color: .white)
                         .foregroundStyle(Color.white)
                         .font(.system(size: 11, weight: .medium))
                 }
@@ -309,26 +319,37 @@ extension SalesPageView {
         // Track subscribe tapped
         await EventTrackingManager.shared.trackPaywallSubscribeTapped(package: package)
         
-        let purchaseStatus = await purchaseService.purchase(package: package)
+        let purchaseResult = await purchaseService.purchase(package: package)
         isPurchasing = false
         
-        guard purchaseStatus != .interrupted else {
-            /// Failed to subscribed and experienced an interruption
-            print("FAILED - Subscription purchase interrupted")
-            
+        guard purchaseResult.status != .interrupted else {
             // Track interrupted
             await EventTrackingManager.shared.trackPaywallPurchaseInterrupted(package: package)
             return
         }
 
-        if purchaseStatus == .subscribed {
-            print("SUCCESS - Subscribed")
+        if purchaseResult.status == .subscribed {
             
-            // Track purchase completed
+            // Track purchase completed (custom event for PostHog/internal analytics)
             let timeToComplete = selectedPackageTime.map { Date().timeIntervalSince($0) } ?? 0
             await EventTrackingManager.shared.trackPaywallPurchaseCompleted(
                 package: package,
                 timeToComplete: timeToComplete
+            )
+
+            // Log the GA4 reserved `purchase` event so Firebase revenue dashboards populate.
+            // Firebase only counts revenue from events named exactly "purchase" with value as
+            // a Double, a valid ISO 4217 currency code, and a unique transaction_id.
+            let price = package.storeProduct.priceDecimalNumber.doubleValue
+            let currency = package.storeProduct.currencyCode ?? "USD"
+            let transactionId = purchaseResult.transaction?.transactionIdentifier
+                ?? "\(package.storeProduct.productIdentifier)-\(Int(Date().timeIntervalSince1970))"
+            await EventTrackingManager.shared.logFirebasePurchase(
+                value: price,
+                currency: currency,
+                transactionId: transactionId,
+                productId: package.storeProduct.productIdentifier,
+                productName: package.storeProduct.localizedTitle
             )
             
             // Set user properties
@@ -340,12 +361,15 @@ extension SalesPageView {
             await EventTrackingManager.shared.setUserProperty("last_purchase_source", value: source.rawValue)
             
             // Smooth transition to success page
-            withAnimation(.easeOut(duration: 0.6)) {
-                fadeOutSalesContent = true
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    fadeOutSalesContent = true
+                }
             }
             
-            // Show success page after fade out
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            // Show success page after fade out completes
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            await MainActor.run {
                 withAnimation(.easeIn(duration: 0.6)) {
                     showSuccessPage = true
                 }
@@ -363,8 +387,6 @@ extension SalesPageView {
         isPurchasing = false
             
         if purchaseStatus == .subscribed {
-            print("SUCCESS - Purchases restored")
-            
             // Track restore completed
             await EventTrackingManager.shared.trackPaywallRestoreCompleted(
                 entitlements: ["Klick Premium"]
@@ -374,27 +396,26 @@ extension SalesPageView {
             await EventTrackingManager.shared.setUserProperty("is_pro", value: true)
             
             // Smooth transition to success page
-            withAnimation(.easeOut(duration: 0.6)) {
-                fadeOutSalesContent = true
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    fadeOutSalesContent = true
+                }
             }
             
-            // Show success page after fade out
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            // Show success page after fade out completes
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            await MainActor.run {
                 withAnimation(.easeIn(duration: 0.6)) {
                     showSuccessPage = true
                 }
             }
         } else if purchaseStatus == .notSubscribed {
-            print("INFO - No purchases to restore")
-            
             // Track restore failed
             await EventTrackingManager.shared.trackPaywallRestoreFailed(
                 error: NSError(domain: "PaywallRestore", code: 1, userInfo: [NSLocalizedDescriptionKey: "No active subscriptions found"])
             )
             // TODO: Show alert to user
         } else {
-            print("FAILED - Restore interrupted")
-            
             // Track restore failed
             await EventTrackingManager.shared.trackPaywallRestoreFailed(
                 error: NSError(domain: "PaywallRestore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Restore interrupted"])

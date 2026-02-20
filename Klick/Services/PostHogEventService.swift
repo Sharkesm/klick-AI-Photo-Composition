@@ -11,6 +11,14 @@ import PostHog
 class PostHogEventService: EventTrackingService {
     let name = "PostHog"
     
+    var debugModeEnabled: Bool {
+        #if DEBUG || DEVELOPMENT
+            return true
+        #else
+            return false
+        #endif
+    }
+    
     /// Initialize PostHog service
     /// Note: PostHog must be configured separately before using this service
     /// Use PostHogSDK.shared.setup(PostHogConfig(apiKey:host:)) in your app initialization
@@ -33,6 +41,7 @@ class PostHogEventService: EventTrackingService {
     }
     
     func trackEvent(name eventName: String, parameters: [String: Any]? = nil) async {
+        guard !debugModeEnabled else { return }
         await MainActor.run {
             PostHogSDK.shared.capture(eventName, properties: parameters)
         }
@@ -40,7 +49,11 @@ class PostHogEventService: EventTrackingService {
     
     func setUserProperty(_ key: String, value: Any?) async {
         await MainActor.run {
-            PostHogSDK.shared.setValue(value, forKey: key)
+            if let value {
+                PostHogSDK.shared.setPersonProperties(userPropertiesToSet: [key: value])
+            } else {
+                PostHogSDK.shared.setPersonProperties(userPropertiesToSet: [key: NSNull()])
+            }
         }
     }
     

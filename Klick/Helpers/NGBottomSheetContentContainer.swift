@@ -151,7 +151,7 @@ struct NGFullScreenBottomSheetModifier<SheetContent: View>: ViewModifier {
     
     private func presentFullScreenBottomSheet() {
         guard let tabBarController = findTabBarController() else {
-            print("❌ Could not find tab bar controller")
+            SVLogger.main.log(message: "Could not find tab bar controller", logLevel: .error)
             return
         }
         

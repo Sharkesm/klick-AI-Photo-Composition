@@ -14,14 +14,20 @@ class ConsoleEventService: EventTrackingService {
     let name = "Console"
     
     /// Whether to print events to console (useful for debugging)
-    var isEnabled: Bool = true
+    var debugModeEnabled: Bool {
+        #if DEBUG || DEVELOPMENT
+            return true
+        #else
+            return false
+        #endif
+    }
     
     func setup() {
         // Do nothing
     }
     
     func trackEvent(name eventName: String, parameters: [String: Any]? = nil) async {
-        guard isEnabled else { return }
+        guard debugModeEnabled else { return }
         
         var logMessage = "📊 [Event] \(eventName)"
         
@@ -34,7 +40,7 @@ class ConsoleEventService: EventTrackingService {
     }
     
     func setUserProperty(_ key: String, value: Any?) async {
-        guard isEnabled else { return }
+        guard debugModeEnabled else { return }
         
         if let value = value {
             print("📊 [User Property] \(key): \(value)")
@@ -44,7 +50,7 @@ class ConsoleEventService: EventTrackingService {
     }
     
     func identify(userId: String?) async {
-        guard isEnabled else { return }
+        guard debugModeEnabled else { return }
         
         if let userId = userId {
             print("📊 [Identify] User ID: \(userId)")
@@ -54,7 +60,7 @@ class ConsoleEventService: EventTrackingService {
     }
     
     func reset() async {
-        guard isEnabled else { return }
+        guard debugModeEnabled else { return }
         print("📊 [Reset] User data cleared")
     }
 }

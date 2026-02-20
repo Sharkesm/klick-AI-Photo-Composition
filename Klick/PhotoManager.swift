@@ -176,20 +176,18 @@ class PhotoManager: ObservableObject {
         let finalImageData: Data
         if let providedData = imageData {
             finalImageData = providedData
-            print("✅ Using provided image data with actual capture metadata")
         } else {
             guard let createdData = createJPEGDataWithMetadata(from: image) else {
-                print("❌ Failed to convert image to JPEG data with metadata")
+                SVLogger.main.log(message: "Failed to convert image to JPEG data with metadata", logLevel: .error)
                 return
             }
             finalImageData = createdData
-            print("⚠️ Using created image data with default metadata")
         }
         
         // Generate thumbnail
         guard let thumbnail = generateThumbnail(from: image),
               let thumbnailData = thumbnail.jpegData(compressionQuality: 0.8) else {
-            print("❌ Failed to generate thumbnail")
+            SVLogger.main.log(message: "Failed to generate thumbnail", logLevel: .error)
             return
         }
         
@@ -227,10 +225,8 @@ class PhotoManager: ObservableObject {
                 self.featureManager?.updatePhotoCount(self.photoCount)
             }
             
-            print("✅ Photo and thumbnail saved successfully: \(fileName)")
-            
         } catch {
-            print("❌ Failed to save photo: \(error)")
+            SVLogger.main.log(message: "Failed to save photo", info: error.localizedDescription, logLevel: .error)
         }
     }
     
@@ -269,7 +265,7 @@ class PhotoManager: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             guard let imageData = try? Data(contentsOf: photo.fileURL),
                   let image = UIImage(data: imageData) else {
-                print("❌ Failed to load full resolution image for \(photo.fileName)")
+                SVLogger.main.log(message: "Failed to load full resolution image", info: photo.fileName, logLevel: .error)
                 DispatchQueue.main.async {
                     completion(nil)
                 }
@@ -474,7 +470,7 @@ class PhotoManager: ObservableObject {
                 return formatter.string(fromByteCount: fileSize)
             }
         } catch {
-            print("❌ Failed to get file size: \(error)")
+            SVLogger.main.log(message: "Failed to get file size", info: error.localizedDescription, logLevel: .error)
         }
         return "Unknown"
     }
@@ -560,17 +556,16 @@ class PhotoManager: ObservableObject {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }) { success, error in
                 if success {
-                    print("✅ Photo saved to photo library")
                     completion?(true, nil)
                 } else if let error = error {
-                    print("❌ Failed to save to photo library: \(error)")
+                    SVLogger.main.log(message: "Failed to save to photo library", info: error.localizedDescription, logLevel: .error)
                     completion?(false, error.localizedDescription)
                 } else {
                     completion?(false, "Unknown error occurred")
                 }
             }
         case .denied, .restricted:
-            print("⚠️ Photo library access denied")
+            SVLogger.main.log(message: "Photo library access denied", logLevel: .warning)
             completion?(false, "Photo library access denied")
         case .notDetermined:
             PHPhotoLibrary.requestAuthorization { status in
@@ -581,7 +576,7 @@ class PhotoManager: ObservableObject {
                 }
             }
         @unknown default:
-            print("❓ Unknown photo library authorization status")
+            SVLogger.main.log(message: "Unknown photo library authorization status", logLevel: .warning)
             completion?(false, "Unknown photo library authorization status")
         }
     }
@@ -613,14 +608,13 @@ class PhotoManager: ObservableObject {
                     self.photoCount = photoFiles.count
                     // Sync with FeatureManager for freemium gating
                     self.featureManager?.updatePhotoCount(photoFiles.count)
-                    print("📊 Photo count loaded: \(photoFiles.count) photos")
                 }
             } catch {
                 DispatchQueue.main.async {
                     self.photoCount = 0
                     // Sync with FeatureManager for freemium gating
                     self.featureManager?.updatePhotoCount(0)
-                    print("❌ Failed to load photo count: \(error)")
+                    SVLogger.main.log(message: "Failed to load photo count", info: error.localizedDescription, logLevel: .error)
                 }
             }
         }
@@ -628,12 +622,7 @@ class PhotoManager: ObservableObject {
     
     // OPTIMIZATION: Public method to trigger full photo loading when needed
     func loadPhotosIfNeeded() {
-        guard !hasLoadedPhotos else {
-            print("📷 Photos already loaded, skipping")
-            return
-        }
-        
-        print("🚀 Starting lazy photo loading...")
+        guard !hasLoadedPhotos else { return }
         hasLoadedPhotos = true
         loadPhotosAsync()
     }
@@ -691,13 +680,12 @@ class PhotoManager: ObservableObject {
                 
                 DispatchQueue.main.async {
                     self.isLoading = false
-                    print("✅ Loaded \(loadedPhotos.count) photos with micro-thumbnails")
                 }
                 
             } catch {
                 DispatchQueue.main.async {
                     self.isLoading = false
-                    print("❌ Failed to load photos: \(error)")
+                    SVLogger.main.log(message: "Failed to load photos", info: error.localizedDescription, logLevel: .error)
                 }
             }
         }
@@ -822,27 +810,13 @@ class PhotoManager: ObservableObject {
                 self.featureManager?.updatePhotoCount(self.photoCount)
             }
             
-            print("✅ Photo and thumbnail deleted: \(photo.fileName)")
         } catch {
-            print("❌ Failed to delete photo: \(error)")
+            SVLogger.main.log(message: "Failed to delete photo", info: error.localizedDescription, logLevel: .error)
         }
     }
     
     func requestPhotoLibraryPermission() {
-        PHPhotoLibrary.requestAuthorization { status in
-            switch status {
-            case .authorized:
-                print("✅ Photo library access granted")
-            case .limited:
-                print("⚠️ Photo library access limited")
-            case .denied, .restricted:
-                print("❌ Photo library access denied")
-            case .notDetermined:
-                print("❓ Photo library access not determined")
-            @unknown default:
-                print("❓ Unknown photo library authorization status")
-            }
-        }
+        PHPhotoLibrary.requestAuthorization { _ in }
     }
 }
 

@@ -556,13 +556,12 @@ class EventTrackingManager {
     }
     
     static func configure() {
-        // Auto-configures all available services
-        #if canImport(PostHog)
-        configurePostHog()
-        #endif
-        #if DEBUG
-        configureConsole()
-        #endif
+        // Registers and initializes all analytics services
+        shared.register([
+            PostHogEventService(),
+            ConsoleEventService(),
+            FirebaseEventService()
+        ])
     }
 }
 ```
@@ -570,6 +569,13 @@ class EventTrackingManager {
 **Current Implementations**:
 - `PostHogEventService` - Production analytics (PostHog SDK)
 - `ConsoleEventService` - Development debugging (prints to console)
+- `FirebaseEventService` - Firebase Analytics (with self-contained initialization)
+
+**Service Configuration Pattern**:
+Each service handles its own initialization in the `setup()` method, keeping configuration encapsulated:
+- `PostHogEventService` - Configures PostHog SDK with API key in `setup()`
+- `FirebaseEventService` - Calls `FirebaseApp.configure()` in `setup()` (no AppDelegate needed)
+- `ConsoleEventService` - No external setup required
 
 **Event Naming Convention**:
 - Follows Braze conventions: `group_noun_action` (lowercase, snake_case)

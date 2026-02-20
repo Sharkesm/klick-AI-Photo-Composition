@@ -92,13 +92,9 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
     }
     
     private func setupCameraSession(for view: UIView, context: Context) {
-        print("📷 Starting camera session setup...")
-        
         // Create camera session
         let session = AVCaptureSession()
         session.sessionPreset = .photo
-        
-        print("📷 Camera quality set to: \(cameraQuality.displayName)")
         
         // Add camera input - select camera based on zoom level
         let deviceType = zoomLevel.deviceType
@@ -106,12 +102,11 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
               AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: camera) else {
             DispatchQueue.main.async {
-                print("❌ Failed to setup camera input for zoom level \(zoomLevel.displayName)")
+                SVLogger.main.log(message: "Failed to setup camera input for zoom level \(zoomLevel.displayName)", logLevel: .error)
             }
             return
         }
         
-        print("✅ Camera input configured for zoom level \(zoomLevel.displayName) using device: \(camera.deviceType.rawValue)")
         session.addInput(input)
         
         // Store camera device reference for focus control
@@ -136,12 +131,9 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         if session.canAddOutput(photoOutput) {
             session.addOutput(photoOutput)
             context.coordinator.photoOutput = photoOutput
-            print("✅ Photo output configured")
         } else {
-            print("❌ Failed to add photo output")
+            SVLogger.main.log(message: "Failed to add photo output", logLevel: .error)
         }
-        
-        print("✅ Video output configured")
         
         // Create preview layer on main thread
         DispatchQueue.main.async {
@@ -150,8 +142,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             previewLayer.frame = view.bounds
             view.layer.addSublayer(previewLayer)
             
-            print("✅ Preview layer added to view")
-            
             // Store references in coordinator
             context.coordinator.session = session
             context.coordinator.previewLayer = previewLayer
@@ -159,20 +149,16 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             
             // Start session in background
             DispatchQueue.global(qos: .background).async {
-                print("🚀 Starting camera session...")
                 session.startRunning()
                 
                 // Set camera start time when session actually starts
                 context.coordinator.cameraStartTime = CACurrentMediaTime()
-                print("⏱️ Camera start time set")
                 
                 // Notify when camera is ready - only if session is actually running
                 if session.isRunning {
-                    print("✅ Camera session is running")
                     DispatchQueue.main.async {
                         // Small delay to ensure camera is fully initialized
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            print("🎉 Triggering camera ready callback")
                             self.onCameraReady()
                             context.coordinator.cameraReady = true
                         }
@@ -180,7 +166,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 } else {
                     // Handle case where session failed to start
                     DispatchQueue.main.async {
-                        print("❌ Camera session failed to start")
+                        SVLogger.main.log(message: "Camera session failed to start", logLevel: .error)
                     }
                 }
             }
@@ -201,13 +187,11 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 // Start session if it should be active but isn't running
                 DispatchQueue.global(qos: .background).async {
                     session.startRunning()
-                    print("📷 Camera session started (from updateUIView)")
                 }
             } else if !isSessionActive && session.isRunning {
                 // Stop session if it should be inactive but is running
                 DispatchQueue.global(qos: .background).async {
                     session.stopRunning()
-                    print("📷 Camera session stopped (from updateUIView)")
                 }
             }
         }
@@ -234,7 +218,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             guard let newCamera = AVCaptureDevice.default(deviceType, for: .video, position: .back) ?? 
                   AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
                   let newInput = try? AVCaptureDeviceInput(device: newCamera) else {
-                print("❌ Failed to create input for zoom level \(newZoomLevel.displayName)")
+                SVLogger.main.log(message: "Failed to create input for zoom level \(newZoomLevel.displayName)", logLevel: .error)
                 session.commitConfiguration()
                 return
             }
@@ -246,10 +230,8 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 // Update coordinator references
                 context.coordinator.cameraDevice = newCamera
                 context.coordinator.currentZoomLevel = newZoomLevel
-                
-                print("✅ Camera device updated to zoom level \(newZoomLevel.displayName) using device: \(newCamera.deviceType.rawValue)")
             } else {
-                print("❌ Cannot add input for zoom level \(newZoomLevel.displayName)")
+                SVLogger.main.log(message: "Cannot add input for zoom level \(newZoomLevel.displayName)", logLevel: .error)
             }
             
             // Commit all changes atomically
@@ -326,7 +308,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         
         func capturePhoto() {
             guard let photoOutput = photoOutput else {
-                print("❌ Photo output not available")
+                SVLogger.main.log(message: "Photo output not available", logLevel: .error)
                 return
             }
             
@@ -353,7 +335,6 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                     // Pro mode with RAW+Processed - expect dual capture
                     isExpectingDualCapture = true
                     settings = AVCapturePhotoSettings(rawPixelFormatType: rawFormat, processedFormat: [AVVideoCodecKey: AVVideoCodecType.hevc])
-                    print("📸 Pro mode: Expecting dual capture (RAW + Processed)")
                 } else {
                     // Pro mode but no RAW available - single capture
                     isExpectingDualCapture = false
@@ -362,7 +343,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                     } else {
                         settings = AVCapturePhotoSettings()
                     }
-                    print("⚠️ Pro mode: RAW not available, using processed only")
+                    SVLogger.main.log(message: "Pro mode: RAW not available, using processed only", logLevel: .warning)
                 }
             }
             
@@ -376,13 +357,9 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 
                 if desiredQuality.rawValue <= maxQuality.rawValue {
                     settings.photoQualityPrioritization = desiredQuality
-                    print("📸 Quality prioritization set to: \(desiredQuality.rawValue) (max: \(maxQuality.rawValue))")
                 } else {
                     settings.photoQualityPrioritization = maxQuality
-                    print("📸 Quality prioritization limited to max supported: \(maxQuality.rawValue)")
                 }
-            } else {
-                print("📸 Skipping quality prioritization for RAW+Processed capture")
             }
             
             // Set flash mode based on user selection
@@ -396,26 +373,20 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             
             // Capture the photo
             photoOutput.capturePhoto(with: settings, delegate: self)
-            
-            if isExpectingDualCapture {
-                print("📸 Pro mode capture initiated - expecting RAW + Processed")
-            } else {
-                print("📸 Standard capture initiated")
-            }
         }
         
         // MARK: - AVCapturePhotoCaptureDelegate
         
         func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
             if let error = error {
-                print("❌ Photo capture error: \(error.localizedDescription)")
+                SVLogger.main.log(message: "Photo capture error", info: error.localizedDescription, logLevel: .error)
                 resetCaptureState()
                 return
             }
             
             guard let imageData = photo.fileDataRepresentation(),
                   let image = UIImage(data: imageData) else {
-                print("❌ Failed to convert photo to UIImage")
+                SVLogger.main.log(message: "Failed to convert photo to UIImage", logLevel: .error)
                 resetCaptureState()
                 return
             }
@@ -425,41 +396,26 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             // Handle dual capture for Pro mode
             if isExpectingDualCapture {
                 if photo.isRawPhoto {
-                    // This is the RAW image
                     capturedRawImage = correctedImage
-                    print("✅ RAW image captured - Pure sensor data")
                 } else {
-                    // This is the processed image
                     capturedProcessedImage = correctedImage
-                    
-                    // Log metadata and create enhanced data from processed image
-                    self.logCaptureMetadata(photo: photo)
                     capturedMetadata = self.createImageDataWithActualMetadata(image: correctedImage, capturePhoto: photo)
-                    
-                    print("✅ Processed image captured - With computational photography")
                 }
                 
                 // Check if we have both images (or processed image is ready)
                 if let processedImg = capturedProcessedImage {
-                    let rawImg = capturedRawImage // May be nil if RAW processing failed
+                    let rawImg = capturedRawImage
                     let metadata = capturedMetadata
                     
-                    print("✅ Dual capture completed - Processed: ✓, RAW: \(rawImg != nil ? "✓" : "✗")")
-                    
-                    // Send callback with both images
                     DispatchQueue.main.async {
                         self.onPhotoCaptured?(processedImg, rawImg, metadata)
                     }
                     
-                    // Reset for next capture
                     resetCaptureState()
                 }
             } else {
                 // Standard single capture
-                self.logCaptureMetadata(photo: photo)
                 let enhancedImageData = self.createImageDataWithActualMetadata(image: correctedImage, capturePhoto: photo)
-                
-                print("✅ Standard capture completed")
                 
                 DispatchQueue.main.async {
                     self.onPhotoCaptured?(correctedImage, nil, enhancedImageData)
@@ -499,52 +455,15 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
             
             // Finalize the image creation
             if CGImageDestinationFinalize(destination) {
-                print("✅ Image created with actual capture metadata")
                 return mutableData as Data
             } else {
-                // Fallback to standard JPEG creation
-                print("⚠️ Failed to create image with metadata, using standard JPEG")
+                SVLogger.main.log(message: "Failed to create image with metadata, using standard JPEG", logLevel: .warning)
                 return image.jpegData(compressionQuality: 0.9)
-            }
-        }
-        
-        // MARK: - Enhanced Metadata Logging
-        
-        private func logCaptureMetadata(photo: AVCapturePhoto) {
-            // Log available metadata from the capture
-            let metadata = photo.metadata
-            print("📊 Capture Metadata Available:")
-                
-            // Log EXIF data
-            if let exifDict = metadata[kCGImagePropertyExifDictionary as String] as? [String: Any] {
-                if let iso = exifDict[kCGImagePropertyExifISOSpeedRatings as String] as? [Int] {
-                    print("   📷 ISO: \(iso)")
-                }
-                if let exposureTime = exifDict[kCGImagePropertyExifExposureTime as String] as? Double {
-                    print("   ⏱️ Exposure Time: \(exposureTime) sec")
-                }
-                if let focalLength = exifDict[kCGImagePropertyExifFocalLength as String] as? Double {
-                    print("   🔍 Focal Length: \(focalLength)mm")
-                }
-                if let flash = exifDict[kCGImagePropertyExifFlash as String] as? Int {
-                    print("   ⚡ Flash: \(flash)")
-                }
-            }
-            
-            // Log TIFF data
-            if let tiffDict = metadata[kCGImagePropertyTIFFDictionary as String] as? [String: Any] {
-                if let make = tiffDict[kCGImagePropertyTIFFMake as String] as? String {
-                    print("   📱 Camera Make: \(make)")
-                }
-                if let model = tiffDict[kCGImagePropertyTIFFModel as String] as? String {
-                    print("   📱 Camera Model: \(model)")
-                }
             }
         }
         
         func photoOutput(_ output: AVCapturePhotoOutput, didCapturePhotoFor resolvedSettings: AVCaptureResolvedPhotoSettings) {
             // Photo capture started - could add capture animation here
-            print("📷 Photo capture started")
         }
         
         @objc private func appDidEnterBackground() {
@@ -567,7 +486,7 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
         @objc private func capturePhotoNotification() {
             // Only capture if camera is ready and not in background
             guard cameraReady && !isAppInBackground else {
-                print("⚠️ Cannot capture photo - camera not ready or app in background")
+                SVLogger.main.log(message: "Cannot capture photo - camera not ready or app in background", logLevel: .warning)
                 return
             }
             
@@ -627,9 +546,8 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
                 }
                 
                 cameraDevice.unlockForConfiguration()
-                print("🎯 Focus set to point: \(focusPoint)")
             } catch {
-                print("❌ Failed to set focus: \(error)")
+                SVLogger.main.log(message: "Failed to set focus", info: error.localizedDescription, logLevel: .error)
             }
         }
         

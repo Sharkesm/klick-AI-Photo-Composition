@@ -71,6 +71,11 @@ extension EventTrackingManager {
         await track(eventName: OnboardingEvent.proUpsellSkipped.eventName)
     }
     
+    /// Track onboarding Pro upsell declined (Maybe Later)
+    func trackOnboardingProUpsellDeclined() async {
+        await track(eventName: OnboardingEvent.proUpsellDeclined.eventName)
+    }
+    
     /// Track onboarding goal selected
     func trackOnboardingGoalSelected(goal: UserCreativeGoal) async {
         await track(
@@ -92,6 +97,18 @@ extension EventTrackingManager {
         await track(
             eventName: OnboardingEvent.flowCompleted.eventName,
             parameters: [
+                "completed_screens": completedScreens,
+                "time_spent_seconds": Int(timeSpent)
+            ]
+        )
+    }
+    
+    /// Track onboarding flow abandoned
+    func trackOnboardingFlowAbandoned(lastScreen: OnboardingScreen, completedScreens: Int, timeSpent: TimeInterval) async {
+        await track(
+            eventName: OnboardingEvent.flowAbandoned.eventName,
+            parameters: [
+                "last_screen": lastScreen.rawValue,
                 "completed_screens": completedScreens,
                 "time_spent_seconds": Int(timeSpent)
             ]
@@ -429,6 +446,17 @@ extension EventTrackingManager {
         )
     }
     
+    /// Track camera ready (fully initialized and usable)
+    func trackCameraReady(sessionId: String, initializationTime: TimeInterval) async {
+        await track(
+            eventName: CameraEvent.ready.eventName,
+            parameters: [
+                "session_id": sessionId,
+                "initialization_time_seconds": initializationTime
+            ]
+        )
+    }
+    
     /// Track camera settings opened
     func trackCameraSettingsOpened() async {
         await track(eventName: CameraEvent.settingsOpened.eventName)
@@ -526,12 +554,15 @@ extension EventTrackingManager {
     
     /// Track photo saved to library
     func trackPhotoSavedToLibrary(photoId: String, format: String, fileSize: Int) async {
+        let fileSizeMB = Double(fileSize) / 1024.0 / 1024.0
+        let fileSizeMBRounded = round(fileSizeMB * 100) / 100
+        
         await track(
             eventName: PhotoEvent.savedToLibrary.eventName,
             parameters: [
                 "photo_id": photoId,
                 "format": format,
-                "file_size_bytes": fileSize
+                "file_size_mb": fileSizeMBRounded
             ]
         )
     }

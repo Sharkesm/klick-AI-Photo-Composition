@@ -111,6 +111,8 @@ struct BottomControlsView: View {
         let selectedType = compositionTypes[index]
         
         if previousType != selectedType {
+            HapticFeedback.selection.generate()
+            
             Task {
                 await EventTrackingManager.shared.trackCompositionSelected(
                     fromComposition: previousType,

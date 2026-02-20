@@ -31,6 +31,5 @@ struct CapturedPhotoData: Identifiable {
         self.cameraQuality = cameraQuality
         self.compositionType = compositionType
         self.compositionDescription = compositionDescription
-        print("✅ CapturedPhotoData created - Processed: ✓, RAW: \(rawImage != nil ? "✓" : "✗"), Quality: \(cameraQuality), Composition: \(compositionType)")
     }
 }

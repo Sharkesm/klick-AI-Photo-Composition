@@ -18,7 +18,7 @@
 | **Storage** | Photos Framework | iOS 16.0+ | Photo library integration |
 | **Local Storage** | FileManager | iOS 16.0+ | Document directory storage |
 | **Performance** | Accelerate | iOS 16.0+ | Vectorized operations |
-| **Analytics** | PostHog | ~3.0 | Event tracking and user analytics |
+| **Analytics** | PostHog, Firebase | ~3.0, ~12.0 | Event tracking and user analytics |
 
 ---
 
@@ -509,13 +509,20 @@ NotificationCenter.default.addObserver(
 
 ### Swift Package Manager
 **Dependencies**:
-- **PostHog** (~3.0) - Event tracking and analytics (optional)
+- **PostHog** (~3.0) - Event tracking and analytics
   - Purpose: User behavior analytics, event tracking
   - Location: `Klick/Services/PostHogEventService.swift`
   - Configuration: Via `EventTrackingManager.configure()`
   - Reference: https://posthog.com/docs/libraries/ios
 
-**Note**: PostHog is conditionally compiled - app works without it using Console service for debugging.
+- **Firebase** (~12.0) - Event tracking and analytics
+  - Products: FirebaseCore, FirebaseAnalytics, FirebaseAnalyticsIdentitySupport
+  - Purpose: Event tracking, user analytics, attribution
+  - Location: `Klick/Services/FirebaseEventService.swift`
+  - Configuration: Self-contained in service's `setup()` method (no AppDelegate needed)
+  - Reference: https://firebase.google.com/docs/ios/setup
+
+**Note**: Both analytics services run concurrently via protocol-oriented architecture. Console service is used for debugging.
 
 ---
 

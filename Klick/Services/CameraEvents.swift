@@ -17,6 +17,7 @@ enum CameraEvent: String {
     case compositionSelected = "composition_selected"
     case compositionSwiped = "composition_swiped"
     case screenViewed = "screen_viewed"
+    case ready = "ready"
     
     // Camera controls
     case flashChanged = "flash_changed"

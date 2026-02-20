@@ -61,6 +61,7 @@ enum PaywallSource: String {
     case photoLimit = "photo_limit"
     case advancedComposition = "advanced_composition"
     case upgradePrompt = "upgrade_prompt"
+    case onboarding = "onboarding"
 }
 
 // MARK: - Upgrade Prompt Context Enum

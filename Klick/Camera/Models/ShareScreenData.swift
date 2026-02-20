@@ -25,7 +25,6 @@ struct ShareScreenData: Identifiable {
         self.photo = photo
         self.compositionTechnique = compositionTechnique
         self.techniqueDescription = techniqueDescription
-        print("✅ ShareScreenData created - Composition: \(compositionTechnique)")
     }
 }
 

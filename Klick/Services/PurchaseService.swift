@@ -25,6 +25,13 @@ class PurchaseService: ObservableObject {
     
     init() {}
     
+    struct PurchaseResult {
+        let status: PurchaseStatus
+        /// The StoreKit transaction returned by RevenueCat on a successful purchase.
+        /// Use this to log the GA4 `purchase` event with the correct transaction ID and price.
+        let transaction: StoreTransaction?
+    }
+
     enum PurchaseStatus {
         case subscribed
         case notSubscribed
@@ -49,7 +56,7 @@ class PurchaseService: ObservableObject {
     
     func refreshSubscriptionStatus() async {
         guard let customer = try? await Purchases.shared.customerInfo() else {
-            print("\(#function) - Failed to fetch customer info")
+            SVLogger.main.log(message: "Failed to fetch customer info", logLevel: .error)
             return
         }
         
@@ -67,12 +74,11 @@ class PurchaseService: ObservableObject {
         let offerings: Offerings? = await withCheckedContinuation { continuation in
             Purchases.shared.getOfferings { offerings, error in
                 if let offerings = offerings {
-                    print("\(#function) - Fetched offerings: \(offerings)")
                     continuation.resume(returning: offerings)
                     return
                 }
                 
-                print("\(#function) - Failed to fetch offerings: \(error?.localizedDescription ?? "No error description")")
+                SVLogger.main.log(message: "Failed to fetch offerings", info: error?.localizedDescription ?? "No error description", logLevel: .error)
                 continuation.resume(returning: nil)
             }
         }
@@ -84,43 +90,41 @@ class PurchaseService: ObservableObject {
         return offerings
     }
     
-    func purchase(package: Package) async -> PurchaseStatus {
-        let status: PurchaseStatus = await withCheckedContinuation { continuation in
+    func purchase(package: Package) async -> PurchaseResult {
+        let result: PurchaseResult = await withCheckedContinuation { continuation in
             Purchases.shared.purchase(package: package) { transaction, customer, error, userCancelled in
                 let didPurchase = customer?.entitlements.all[self.entitlement.rawValue]?.isActive ?? false
-                
+
                 DispatchQueue.main.async { [unowned self] in
                     self.isSubscribed = didPurchase
                 }
-                
+
                 if didPurchase {
-                    // 🤑 Subscription purchase was successfully
-                    continuation.resume(returning: .subscribed)
+                    continuation.resume(returning: PurchaseResult(status: .subscribed, transaction: transaction))
                 } else {
-                    // 😭 If user didn't cancel and there wasn't any error with the purchase, then proceed to close paywall
                     if !userCancelled && error == nil {
-                        continuation.resume(returning: .notSubscribed)
+                        continuation.resume(returning: PurchaseResult(status: .notSubscribed, transaction: nil))
                     } else {
-                        continuation.resume(returning: .interrupted)
+                        continuation.resume(returning: PurchaseResult(status: .interrupted, transaction: nil))
                     }
                 }
             }
         }
-        
-        await handlePurchaseStatusUpdates(status)
-        return status
+
+        await handlePurchaseStatusUpdates(result.status)
+        return result
     }
     
     func restorePurchases() async -> PurchaseStatus  {
         let status: PurchaseStatus = await withCheckedContinuation { continuation in
             Purchases.shared.restorePurchases { transactions, error in
                 if let error = error {
+                    SVLogger.main.log(message: "Error restoring purchases", info: error.localizedDescription, logLevel: .error)
                     continuation.resume(returning: .interrupted)
-//                    SVLogger.main.log(message: "Error restoring purchases", info: error.localizedDescription, logLevel: .error)
                 } else {
                     let didPurchase = transactions?.entitlements.all[self.entitlement.rawValue]?.isActive ?? false
+                    SVLogger.main.log(message: "Purchases restored successfully", logLevel: .success)
                     continuation.resume(returning: didPurchase ? .subscribed : .notSubscribed)
-//                    SVLogger.main.log(message: "Successfully restored purchases", logLevel: .success)
                 }
             }
         }
@@ -133,7 +137,5 @@ class PurchaseService: ObservableObject {
     func handlePurchaseStatusUpdates(_ status: PurchaseStatus) {
         isSubscribed = status == .subscribed
         UserPreferenceKeys.eligibleForPremium.save(status == .subscribed)
-        
-        print("\(#function) - isSubscribed: \(isSubscribed)")
     }
 }
