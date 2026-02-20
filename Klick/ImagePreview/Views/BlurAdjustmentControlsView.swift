@@ -32,7 +32,8 @@ struct BlurAdjustmentControlsView: View {
 
                     Slider(value: $blurIntensity, in: 0...20, step: 1.0) {
                         
-                    } onEditingChanged: { value in
+                    } onEditingChanged: { editing in
+                        guard !editing else { return }
                         onDebouncedBlurChanged()
                     }
                     .accentColor(.white)
