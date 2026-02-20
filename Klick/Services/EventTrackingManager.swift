@@ -163,7 +163,11 @@ class EventTrackingManager {
         print("📊 EventTrackingManager: Starting configuration...")
         
         // Register services
-        shared.register([PostHogEventService(), ConsoleEventService()])
+        shared.register([
+            PostHogEventService(),
+            ConsoleEventService(),
+            FirebaseEventService()
+        ])
         
         let serviceNames = shared.registeredServices.joined(separator: ", ")
         print("""
