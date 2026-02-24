@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var faceDetectionConfidence: CGFloat = 0.0
     @StateObject private var compositionManager = CompositionManager()
     @StateObject private var featureManager = FeatureManager()
+    @StateObject private var reviewRequestService: ReviewRequestService = .init()
     
     @State private var showCompositionPractice = false
     
@@ -340,6 +341,9 @@ struct ContentView: View {
                 withAnimation(.spring) {
                     showPhotoAlbum = false
                 }
+            }, onPhotoViewed: {
+                reviewRequestService.increment()
+                reviewRequestService.requestReviewIfAppropriate()
             })
             .presentationDetents([.large])
             .onAppear {
@@ -349,6 +353,9 @@ struct ContentView: View {
                         photoCount: photoManager.photoCount
                     )
                 }
+                
+                reviewRequestService.increment()
+                reviewRequestService.requestReviewIfAppropriate()
             }
         })
         .sheet(isPresented: $showOnboarding) {
@@ -367,6 +374,10 @@ struct ContentView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         showSalesPage = true
                     }
+                },
+                onPracticeSectionViewed: {
+                    reviewRequestService.increment()
+                    reviewRequestService.requestReviewIfAppropriate()
                 }
             )
             .presentationDetents([.fraction(1.0)])
@@ -399,6 +410,7 @@ struct ContentView: View {
                 isLiveFeedbackEnabled: $isLiveFeedbackEnabled,
                 compositionManager: compositionManager,
                 featureManager: featureManager,
+                reviewRequestService: reviewRequestService,
                 onShowSalesPage: { source in
                     // Close frame settings and show sales page
                     paywallSource = source
@@ -455,6 +467,9 @@ struct ContentView: View {
                     let compositionType = photoData.compositionType
                     let compositionScore = compositionManager.lastResult?.score ?? 0.7
                     photoManager.savePhoto(savedImage, compositionType: compositionType, compositionScore: compositionScore)
+                    
+                    reviewRequestService.increment()
+                    reviewRequestService.requestReviewIfAppropriate()
                     
                     // Show photo album glimpse
                     if !photoAlbumSnapshot {
@@ -513,7 +528,11 @@ struct ContentView: View {
             CompositionShareView(
                 photo: shareData.photo,
                 compositionTechnique: shareData.compositionTechnique,
-                techniqueDescription: shareData.techniqueDescription
+                techniqueDescription: shareData.techniqueDescription,
+                onShared: {
+                    reviewRequestService.increment()
+                    reviewRequestService.requestReviewIfAppropriate()
+                }
             )
         }
         .onAppear {
@@ -639,6 +658,9 @@ struct ContentView: View {
         // This will be implemented by accessing the camera coordinator directly
         // For now, we'll use a notification-based approach
         NotificationCenter.default.post(name: NSNotification.Name("CapturePhoto"), object: nil)
+        
+        reviewRequestService.increment()
+        reviewRequestService.requestReviewIfAppropriate()
     }
     
     private func requestCameraPermission() {
@@ -786,6 +808,9 @@ struct ContentView: View {
                     }
                     
                     self.compositionManager.switchToCompositionType(newComposition)
+                    
+                    self.reviewRequestService.increment()
+                    self.reviewRequestService.requestReviewIfAppropriate()
                 }
             }
             

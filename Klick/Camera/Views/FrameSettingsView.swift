@@ -8,10 +8,11 @@ struct FrameSettingsView: View {
     @Binding var isLiveFeedbackEnabled: Bool
     @ObservedObject var compositionManager: CompositionManager
     @ObservedObject var featureManager: FeatureManager
+    @ObservedObject var reviewRequestService: ReviewRequestService
     @State private var showOnboarding = false
     @State private var viewStartTime: Date?
-    let onShowSalesPage: ((PaywallSource) -> Void)? // Callback to show sales page with source
-    let onDismiss: (() -> Void)? // Callback when view dismisses
+    let onShowSalesPage: ((PaywallSource) -> Void)?
+    let onDismiss: (() -> Void)?
     
     var body: some View {
         NavigationView {
@@ -195,6 +196,10 @@ struct FrameSettingsView: View {
 //                    }
 //                    .padding(.horizontal, 20)
 //                    .padding(.bottom, 24)
+                    
+                    FounderReviewCard(reviewRequestService: reviewRequestService)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
                     
                     MadeWithLoveView(location: "🇹🇿")
                 }

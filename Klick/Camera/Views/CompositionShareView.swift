@@ -23,6 +23,9 @@ struct CompositionShareView: View {
     /// Educational description of the technique
     let techniqueDescription: String
     
+    /// Called when the user successfully shares a photo (review hotspot)
+    var onShared: (() -> Void)? = nil
+    
     /// Environment for dismissing the view
     @Environment(\.dismiss) private var dismiss
     
@@ -144,6 +147,8 @@ struct CompositionShareView: View {
                     Task {
                         await EventTrackingManager.shared.trackPhotoShared(shareDestination: destination)
                     }
+                    
+                    onShared?()
                     
                     // Track dismiss with sharing
                     if let startTime = viewStartTime {

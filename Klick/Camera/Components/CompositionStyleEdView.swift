@@ -15,7 +15,8 @@ struct CompositionStyleEdView: View {
     @ObservedObject var featureManager: FeatureManager
     @State private var showUpgradePrompt = false
     @State private var upgradeContext: FeatureManager.UpgradeContext = .portraitPractices
-    let onShowSalesPage: (() -> Void)? // Optional callback to show sales page
+    let onShowSalesPage: (() -> Void)?
+    var onPracticeSectionViewed: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     
     // Portrait essentials sections
@@ -180,6 +181,8 @@ extension CompositionStyleEdView {
                                 exampleType: section.id
                             )
                         }
+                        
+                        onPracticeSectionViewed?()
                         
                         withAnimation(.easeInOut(duration: 0.3)) {
                             selectedSection = section

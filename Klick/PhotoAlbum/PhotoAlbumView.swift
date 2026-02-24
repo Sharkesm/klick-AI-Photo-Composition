@@ -16,6 +16,7 @@ struct PhotoAlbumView: View {
     @ObservedObject var photoManager: PhotoManager
 
     let onTap: () -> Void
+    var onPhotoViewed: (() -> Void)? = nil
     
     @State private var selectedPhoto: CapturedPhoto?
     @State private var isSelectionMode = false
@@ -105,6 +106,7 @@ struct PhotoAlbumView: View {
                                     } else {
                                         selectedPhoto = photo
                                         photosViewedCount += 1
+                                        onPhotoViewed?()
                                         
                                         // Track photo selected
                                         Task {
