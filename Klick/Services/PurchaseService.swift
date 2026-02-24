@@ -44,8 +44,12 @@ class PurchaseService: ObservableObject {
     }
     
     static func configure() {
-        Purchases.logLevel = .debug
-        Purchases.configure(withAPIKey: "appl_CIlcdylBRgdYSgYQFRDibNUGbdg")
+        #if DEBUG || DEVELOPMENT
+            Purchases.logLevel = .debug
+            Purchases.configure(withAPIKey: "test_SwbyJSjRivjKDENfHzinbrEPKoG")
+        #else
+            Purchases.configure(withAPIKey: "appl_CIlcdylBRgdYSgYQFRDibNUGbdg")
+        #endif
     }
     
     static func setupAdditionalAttributes(fullName: String?, email: String?, other: [String: String]) {
