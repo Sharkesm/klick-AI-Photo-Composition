@@ -194,20 +194,21 @@ public struct SalesPageView: View {
                 let sortedPackages = sortPackages(offering.availablePackages)
                 
                 ForEach(sortedPackages, id: \.identifier) { package in
-                SubscriptionOfferButton(
-                    package: package,
-                    isHighlighted: selectedPackage?.identifier == package.identifier,
-                    onSelect: {
-                        selectedPackage = package
-                        selectedPackageTime = Date()
-                        
-                        // Track package selected
-                        Task {
-                            await EventTrackingManager.shared.trackPaywallPackageSelected(package: package)
+                    SubscriptionOfferButton(
+                        package: package,
+                        allPackages: sortedPackages,
+                        isHighlighted: selectedPackage?.identifier == package.identifier,
+                        onSelect: {
+                            selectedPackage = package
+                            selectedPackageTime = Date()
+                            
+                            // Track package selected
+                            Task {
+                                await EventTrackingManager.shared.trackPaywallPackageSelected(package: package)
+                            }
                         }
-                    }
-                )
-            }
+                    )
+                }
             } else {
                 // Fallback to placeholder while loading
                 SubscriptionOfferButton(
@@ -217,6 +218,7 @@ public struct SalesPageView: View {
                 )
             }
         }
+        .padding(.bottom, 10)
     }
     
     /// Sort packages in display order: weekly, monthly, annual, lifetime
@@ -427,6 +429,7 @@ extension SalesPageView {
 
 struct SubscriptionOfferButton: View {
     var package: Package?
+    var allPackages: [Package]?
     var content: Content?
     var isHighlighted: Bool
     var onSelect: () -> Void
@@ -438,8 +441,9 @@ struct SubscriptionOfferButton: View {
     }
     
     // Convenience initializer for Package
-    init(package: Package, isHighlighted: Bool, onSelect: @escaping () -> Void) {
+    init(package: Package, allPackages: [Package]? = nil, isHighlighted: Bool, onSelect: @escaping () -> Void) {
         self.package = package
+        self.allPackages = allPackages
         self.content = nil
         self.isHighlighted = isHighlighted
         self.onSelect = onSelect
@@ -448,6 +452,7 @@ struct SubscriptionOfferButton: View {
     // Convenience initializer for Content (fallback/loading)
     init(content: Content, isHighlighted: Bool, onSelect: @escaping () -> Void) {
         self.package = nil
+        self.allPackages = nil
         self.content = content
         self.isHighlighted = isHighlighted
         self.onSelect = onSelect
@@ -458,7 +463,7 @@ struct SubscriptionOfferButton: View {
             return Content(
                 period: package.displayPeriod,
                 amount: package.displayPrice,
-                savedAmount: package.savingsPercentage
+                savedAmount: package.savingsPercentage(comparedTo: allPackages ?? [])
             )
         } else if let content = content {
             return content
@@ -483,7 +488,7 @@ struct SubscriptionOfferButton: View {
             .padding(.vertical, 12)
             .padding(.horizontal, 8)
         }
-        .frame(width: 120, height: 120)
+        .frame(width: 120, height: 80)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.white.opacity(0.05))
@@ -532,34 +537,34 @@ extension Package {
         return storeProduct.priceDecimalNumber.doubleValue
     }
     
-    /// Calculate savings percentage (comparing to weekly rate)
-    /// This assumes weekly is the baseline for comparison
-    var savingsPercentage: Double {
-        guard let period = storeProduct.subscriptionPeriod else { return 0.0 }
-        
-        let pricePerWeek: Double
-        switch period.unit {
-        case .week:
-            pricePerWeek = displayPrice / Double(period.value)
-        case .month:
-            pricePerWeek = displayPrice / (Double(period.value) * 4.33) // average weeks per month
-        case .year:
-            pricePerWeek = displayPrice / (Double(period.value) * 52)
-        default:
+    /// Calculate savings percentage dynamically by comparing to other packages
+    /// For Annual: compares to Monthly × 12 to show actual savings
+    /// For other packages: returns 0 (no savings badge shown)
+    func savingsPercentage(comparedTo allPackages: [Package]) -> Double {
+        // Only show savings for Annual/Yearly packages (recurring subscription)
+        guard packageType == .annual else {
             return 0.0
         }
         
-        // Calculate based on annual being the "standard"
-        // Annual typically has the best savings
-        if packageType == .annual {
-            // Annual vs Monthly comparison (typical 40-50% savings)
-            return 45.0
-        } else if packageType == .lifetime {
-            // Don't show savings for lifetime
+        // Find the monthly package for comparison
+        guard let monthlyPackage = allPackages.first(where: { $0.packageType == .monthly }) else {
             return 0.0
         }
         
-        return pricePerWeek
+        let annualPrice = displayPrice
+        let monthlyPrice = monthlyPackage.displayPrice
+        
+        // Calculate what 12 months of monthly subscription would cost
+        let monthlyEquivalentPrice = monthlyPrice * 12.0
+        
+        // Avoid division by zero
+        guard monthlyEquivalentPrice > 0 else { return 0.0 }
+        
+        // Calculate savings percentage: ((monthly × 12) - annual) / (monthly × 12) × 100
+        let savings = ((monthlyEquivalentPrice - annualPrice) / monthlyEquivalentPrice) * 100.0
+        
+        // Only return positive savings (round to nearest integer)
+        return max(0.0, savings.rounded())
     }
     
     /// Check if package has an introductory discount
