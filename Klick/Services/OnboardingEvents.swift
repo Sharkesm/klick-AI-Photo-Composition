@@ -83,6 +83,7 @@ enum OnboardingGuideType: String {
     case introduction = "introduction"
     case cameraQuality = "camera_quality"
     case imagePreview = "image_preview"
+    case compositionStyles = "composition_styles"
 }
 
 // MARK: - User Goals Enum

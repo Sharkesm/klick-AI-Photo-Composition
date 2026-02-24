@@ -10,6 +10,7 @@ struct ContentView: View {
     @AppStorage("areOverlaysHidden") private var areOverlaysHidden = false
     @AppStorage("isLiveFeedbackEnabled") private var isLiveFeedbackEnabled = true
     @AppStorage("hasShowedCameraQualityIntro") private var hasShowedCameraQualityIntro: Bool = false
+    @AppStorage("hasSeenCompositionStylesOnboarding") private var hasSeenCompositionStylesOnboarding: Bool = false
     
     @State private var showFeedback = false
     @State private var hasCameraPermission = false
@@ -68,6 +69,9 @@ struct ContentView: View {
     // Camera quality intro
     @State private var showCameraQualityIntro = false
     @State private var shouldAutoExpandCameraQuality = false
+
+    // Composition styles onboarding
+    @State private var showCompositionStylesOnboarding = false
     
     // Swipe composition selector
     @State private var dragOffset: CGFloat = 0
@@ -280,7 +284,10 @@ struct ContentView: View {
                                         }
                                     },
                                     onShowCompositionPicker: {
-                                        // Do nothing
+                                        if !hasSeenCompositionStylesOnboarding {
+                                            hasSeenCompositionStylesOnboarding = true
+                                            showCompositionStylesOnboarding = true
+                                        }
                                     }
                                 )
                             }
@@ -429,6 +436,10 @@ struct ContentView: View {
                     shouldAutoExpandCameraQuality = true
                 }
             )
+        })
+        .sheet(isPresented: $showCompositionStylesOnboarding, content: {
+            CompositionStylesOnboardingView(isPresented: $showCompositionStylesOnboarding)
+                .presentationDetents([.fraction(0.95), .large])
         })
         .fullScreenCover(item: $capturedPhotoData) { photoData in
             ImagePreviewView(
