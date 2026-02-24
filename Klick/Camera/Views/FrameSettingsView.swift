@@ -136,66 +136,6 @@ struct FrameSettingsView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
-                
-                    // How Klick Works Section
-                    VStack(spacing: 16) {
-                        Button(action: {
-                            Task {
-                                await EventTrackingManager.shared.trackSettingsHowKlickWorksTapped()
-                            }
-                            showOnboarding = true
-                        }) {
-                            HStack(alignment: .center, spacing: 16) {
-                                Image(systemName: "questionmark.circle.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.blue)
-                                    .frame(width: 50, height: 50)
-                                    .background(Color.blue.opacity(0.1))
-                                    .clipShape(Circle())
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("How Klick Works")
-                                        .font(.headline)
-                                        .foregroundColor(.blue)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                    
-                                    Text("Learn about Klick's features and composition tips")
-                                        .font(.caption)
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.blue)
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue.opacity(0.15))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                                    )
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .padding(.horizontal, 20)
-                    }
-                    .padding(.bottom, 24)
-                    
-                    // Performance Info Section
-//                    VStack(spacing: 16) {
-//                        InfoSection(
-//                            icon: "speedometer",
-//                            title: "Performance Impact",
-//                            description: "Disabling live analysis improves battery life and camera performance. Hiding overlays has minimal impact.",
-//                            color: .orange
-//                        )
-//                    }
-//                    .padding(.horizontal, 20)
-//                    .padding(.bottom, 24)
                     
                     FounderReviewCard(reviewRequestService: reviewRequestService)
                         .padding(.horizontal, 20)

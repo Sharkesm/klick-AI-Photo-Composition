@@ -192,6 +192,7 @@ struct ContentView: View {
                                     showUpgradePrompt: $showUpgradePrompt,
                                     showCameraQualityIntro: $showCameraQualityIntro,
                                     shouldAutoExpandCameraQuality: $shouldAutoExpandCameraQuality,
+                                    showOnboarding: $showOnboarding,
                                     compositionManager: compositionManager,
                                     hasCameraPermission: hasCameraPermission,
                                     cameraLoading: cameraLoading,

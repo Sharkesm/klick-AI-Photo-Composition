@@ -478,6 +478,11 @@ extension EventTrackingManager {
         )
     }
     
+    /// Track how it works tapped from top controls
+    func trackCameraHowItWorksTapped() async {
+        await track(eventName: CameraEvent.howItWorksTapped.eventName)
+    }
+    
     // MARK: - Gallery Events
     
     /// Track gallery viewed

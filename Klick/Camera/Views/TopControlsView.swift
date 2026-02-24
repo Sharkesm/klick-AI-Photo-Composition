@@ -15,6 +15,7 @@ struct TopControlsView: View {
     @Binding var showUpgradePrompt: Bool
     @Binding var showCameraQualityIntro: Bool
     @Binding var shouldAutoExpandCameraQuality: Bool
+    @Binding var showOnboarding: Bool
     
     let compositionManager: CompositionManager
     let hasCameraPermission: Bool
@@ -73,10 +74,12 @@ struct TopControlsView: View {
                          FlashControlView(selectedFlashMode: $selectedFlashMode)
                          ZoomControlsView(selectedZoomLevel: $selectedZoomLevel)
                          
-                         // Photo counter badge (free tier only)
-                         if hasCameraPermission && !cameraLoading {
-                             PhotoCounterBadge(featureManager: featureManager, showSalesPage: $showSalesPage, paywallSource: $paywallSource)
-                         }
+                        HowItWorksButton(showOnboarding: $showOnboarding)
+                        
+                        // Photo counter badge (free tier only)
+                        if hasCameraPermission && !cameraLoading {
+                            PhotoCounterBadge(featureManager: featureManager, showSalesPage: $showSalesPage, paywallSource: $paywallSource)
+                        }
                          
                          Spacer()
                      }

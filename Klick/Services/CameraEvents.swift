@@ -30,6 +30,7 @@ enum CameraEvent: String {
     case settingsOpened = "settings_opened"
     case photoAlbumOpened = "photo_album_opened"
     case practiceOpened = "practice_opened"
+    case howItWorksTapped = "how_it_works_tapped"
     
     /// Generate full event name with camera prefix
     var eventName: String {

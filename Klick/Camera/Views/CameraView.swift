@@ -756,32 +756,33 @@ struct CameraUIViewRepresentable: UIViewRepresentable {
 
 struct FocusIndicatorView: View {
     let point: CGPoint
-    @State private var scale: CGFloat = 1.0
+    @State private var scale: CGFloat = 1.3
     @State private var opacity: Double = 1.0
-    
+
+    private let focusColor = Color(red: 1.0, green: 0.85, blue: 0.0)
+
     var body: some View {
-        Circle()
-            .fill(.ultraThinMaterial)
-            .frame(width: 50, height: 50)
+        RoundedRectangle(cornerRadius: 100)
+            .background(.ultraThinMaterial)
+            .frame(width: 42, height: 42)
+            .clipShape(Circle())
             .scaleEffect(scale)
             .opacity(opacity)
             .position(point)
             .onAppear {
-                // Initial scale animation
-                withAnimation(.easeOut(duration: 0.2)) {
-                    scale = 0.8
+                withAnimation(.easeOut(duration: 0.25)) {
+                    scale = 1.0
                 }
-                
+
                 // Pulse animation
-                withAnimation(.easeInOut(duration: 0.6).repeatCount(3, autoreverses: true)) {
-                    opacity = 0.6
+                withAnimation(.easeInOut(duration: 0.5).repeatCount(2, autoreverses: true).delay(0.25)) {
+                    opacity = 0.5
                 }
-                
+
                 // Final fade out
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
                     withAnimation(.easeOut(duration: 0.3)) {
                         opacity = 0.0
-                        scale = 0.6
                     }
                 }
             }
