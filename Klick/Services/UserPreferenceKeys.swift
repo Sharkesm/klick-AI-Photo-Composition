@@ -7,6 +7,9 @@
 import Foundation
 
 enum UserPreferenceKeys: String, CaseIterable {
+    /// Stable per-install identifier used for analytics user identification
+    case appInstallId
+    
     case onboardingCompleted
     case currencyPicked
     case whatsNew

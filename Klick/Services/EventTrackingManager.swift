@@ -176,6 +176,17 @@ class EventTrackingManager {
 
     // MARK: - Configuration
     
+    /// Returns the stable per-install analytics identifier.
+    /// Generated once on first launch and persisted in UserDefaults.
+    static var installId: String {
+        if let existing = UserDefaults.standard.string(forKey: UserPreferenceKeys.appInstallId.rawValue) {
+            return existing
+        }
+        let newId = UUID().uuidString
+        UserDefaults.standard.set(newId, forKey: UserPreferenceKeys.appInstallId.rawValue)
+        return newId
+    }
+
     /// Configure all available event tracking services
     /// This method iterates through all available services and pre-configures them
     /// Call this during app initialization (e.g., in KlickApp.swift init())
@@ -198,5 +209,9 @@ class EventTrackingManager {
             ConsoleEventService(),
             FirebaseEventService()
         ])
+        
+        Task {
+            await shared.identify(userId: installId)
+        }
     }
 }
