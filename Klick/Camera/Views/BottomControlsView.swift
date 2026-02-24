@@ -137,6 +137,11 @@ struct BottomControlsView: View {
             // This ensures the overlay view reacts immediately to the change
             self.compositionManager.objectWillChange.send()
         }
+
+        // Trigger composition picker callback after the selection animation settles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+            onShowCompositionPicker()
+        }
     }
     
     private func updateSelectedIndexFromOffset(_ offset: CGFloat, proxy: ScrollViewProxy) {
